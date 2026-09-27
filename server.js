@@ -11,10 +11,9 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Fichier de sauvegarde
 const DATA_FILE = path.join(__dirname, 'data.json');
 
-// Valeurs par défaut
+// Structure par défaut (si data.json n'existe pas encore)
 let state = {
     config: { cols: 10, rows: 8 },
     gridData: {},
@@ -35,29 +34,27 @@ let state = {
     isLocked: false
 };
 
-// Charger les données sauvegardées si le fichier existe
+// Charger le fichier s'il existe déjà
 function loadData() {
     try {
         if (fs.existsSync(DATA_FILE)) {
             const fileData = fs.readFileSync(DATA_FILE, 'utf8');
             state = JSON.parse(fileData);
-            console.log('📂 Données chargées avec succès depuis data.json');
+            console.log('📂 Données conservées et chargées depuis data.json');
         }
     } catch (err) {
-        console.error('⚠️ Erreur lors du chargement des données :', err.message);
+        console.error('⚠️ Erreur chargement data.json :', err.message);
     }
 }
 
-// Sauvegarder l'état actuel sur le disque
 function saveData() {
     try {
         fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), 'utf8');
     } catch (err) {
-        console.error('⚠️ Erreur lors de la sauvegarde :', err.message);
+        console.error('⚠️ Erreur sauvegarde data.json :', err.message);
     }
 }
 
-// Initialisation au démarrage du serveur
 loadData();
 
 const activeUsers = {}; // { socketId: username }
@@ -71,7 +68,6 @@ function broadcastUserList() {
 io.on('connection', (socket) => {
     const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
     
-    // 1. Envoyer les données conservées lors de la connexion du joueur
     socket.emit('init', { 
         config: state.config, 
         gridData: state.gridData, 
@@ -80,12 +76,28 @@ io.on('connection', (socket) => {
         isLocked: state.isLocked
     });
 
-    socket.on('set-username', (name) => {
+    socket.on('set-username', (name, callback) => {
         const cleanName = (name || '').trim();
+        const lowerName = cleanName.toLowerCase();
+
+        // Vérification : Un seul Admin à la fois
+        if (lowerName === 'admin') {
+            const alreadyAdmin = Object.values(activeUsers).some(u => u.toLowerCase() === 'admin');
+            if (alreadyAdmin && socket.username?.toLowerCase() !== 'admin') {
+                if (typeof callback === 'function') {
+                    callback({ success: false, message: "Un administrateur est déjà connecté !" });
+                }
+                return;
+            }
+        }
+
         if (cleanName.length > 0) {
             socket.username = cleanName;
             activeUsers[socket.id] = cleanName;
             broadcastUserList();
+            if (typeof callback === 'function') {
+                callback({ success: true });
+            }
         }
     });
 
@@ -103,9 +115,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('paint-tile', (data) => {
-        if (state.isLocked && (!socket.username || socket.username.toLowerCase() !== 'admin')) {
-            return;
-        }
+        if (state.isLocked) return; // Bloqué pour tout le monde si verrouillé
 
         const { key, color } = data;
         const author = socket.username || 'Anonyme';
@@ -115,7 +125,6 @@ io.on('connection', (socket) => {
         io.emit('update-tile', { key, color, author });
     });
 
-    // 2. Modification des terrains/légendes par l'admin -> diffusé et sauvegardé
     socket.on('update-terrains', (newTerrains) => {
         if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.terrainsList = newTerrains;
@@ -124,21 +133,12 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 3. Modification de la taille par l'admin -> diffusé et sauvegardé
     socket.on('change-config', (newConfig) => {
         if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.config = newConfig;
-            state.gridData = {}; // Réinitialise la grille lors d'un redimensionnement
-            saveData();
-            io.emit('update-config', { config: state.config, gridData: state.gridData });
-        }
-    });
-
-    socket.on('clear-grid', () => {
-        if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.gridData = {};
             saveData();
-            io.emit('clear-grid');
+            io.emit('update-config', { config: state.config, gridData: state.gridData });
         }
     });
 
