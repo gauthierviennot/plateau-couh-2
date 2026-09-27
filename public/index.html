@@ -38,7 +38,7 @@
         .btn-go:hover { background: #27ae60; }
         .btn-config { padding: 8px; border: none; border-radius: 6px; background: #34495e; color: white; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
 
-        /* PAGE 3 */
+        /* PAGE 3 (MODE CARTE) */
         #page3 { background: #2c3e50; position: relative; overflow: hidden; display: none; width: 100vw; height: 100vh; touch-action: none; }
         .btn-exit { position: absolute; top: 15px; left: 15px; z-index: 50; width: 42px; height: 42px; background: #e74c3c; color: white; border: none; border-radius: 50%; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
         .mini-user-list { position: absolute; top: 65px; left: 15px; z-index: 50; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); padding: 6px 10px; border-radius: 6px; color: #ffffff; font-size: 0.7rem; max-width: 140px; max-height: 90px; overflow-y: auto; pointer-events: none; }
@@ -319,14 +319,45 @@
             });
         }
 
+        // --- ENTRÉE EN PLEIN ÉCRAN FORCÉ POUR LA PAGE 3 ---
         document.getElementById('btnGo').addEventListener('click', () => {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(() => {});
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
+            }
+
             showPage(page3);
             setMode(false);
             initCanvas();
             centerMap();
         });
 
-        document.getElementById('btnExitMap').addEventListener('click', () => showPage(page2));
+        // --- SORTIE DU PLEIN ÉCRAN ---
+        document.getElementById('btnExitMap').addEventListener('click', () => {
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+            showPage(page2);
+        });
+
+        // Écouteur au cas où l'utilisateur quitte le plein écran avec ESC ou un geste système
+        function handleFullscreenExit() {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (page3.classList.contains('active')) {
+                    showPage(page2);
+                }
+            }
+        }
+        document.addEventListener('fullscreenchange', handleFullscreenExit);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenExit);
 
         btnLockToggle.addEventListener('click', () => {
             isLocked = !isLocked;
@@ -431,14 +462,13 @@
 
         btnResetView.addEventListener('click', centerMap);
 
-        // Rotation centrée sur le milieu exact de l'écran
+        // --- ROTATION CENTRÉE EXACTEMENT SUR LE MILIEU DE L'ÉCRAN ---
         function setCardinalAngle(deg) {
             const newAngle = deg * (Math.PI / 180);
             
             const screenCenterX = canvas.width / 2;
             const screenCenterY = canvas.height / 2;
 
-            // Coordonnées du point central sur la carte non rotatée
             const worldX = (screenCenterX - panX) / scale;
             const worldY = (screenCenterY - panY) / scale;
 
@@ -704,6 +734,12 @@
         canvas.addEventListener('touchend', (e) => {
             if (e.touches.length < 2) initialPinchDistance = null;
             if (e.touches.length === 0) isMouseDown = false;
+        });
+
+        window.addEventListener('resize', () => {
+            if (page3.classList.contains('active')) {
+                initCanvas();
+            }
         });
     </script>
 </body>
