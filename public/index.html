@@ -30,37 +30,46 @@
         .btn-mode:active { transform: scale(0.95); }
         canvas { background-color: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border-radius: 8px; }
 
-        /* MODAL DE CONFIGURATION */
+        /* MODAL DE CONFIGURATION ET AVERTISSEMENT */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
         .modal-overlay.hidden { display: none; }
-        .modal-content { background: #ffffff; padding: 20px; border-radius: 8px; width: 320px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 15px; }
+        .modal-content { background: #ffffff; padding: 20px; border-radius: 8px; width: 340px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 15px; }
         .modal-content h2 { font-size: 1.1rem; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
         .btn-secondary { background-color: #95a5a6; }
+        .alert-warning { background-color: #fce4e4; border: 1px solid #f5c6cb; color: #721c24; padding: 10px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; line-height: 1.3; }
 
-        /* PALETTE PLEIN ÉCRAN (ICÔNE HEXAGONALE) */
-        .fullscreen-palette { position: absolute; top: 15px; left: 15px; z-index: 30; display: none; flex-direction: column; align-items: flex-start; gap: 8px; }
+        /* BOUTON CROIX SORTIE PLEIN ÉCRAN */
+        .btn-exit-fullscreen {
+            display: none; position: absolute; top: 15px; left: 15px; z-index: 30;
+            width: 40px; height: 40px; background: #e74c3c; color: white;
+            border: none; border-radius: 50%; font-size: 1.2rem; font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            align-items: center; justify-content: center;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .btn-exit-fullscreen:hover { background-color: #c0392b; }
+        .btn-exit-fullscreen:active { transform: scale(0.9); }
+        :fullscreen .btn-exit-fullscreen, :-webkit-full-screen .btn-exit-fullscreen { display: flex; }
+
+        /* PALETTE HEXAGONALE DIRECTEMENT ACCESSIBLE EN PLEIN ÉCRAN */
+        .fullscreen-palette {
+            position: absolute; top: 70px; left: 15px; z-index: 30;
+            display: none; flex-direction: column; gap: 10px;
+            background: rgba(255, 255, 255, 0.85); padding: 10px;
+            border-radius: 12px; backdrop-filter: blur(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
         :fullscreen .fullscreen-palette, :-webkit-full-screen .fullscreen-palette { display: flex; }
-        
-        .hex-icon-btn {
-            width: 44px; height: 44px; background: #2ecc71;
-            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-            cursor: pointer; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            transition: transform 0.2s ease;
-        }
-        .hex-icon-btn:active { transform: scale(0.9); }
 
-        .fullscreen-menu {
-            display: none; background: rgba(255, 255, 255, 0.95); padding: 10px;
-            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            grid-template-columns: repeat(3, 1fr); gap: 8px; backdrop-filter: blur(4px);
-        }
-        .fullscreen-menu.open { display: grid; }
         .hex-option {
-            width: 32px; height: 32px;
+            width: 38px; height: 38px;
             clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
             cursor: pointer; border: none;
+            transition: transform 0.2s ease, filter 0.2s;
         }
+        .hex-option:hover { transform: scale(1.15); }
+        .hex-option.selected { transform: scale(1.2); filter: drop-shadow(0px 0px 4px #000); }
     </style>
 </head>
 <body>
@@ -92,17 +101,17 @@
     </div>
 
     <div id="main">
-        <!-- ICÔNE DE SÉLECTION DE COULEUR HEXAGONALE EN PLEIN ÉCRAN -->
-        <div class="fullscreen-palette">
-            <button id="fsHexIcon" class="hex-icon-btn" title="Changer de couleur"></button>
-            <div id="fsMenu" class="fullscreen-menu">
-                <button class="hex-option" style="background: #2ecc71;" onclick="setColor('#2ecc71')"></button>
-                <button class="hex-option" style="background: #27ae60;" onclick="setColor('#27ae60')"></button>
-                <button class="hex-option" style="background: #3498db;" onclick="setColor('#3498db')"></button>
-                <button class="hex-option" style="background: #f1c40f;" onclick="setColor('#f1c40f')"></button>
-                <button class="hex-option" style="background: #95a5a6;" onclick="setColor('#95a5a6')"></button>
-                <button class="hex-option" style="background: #ffffff; border: 1px solid #ccc;" onclick="setColor('#ffffff')"></button>
-            </div>
+        <!-- CROIX DE SORTIE DU MODE PLEIN ÉCRAN -->
+        <button id="btnExitFullscreen" class="btn-exit-fullscreen" title="Quitter le plein écran">✖</button>
+
+        <!-- SÉLECTION DIRECTE PAR HEXAGONES EN PLEIN ÉCRAN -->
+        <div class="fullscreen-palette" id="fsPalette">
+            <button class="hex-option selected" style="background: #2ecc71;" onclick="setColor('#2ecc71')"></button>
+            <button class="hex-option" style="background: #27ae60;" onclick="setColor('#27ae60')"></button>
+            <button class="hex-option" style="background: #3498db;" onclick="setColor('#3498db')"></button>
+            <button class="hex-option" style="background: #f1c40f;" onclick="setColor('#f1c40f')"></button>
+            <button class="hex-option" style="background: #95a5a6;" onclick="setColor('#95a5a6')"></button>
+            <button class="hex-option" style="background: #ffffff; border: 1px solid #ccc;" onclick="setColor('#ffffff')"></button>
         </div>
 
         <div class="mode-toggle-container">
@@ -111,7 +120,7 @@
         <canvas id="hexCanvas"></canvas>
     </div>
 
-    <!-- MODAL CONFIGURATION -->
+    <!-- MODAL CONFIGURATION + MESSAGE D'AVERTISSEMENT DE CONFIRMATION -->
     <div id="configModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2>Dimensions du Plateau</h2>
@@ -123,9 +132,12 @@
                 <label for="rows">Nombre de plaques en longueur (Lignes)</label>
                 <input type="number" id="rows" value="8" min="2" max="50">
             </div>
+            <div class="alert-warning">
+                ⚠️ Attention : Modifier la taille du plateau effacera toutes les données actuelles !
+            </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="btnCloseModal">Annuler</button>
-                <button class="btn" id="btnApplyConfig">Valider</button>
+                <button class="btn btn-danger" id="btnApplyConfig">Confirmer et appliquer</button>
             </div>
         </div>
     </div>
@@ -158,31 +170,30 @@
         const btnCloseModal = document.getElementById('btnCloseModal');
         const btnApplyConfig = document.getElementById('btnApplyConfig');
 
-        const fsHexIcon = document.getElementById('fsHexIcon');
-        const fsMenu = document.getElementById('fsMenu');
+        const btnExitFullscreen = document.getElementById('btnExitFullscreen');
+        const hexOptions = document.querySelectorAll('.hex-option');
 
-        // GESTION COULEURS EN PLEIN ÉCRAN
+        // CHANGER LA COULEUR DIRECTEMENT VIA LES HEXAGONES
         function setColor(c) { 
             inputColor.value = c; 
-            fsHexIcon.style.backgroundColor = c;
-            fsMenu.classList.remove('open');
+            
+            // Mettre à jour visuellement le contour sélectionné sur les hexagones
+            hexOptions.forEach(opt => {
+                if(opt.style.backgroundColor === c || (c === '#ffffff' && opt.style.backgroundColor.includes('255'))) {
+                    opt.classList.add('selected');
+                } else {
+                    opt.classList.remove('selected');
+                }
+            });
+
             setMode(true);
         }
 
         inputColor.addEventListener('input', (e) => {
-            fsHexIcon.style.backgroundColor = e.target.value;
+            setColor(e.target.value);
         });
 
-        fsHexIcon.addEventListener('click', (e) => {
-            e.stopPropagation();
-            fsMenu.classList.toggle('open');
-        });
-
-        document.addEventListener('click', () => {
-            fsMenu.classList.remove('open');
-        });
-
-        // GESTION MODAL
+        // GESTION MODAL AVEC DEMANDE DE CONFIRMATION
         btnOpenModal.addEventListener('click', () => {
             inputCols.value = cols;
             inputRows.value = rows;
@@ -192,10 +203,21 @@
         btnCloseModal.addEventListener('click', () => configModal.classList.add('hidden'));
 
         btnApplyConfig.addEventListener('click', () => {
-            cols = parseInt(inputCols.value);
-            rows = parseInt(inputRows.value);
-            socket.emit('change-config', { cols, rows });
-            configModal.classList.add('hidden');
+            const newCols = parseInt(inputCols.value);
+            const newRows = parseInt(inputRows.value);
+
+            // Vérification si la taille a changé avant de demander/réinitialiser
+            if (newCols !== cols || newRows !== rows) {
+                const isConfirmed = confirm("Toutes les données du plateau vont être perdues. Voulez-vous continuer ?");
+                if (isConfirmed) {
+                    cols = newCols;
+                    rows = newRows;
+                    socket.emit('change-config', { cols, rows });
+                    configModal.classList.add('hidden');
+                }
+            } else {
+                configModal.classList.add('hidden');
+            }
         });
 
         function setMode(paintMode) {
@@ -406,10 +428,19 @@
         });
 
         document.getElementById('btnClear').addEventListener('click', () => socket.emit('clear-grid'));
+        
+        // GESTION DU PLEIN ÉCRAN
         document.getElementById('btnFullscreen').addEventListener('click', () => {
             const main = document.getElementById('main');
             if (!document.fullscreenElement) main.requestFullscreen();
-            else document.exitFullscreen();
+        });
+
+        // QUITTER LE PLEIN ÉCRAN DEPUIS LA CROIX
+        btnExitFullscreen.addEventListener('click', () => {
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
         });
     </script>
 </body>
