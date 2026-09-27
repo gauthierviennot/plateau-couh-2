@@ -48,7 +48,6 @@
         .btn-exit { position: absolute; top: 15px; left: 15px; z-index: 50; width: 42px; height: 42px; background: #e74c3c; color: white; border: none; border-radius: 50%; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
         .btn-exit:hover { background: #c0392b; }
 
-        /* Mini Liste Joueurs sur Page 3 */
         .mini-user-list { position: absolute; top: 65px; left: 15px; z-index: 50; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); padding: 6px 10px; border-radius: 6px; color: #ffffff; font-size: 0.7rem; max-width: 140px; max-height: 90px; overflow-y: auto; pointer-events: none; }
         .mini-user-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
         .mini-user-item::before { content: "•"; color: #2ecc71; }
@@ -63,11 +62,11 @@
         .btn-mode { padding: 10px 16px; border: none; border-radius: 20px; font-weight: bold; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .btn-mode.paint { background-color: #2ecc71; color: white; }
         .btn-mode.move { background-color: #3498db; color: white; }
+        .btn-lock { padding: 10px 16px; border: none; border-radius: 20px; font-weight: bold; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); background-color: #e67e22; color: white; }
         .btn-reset-view { padding: 10px; border: none; border-radius: 50%; background: #ffffff; color: #333; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; }
 
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #ecf0f1; display: block; touch-action: none; }
 
-        /* Modales */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
         .modal-overlay.hidden { display: none; }
         .modal-content { background: #ffffff; padding: 20px; border-radius: 8px; width: 320px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 12px; }
@@ -81,7 +80,7 @@
 </head>
 <body>
 
-    <!-- ==================== PAGE 1 : CONNEXION ==================== -->
+    <!-- PAGE 1 : CONNEXION -->
     <div id="page1" class="page active">
         <div class="login-card">
             <h1>Plateau Hexagonal</h1>
@@ -90,7 +89,7 @@
         </div>
     </div>
 
-    <!-- ==================== PAGE 2 : SALON / DASHBOARD ==================== -->
+    <!-- PAGE 2 : SALON -->
     <div id="page2" class="page">
         <div class="dashboard-card">
             <div class="dashboard-header">
@@ -112,11 +111,11 @@
                 <h3>Taille du Plateau</h3>
                 <div class="control-group">
                     <label>Colonnes (largeur)</label>
-                    <input type="number" id="cols" value="10" min="2" max="50">
+                    <input type="number" id="cols" value="10" min="2" max="100">
                 </div>
                 <div class="control-group">
                     <label>Lignes (longueur)</label>
-                    <input type="number" id="rows" value="8" min="2" max="50">
+                    <input type="number" id="rows" value="8" min="2" max="100">
                 </div>
                 <div class="modal-actions">
                     <button class="btn-secondary" id="btnCloseModal">Annuler</button>
@@ -126,18 +125,16 @@
         </div>
     </div>
 
-    <!-- ==================== PAGE 3 : PLEIN ÉCRAN / CARTE ==================== -->
+    <!-- PAGE 3 : PLEIN ÉCRAN / CARTE -->
     <div id="page3" class="page">
         <button id="btnExitMap" class="btn-exit" title="Quitter la carte">✖</button>
-        
-        <!-- Liste Joueurs Coin Page 3 -->
         <div id="miniOnlineUsers" class="mini-user-list"></div>
-
         <div class="fullscreen-palette" id="fsPalette"></div>
 
         <div class="mode-toggle-container">
+            <button id="btnLockToggle" class="btn-lock" style="display: none;">🔓 Déverrouillé</button>
             <button id="btnResetView" class="btn-reset-view" title="Centrer la carte">🎯</button>
-            <button id="btnModeToggle" class="btn-mode paint">Mode : Peindre 🎨</button>
+            <button id="btnModeToggle" class="btn-mode move">Mode : Déplacer ✋</button>
         </div>
 
         <canvas id="hexCanvas"></canvas>
@@ -157,11 +154,11 @@
     <script>
         const socket = (typeof io !== 'undefined') ? io() : null;
         
-        let myUsername = "Anonyme";
+        let myUsername = "";
         let isAdmin = false;
+        let isLocked = false;
         let activeColor = "#2ecc71";
         let pendingTileKey = null;
-
         let localUsersList = [];
 
         // Transformations Canvas
@@ -169,7 +166,7 @@
         let cols = 10, rows = 8, hexRadius = 35;
         let gridData = {};
 
-        let isPaintMode = true;
+        let isPaintMode = false;
         let isMouseDown = false;
         let startX = 0, startY = 0;
 
@@ -206,6 +203,7 @@
         const onlineUsers = document.getElementById('onlineUsers');
         const miniOnlineUsers = document.getElementById('miniOnlineUsers');
         const btnAdminConfig = document.getElementById('btnAdminConfig');
+        const btnLockToggle = document.getElementById('btnLockToggle');
         const terrainContainer = document.getElementById('terrainContainer');
 
         const canvas = document.getElementById('hexCanvas');
@@ -227,25 +225,29 @@
             page.style.display = 'flex';
         }
 
-        // --- GESTION JOUEURS EN LIGNE ---
+        // MISE À JOUR SÉCURISÉE DE LA LISTE JOUEURS
         function updateUsersUI(usersList) {
-            if (Array.isArray(usersList) && usersList.length > 0) {
-                localUsersList = usersList;
-            } else if (!localUsersList.includes(myUsername)) {
-                localUsersList.push(myUsername);
+            let cleanList = [];
+            if (Array.isArray(usersList)) {
+                cleanList = usersList.filter(u => typeof u === 'string' && u.trim() !== '');
             }
+
+            // Conserver son propre pseudo si déjà connecté
+            if (myUsername && !cleanList.includes(myUsername)) {
+                cleanList.push(myUsername);
+            }
+
+            localUsersList = Array.from(new Set(cleanList));
 
             onlineUsers.innerHTML = '';
             miniOnlineUsers.innerHTML = '';
 
             localUsersList.forEach(u => {
-                // Page 2
                 const item = document.createElement('div');
                 item.className = 'user-item';
                 item.textContent = u;
                 onlineUsers.appendChild(item);
 
-                // Page 3 (Mini)
                 const miniItem = document.createElement('div');
                 miniItem.className = 'mini-user-item';
                 miniItem.textContent = u;
@@ -261,6 +263,7 @@
                 welcomeUser.textContent = `Joueur : ${myUsername}`;
                 
                 btnAdminConfig.style.display = isAdmin ? 'block' : 'none';
+                btnLockToggle.style.display = isAdmin ? 'block' : 'none';
 
                 if (socket) {
                     socket.emit('set-username', myUsername);
@@ -275,7 +278,6 @@
         btnLogin.addEventListener('click', handleLogin);
         usernameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
 
-        // --- PALETTES ---
         function renderTerrains() {
             terrainContainer.innerHTML = '';
             fsPalette.innerHTML = '';
@@ -333,6 +335,7 @@
 
         document.getElementById('btnGo').addEventListener('click', () => {
             showPage(page3);
+            setMode(false);
             initCanvas();
             centerMap();
             
@@ -355,8 +358,27 @@
             showPage(page2);
         });
 
-        // --- ÉVÉNEMENTS SOCKET.IO ---
+        btnLockToggle.addEventListener('click', () => {
+            isLocked = !isLocked;
+            if (socket) socket.emit('toggle-lock', isLocked);
+            updateLockUI();
+        });
+
+        function updateLockUI() {
+            btnLockToggle.textContent = isLocked ? "🔒 Verrouillé" : "🔓 Déverrouillé";
+            btnLockToggle.style.backgroundColor = isLocked ? "#e74c3c" : "#2ecc71";
+            fsPalette.style.opacity = (isLocked && !isAdmin) ? "0.3" : "1.0";
+            fsPalette.style.pointerEvents = (isLocked && !isAdmin) ? "none" : "auto";
+        }
+
+        // GESTION SOCKET.IO AVEC RÉ-ENREGISTREMENT AUTOMATIQUE
         if (socket) {
+            socket.on('connect', () => {
+                if (myUsername && myUsername.length > 0) {
+                    socket.emit('set-username', myUsername);
+                }
+            });
+
             socket.on('update-users-list', updateUsersUI);
             socket.on('users-list', updateUsersUI);
 
@@ -365,15 +387,25 @@
                 renderTerrains();
             });
 
+            socket.on('update-lock', (lockedState) => {
+                isLocked = lockedState;
+                updateLockUI();
+            });
+
             socket.on('init', (data) => {
                 gridData = data.gridData || {};
                 cols = data.config ? data.config.cols : 10;
                 rows = data.config ? data.config.rows : 8;
+                isLocked = !!data.isLocked;
                 if (data.terrains) terrains = data.terrains;
                 if (data.users) updateUsersUI(data.users);
+                
                 document.getElementById('cols').value = cols;
                 document.getElementById('rows').value = rows;
+                
+                updateLockUI();
                 renderTerrains();
+
                 if (page3.classList.contains('active')) {
                     initCanvas();
                     centerMap();
@@ -398,7 +430,6 @@
             });
         }
 
-        // --- CALCULS DU PLATEAU ET CENTRAGE DYNAMIQUE ---
         function setMode(paintMode) {
             isPaintMode = paintMode;
             btnModeToggle.textContent = isPaintMode ? "Mode : Peindre 🎨" : "Mode : Déplacer ✋";
@@ -416,9 +447,7 @@
             };
         }
 
-        // Fonction de centrage parfait quelles que soient les dimensions
         function centerMap() {
-            scale = 1.0;
             rotationAngle = 0;
 
             const hexWidth = Math.sqrt(3) * hexRadius;
@@ -428,8 +457,14 @@
             const screenWidth = canvas.width || window.innerWidth;
             const screenHeight = canvas.height || window.innerHeight;
 
-            panX = (screenWidth - gridWidth) / 2;
-            panY = (screenHeight - gridHeight) / 2;
+            const padding = 40;
+            const scaleX = (screenWidth - padding * 2) / gridWidth;
+            const scaleY = (screenHeight - padding * 2) / gridHeight;
+
+            scale = Math.min(scaleX, scaleY, 1.0);
+
+            panX = (screenWidth - gridWidth * scale) / 2;
+            panY = (screenHeight - gridHeight * scale) / 2;
 
             drawGrid();
         }
@@ -503,6 +538,8 @@
         }
 
         function paintTile(clientX, clientY) {
+            if (isLocked && !isAdmin) return;
+
             const coords = getCanvasCoordinates(clientX, clientY);
 
             for (let r = 0; r < rows; r++) {
@@ -532,7 +569,6 @@
             }
         }
 
-        // Modales & Config
         document.getElementById('btnConfirmOverride').addEventListener('click', () => {
             if (pendingTileKey) {
                 gridData[pendingTileKey] = { color: activeColor, author: myUsername };
@@ -569,7 +605,6 @@
             }
         });
 
-        // Souris
         canvas.addEventListener('mousedown', (e) => {
             isMouseDown = true;
             startX = e.clientX - panX;
@@ -597,7 +632,7 @@
             const mouseY = e.clientY - rect.top;
 
             const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-            const newScale = Math.min(Math.max(0.3, scale * zoomFactor), 5.0);
+            const newScale = Math.min(Math.max(0.05, scale * zoomFactor), 5.0);
 
             panX = mouseX - (mouseX - panX) * (newScale / scale);
             panY = mouseY - (mouseY - panY) * (newScale / scale);
@@ -606,7 +641,6 @@
             drawGrid();
         }, { passive: false });
 
-        // Tactile (Zoom & Rotation centrés sur pincement)
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 isMouseDown = true;
@@ -656,7 +690,7 @@
                 const newRotation = initialRotation + angleDiff;
 
                 const factor = currentDistance / initialPinchDistance;
-                const newScale = Math.min(Math.max(0.3, initialScale * factor), 5.0);
+                const newScale = Math.min(Math.max(0.05, initialScale * factor), 5.0);
 
                 const cosDiff = Math.cos(newRotation - initialRotation);
                 const sinDiff = Math.sin(newRotation - initialRotation);
