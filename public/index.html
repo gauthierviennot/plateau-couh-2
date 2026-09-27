@@ -49,11 +49,11 @@
         .btn-exit:hover { background: #c0392b; }
 
         /* Mini Liste Joueurs sur Page 3 */
-        .mini-user-list { position: absolute; top: 65px; left: 15px; z-index: 50; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); padding: 5px 8px; border-radius: 6px; color: #ffffff; font-size: 0.65rem; max-width: 130px; max-height: 80px; overflow-y: auto; pointer-events: none; }
+        .mini-user-list { position: absolute; top: 65px; left: 15px; z-index: 50; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); padding: 6px 10px; border-radius: 6px; color: #ffffff; font-size: 0.7rem; max-width: 140px; max-height: 90px; overflow-y: auto; pointer-events: none; }
         .mini-user-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
         .mini-user-item::before { content: "•"; color: #2ecc71; }
 
-        .fullscreen-palette { position: absolute; top: 155px; left: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; background: rgba(255, 255, 255, 0.9); padding: 10px; border-radius: 12px; backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); max-height: 60vh; overflow-y: auto; touch-action: pan-y; }
+        .fullscreen-palette { position: absolute; top: 165px; left: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; background: rgba(255, 255, 255, 0.9); padding: 10px; border-radius: 12px; backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); max-height: 55vh; overflow-y: auto; touch-action: pan-y; }
         
         .hex-option { width: 34px; height: 34px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); cursor: pointer; border: none; flex-shrink: 0; transition: transform 0.2s, filter 0.2s; }
         .hex-option:hover { transform: scale(1.15); }
@@ -63,7 +63,7 @@
         .btn-mode { padding: 10px 16px; border: none; border-radius: 20px; font-weight: bold; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .btn-mode.paint { background-color: #2ecc71; color: white; }
         .btn-mode.move { background-color: #3498db; color: white; }
-        .btn-reset-view { padding: 10px; border: none; border-radius: 50%; background: #ffffff; color: #333; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .btn-reset-view { padding: 10px; border: none; border-radius: 50%; background: #ffffff; color: #333; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; }
 
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #ecf0f1; display: block; touch-action: none; }
 
@@ -136,7 +136,7 @@
         <div class="fullscreen-palette" id="fsPalette"></div>
 
         <div class="mode-toggle-container">
-            <button id="btnResetView" class="btn-reset-view" title="Réinitialiser la vue">🎯</button>
+            <button id="btnResetView" class="btn-reset-view" title="Centrer la carte">🎯</button>
             <button id="btnModeToggle" class="btn-mode paint">Mode : Peindre 🎨</button>
         </div>
 
@@ -155,14 +155,16 @@
     </div>
 
     <script>
-        const socket = io();
+        const socket = (typeof io !== 'undefined') ? io() : null;
         
         let myUsername = "Anonyme";
         let isAdmin = false;
         let activeColor = "#2ecc71";
         let pendingTileKey = null;
 
-        // Transformations du Canvas
+        let localUsersList = [];
+
+        // Transformations Canvas
         let scale = 1.0, panX = 0, panY = 0, rotationAngle = 0;
         let cols = 10, rows = 8, hexRadius = 35;
         let gridData = {};
@@ -171,7 +173,7 @@
         let isMouseDown = false;
         let startX = 0, startY = 0;
 
-        // Ancre Multi-touch
+        // Multi-touch
         let initialPinchDistance = null;
         let initialPinchAngle = 0;
         let initialScale = 1.0;
@@ -225,7 +227,32 @@
             page.style.display = 'flex';
         }
 
-        // --- NAVIGATION & LOGIN ---
+        // --- GESTION JOUEURS EN LIGNE ---
+        function updateUsersUI(usersList) {
+            if (Array.isArray(usersList) && usersList.length > 0) {
+                localUsersList = usersList;
+            } else if (!localUsersList.includes(myUsername)) {
+                localUsersList.push(myUsername);
+            }
+
+            onlineUsers.innerHTML = '';
+            miniOnlineUsers.innerHTML = '';
+
+            localUsersList.forEach(u => {
+                // Page 2
+                const item = document.createElement('div');
+                item.className = 'user-item';
+                item.textContent = u;
+                onlineUsers.appendChild(item);
+
+                // Page 3 (Mini)
+                const miniItem = document.createElement('div');
+                miniItem.className = 'mini-user-item';
+                miniItem.textContent = u;
+                miniOnlineUsers.appendChild(miniItem);
+            });
+        }
+
         function handleLogin() {
             const val = usernameInput.value.trim();
             if (val.length > 0) {
@@ -235,7 +262,11 @@
                 
                 btnAdminConfig.style.display = isAdmin ? 'block' : 'none';
 
-                socket.emit('set-username', myUsername);
+                if (socket) {
+                    socket.emit('set-username', myUsername);
+                    socket.emit('get-users');
+                }
+                updateUsersUI([myUsername]);
                 renderTerrains();
                 showPage(page2);
             }
@@ -244,7 +275,7 @@
         btnLogin.addEventListener('click', handleLogin);
         usernameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
 
-        // --- RENDU PALETTES ---
+        // --- PALETTES ---
         function renderTerrains() {
             terrainContainer.innerHTML = '';
             fsPalette.innerHTML = '';
@@ -260,7 +291,7 @@
                     colorInput.value = t.color;
                     colorInput.addEventListener('change', (e) => {
                         terrains[idx].color = e.target.value;
-                        socket.emit('update-terrains', terrains);
+                        if (socket) socket.emit('update-terrains', terrains);
                     });
 
                     const labelInput = document.createElement('input');
@@ -269,7 +300,7 @@
                     labelInput.value = t.label;
                     labelInput.addEventListener('change', (e) => {
                         terrains[idx].label = e.target.value;
-                        socket.emit('update-terrains', terrains);
+                        if (socket) socket.emit('update-terrains', terrains);
                     });
 
                     item.appendChild(colorInput);
@@ -302,7 +333,8 @@
 
         document.getElementById('btnGo').addEventListener('click', () => {
             showPage(page3);
-            resetTransform();
+            initCanvas();
+            centerMap();
             
             if (page3.requestFullscreen) {
                 page3.requestFullscreen().catch(() => {});
@@ -323,63 +355,50 @@
             showPage(page2);
         });
 
-        // --- SYNCHRONISATION EN TEMPS RÉEL DES JOUEURS ---
-        function updateUsersUI(usersList) {
-            onlineUsers.innerHTML = '';
-            miniOnlineUsers.innerHTML = '';
+        // --- ÉVÉNEMENTS SOCKET.IO ---
+        if (socket) {
+            socket.on('update-users-list', updateUsersUI);
+            socket.on('users-list', updateUsersUI);
 
-            if (Array.isArray(usersList)) {
-                usersList.forEach(u => {
-                    // Liste Page 2
-                    const item = document.createElement('div');
-                    item.className = 'user-item';
-                    item.textContent = u;
-                    onlineUsers.appendChild(item);
+            socket.on('update-terrains', (newTerrains) => {
+                terrains = newTerrains;
+                renderTerrains();
+            });
 
-                    // Liste Page 3 (Mini)
-                    const miniItem = document.createElement('div');
-                    miniItem.className = 'mini-user-item';
-                    miniItem.textContent = u;
-                    miniOnlineUsers.appendChild(miniItem);
-                });
-            }
+            socket.on('init', (data) => {
+                gridData = data.gridData || {};
+                cols = data.config ? data.config.cols : 10;
+                rows = data.config ? data.config.rows : 8;
+                if (data.terrains) terrains = data.terrains;
+                if (data.users) updateUsersUI(data.users);
+                document.getElementById('cols').value = cols;
+                document.getElementById('rows').value = rows;
+                renderTerrains();
+                if (page3.classList.contains('active')) {
+                    initCanvas();
+                    centerMap();
+                }
+            });
+
+            socket.on('update-tile', (data) => {
+                gridData[data.key] = { color: data.color, author: data.author };
+                if (page3.classList.contains('active')) drawGrid();
+            });
+
+            socket.on('update-config', (data) => {
+                cols = data.config.cols;
+                rows = data.config.rows;
+                gridData = data.gridData || {};
+                document.getElementById('cols').value = cols;
+                document.getElementById('rows').value = rows;
+                if (page3.classList.contains('active')) {
+                    initCanvas();
+                    centerMap();
+                }
+            });
         }
 
-        socket.on('update-users-list', updateUsersUI);
-        socket.on('users-list', updateUsersUI);
-
-        socket.on('update-terrains', (newTerrains) => {
-            terrains = newTerrains;
-            renderTerrains();
-        });
-
-        socket.on('init', (data) => {
-            gridData = data.gridData || {};
-            cols = data.config ? data.config.cols : 10;
-            rows = data.config ? data.config.rows : 8;
-            if (data.terrains) terrains = data.terrains;
-            if (data.users) updateUsersUI(data.users);
-            document.getElementById('cols').value = cols;
-            document.getElementById('rows').value = rows;
-            renderTerrains();
-            if (page3.classList.contains('active')) drawGrid();
-        });
-
-        socket.on('update-tile', (data) => {
-            gridData[data.key] = { color: data.color, author: data.author };
-            if (page3.classList.contains('active')) drawGrid();
-        });
-
-        socket.on('update-config', (data) => {
-            cols = data.config.cols;
-            rows = data.config.rows;
-            gridData = data.gridData || {};
-            document.getElementById('cols').value = cols;
-            document.getElementById('rows').value = rows;
-            if (page3.classList.contains('active')) initCanvas();
-        });
-
-        // --- MOTEUR RENDU CANVAS & TRANSLATIONS ---
+        // --- CALCULS DU PLATEAU ET CENTRAGE DYNAMIQUE ---
         function setMode(paintMode) {
             isPaintMode = paintMode;
             btnModeToggle.textContent = isPaintMode ? "Mode : Peindre 🎨" : "Mode : Déplacer ✋";
@@ -387,31 +406,41 @@
         }
 
         btnModeToggle.addEventListener('click', () => setMode(!isPaintMode));
-        
-        function resetTransform() {
-            panX = 0;
-            panY = 0;
+
+        function getHexRawCenter(col, row) {
+            const hexWidth = Math.sqrt(3) * hexRadius;
+            const xOffset = (row % 2 === 1) ? hexWidth / 2 : 0;
+            return {
+                x: hexWidth / 2 + col * hexWidth + xOffset,
+                y: hexRadius + row * (hexRadius * 1.5)
+            };
+        }
+
+        // Fonction de centrage parfait quelles que soient les dimensions
+        function centerMap() {
             scale = 1.0;
             rotationAngle = 0;
+
+            const hexWidth = Math.sqrt(3) * hexRadius;
+            const gridWidth = cols * hexWidth + (rows > 1 ? hexWidth / 2 : 0);
+            const gridHeight = hexRadius * 2 + (rows - 1) * (hexRadius * 1.5);
+
+            const screenWidth = canvas.width || window.innerWidth;
+            const screenHeight = canvas.height || window.innerHeight;
+
+            panX = (screenWidth - gridWidth) / 2;
+            panY = (screenHeight - gridHeight) / 2;
+
             drawGrid();
         }
 
-        btnResetView.addEventListener('click', resetTransform);
+        btnResetView.addEventListener('click', centerMap);
 
         function initCanvas() {
             const rect = page3.getBoundingClientRect();
             canvas.width = rect.width || window.innerWidth;
             canvas.height = rect.height || window.innerHeight;
             drawGrid();
-        }
-
-        function getHexCenter(col, row) {
-            const hexWidth = Math.sqrt(3) * hexRadius;
-            const xOffset = (row % 2 === 1) ? hexWidth / 2 : 0;
-            return {
-                x: 80 + hexWidth / 2 + col * hexWidth + xOffset,
-                y: 80 + hexRadius + row * (hexRadius * 1.5)
-            };
         }
 
         function drawHexagon(x, y, radius, fillColor) {
@@ -440,14 +469,13 @@
             ctx.fillStyle = "#ecf0f1";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Application Translation -> Rotation -> Echelle
             ctx.translate(panX, panY);
             ctx.rotate(rotationAngle);
             ctx.scale(scale, scale);
 
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
-                    const { x, y } = getHexCenter(c, r);
+                    const { x, y } = getHexRawCenter(c, r);
                     const key = `${c},${r}`;
                     const tile = gridData[key];
                     const color = tile ? tile.color : '#ffffff';
@@ -479,7 +507,7 @@
 
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
-                    const { x, y } = getHexCenter(c, r);
+                    const { x, y } = getHexRawCenter(c, r);
                     if (Math.hypot(coords.x - x, coords.y - y) < hexRadius * 0.85) {
                         const key = `${c},${r}`;
                         const currentColor = activeColor;
@@ -496,7 +524,7 @@
                         if (!existingTile || existingTile.color !== currentColor) {
                             gridData[key] = { color: currentColor, author: myUsername };
                             drawGrid();
-                            socket.emit('paint-tile', { key, color: currentColor });
+                            if (socket) socket.emit('paint-tile', { key, color: currentColor });
                         }
                         return;
                     }
@@ -504,12 +532,12 @@
             }
         }
 
-        // --- GESTION ÉVÉNEMENTS CLAVIER / SOURIS / TOUCH ---
+        // Modales & Config
         document.getElementById('btnConfirmOverride').addEventListener('click', () => {
             if (pendingTileKey) {
                 gridData[pendingTileKey] = { color: activeColor, author: myUsername };
                 drawGrid();
-                socket.emit('paint-tile', { key: pendingTileKey, color: activeColor });
+                if (socket) socket.emit('paint-tile', { key: pendingTileKey, color: activeColor });
                 pendingTileKey = null;
             }
             document.getElementById('overrideModal').classList.add('hidden');
@@ -534,11 +562,14 @@
             if (confirm("Changer la taille réinitialisera le plateau. Continuer ?")) {
                 cols = newCols;
                 rows = newRows;
-                socket.emit('change-config', { cols, rows });
+                gridData = {};
+                if (socket) socket.emit('change-config', { cols, rows });
                 document.getElementById('configModal').classList.add('hidden');
+                centerMap();
             }
         });
 
+        // Souris
         canvas.addEventListener('mousedown', (e) => {
             isMouseDown = true;
             startX = e.clientX - panX;
@@ -575,7 +606,7 @@
             drawGrid();
         }, { passive: false });
 
-        // GESTION TACTILE : ANCRAGE CENTRÉ DE LA ROTATION ET DU ZOOM (2 DOIGTS)
+        // Tactile (Zoom & Rotation centrés sur pincement)
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 isMouseDown = true;
@@ -627,7 +658,6 @@
                 const factor = currentDistance / initialPinchDistance;
                 const newScale = Math.min(Math.max(0.3, initialScale * factor), 5.0);
 
-                // Application combinée centrée sur le point de pincement
                 const cosDiff = Math.cos(newRotation - initialRotation);
                 const sinDiff = Math.sin(newRotation - initialRotation);
 
