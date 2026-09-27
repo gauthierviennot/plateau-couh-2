@@ -27,12 +27,10 @@
         
         .section-title { font-weight: bold; font-size: 0.85rem; color: #7f8c8d; text-transform: uppercase; margin-top: 5px; flex-shrink: 0; }
         
-        /* Correction scroll liste utilisateurs */
         .user-list { background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; max-height: 100px; overflow-y: auto; font-size: 0.85rem; flex-shrink: 0; touch-action: pan-y; }
         .user-item { padding: 3px 0; display: flex; align-items: center; gap: 6px; color: #2c3e50; font-weight: 500; }
         .user-item::before { content: "•"; color: #2ecc71; font-weight: bold; }
 
-        /* Correction scroll palette des couleurs */
         .terrain-palette { flex: 1; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding-right: 4px; min-height: 150px; touch-action: pan-y; }
         .terrain-item { display: flex; align-items: center; gap: 8px; background: #f8f9fa; padding: 6px; border: 1px solid #ddd; border-radius: 6px; flex-shrink: 0; }
         .terrain-color-preview { width: 28px; height: 28px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2); flex-shrink: 0; }
@@ -45,7 +43,7 @@
         .btn-config { padding: 8px; border: none; border-radius: 6px; background: #34495e; color: white; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
 
         /* --- PAGE 3 : CARTE EN PLEIN ÉCRAN --- */
-        #page3 { background: #ffffff; position: relative; overflow: hidden; display: none; justify-content: center; align-items: center; touch-action: none; }
+        #page3 { background: #2c3e50; position: relative; overflow: hidden; display: none; width: 100vw; height: 100vh; }
         
         .btn-exit { position: absolute; top: 15px; left: 15px; z-index: 50; width: 42px; height: 42px; background: #e74c3c; color: white; border: none; border-radius: 50%; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
         .btn-exit:hover { background: #c0392b; }
@@ -56,12 +54,13 @@
         .hex-option:hover { transform: scale(1.15); }
         .hex-option.selected { transform: scale(1.25); filter: drop-shadow(0px 0px 5px #000); }
 
-        .mode-toggle-container { position: absolute; top: 15px; right: 15px; z-index: 50; }
+        .mode-toggle-container { position: absolute; top: 15px; right: 15px; z-index: 50; display: flex; gap: 8px; }
         .btn-mode { padding: 10px 16px; border: none; border-radius: 20px; font-weight: bold; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .btn-mode.paint { background-color: #2ecc71; color: white; }
         .btn-mode.move { background-color: #3498db; color: white; }
+        .btn-reset-view { padding: 10px; border: none; border-radius: 50%; background: #ffffff; color: #333; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
 
-        canvas { background-color: #ffffff; display: block; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #ecf0f1; display: block; }
 
         /* Modales */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
@@ -111,6 +110,7 @@
         <div class="fullscreen-palette" id="fsPalette"></div>
 
         <div class="mode-toggle-container">
+            <button id="btnResetView" class="btn-reset-view" title="Centrer la carte">🎯</button>
             <button id="btnModeToggle" class="btn-mode paint">Mode : Peindre 🎨</button>
         </div>
 
@@ -179,7 +179,7 @@
             { color: '#d35400', label: 'Terre' }
         ];
 
-        // Elements DOM
+        // Éléments DOM
         const page1 = document.getElementById('page1');
         const page2 = document.getElementById('page2');
         const page3 = document.getElementById('page3');
@@ -195,16 +195,23 @@
         const ctx = canvas.getContext('2d');
         const fsPalette = document.getElementById('fsPalette');
         const btnModeToggle = document.getElementById('btnModeToggle');
+        const btnResetView = document.getElementById('btnResetView');
 
-        // Navigation
+        // Navigation entre les pages
         function showPage(page) {
             page1.classList.remove('active');
             page2.classList.remove('active');
             page3.classList.remove('active');
+            
+            page1.style.display = 'none';
+            page2.style.display = 'none';
+            page3.style.display = 'none';
+
             page.classList.add('active');
+            page.style.display = 'flex';
         }
 
-        // --- PAGE 1 -> PAGE 2 : CONNEXION ---
+        // --- PAGE 1 -> PAGE 2 ---
         function handleLogin() {
             const val = usernameInput.value.trim();
             if (val.length > 0) {
@@ -223,7 +230,7 @@
         btnLogin.addEventListener('click', handleLogin);
         usernameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
 
-        // --- RENDER TERRAINS (PAGE 2 & PAGE 3) ---
+        // --- RENDER TERRAINS ---
         function renderTerrains() {
             terrainContainer.innerHTML = '';
             fsPalette.innerHTML = '';
@@ -284,17 +291,22 @@
         // --- PAGE 2 -> PAGE 3 : GO! ---
         document.getElementById('btnGo').addEventListener('click', () => {
             showPage(page3);
+            panX = 0;
+            panY = 0;
+            scale = 1.0;
             
-            requestAnimationFrame(() => {
-                setTimeout(() => {
-                    initCanvas();
-                }, 50);
-            });
-
             if (page3.requestFullscreen) {
                 page3.requestFullscreen().catch(() => {});
             }
         });
+
+        // Détecte quand la Page 3 devient réellement visible à l'écran pour dimensionner et dessiner
+        const resizeObserver = new ResizeObserver(() => {
+            if (page3.classList.contains('active')) {
+                initCanvas();
+            }
+        });
+        resizeObserver.observe(page3);
 
         // --- PAGE 3 -> PAGE 2 : QUITTER ---
         document.getElementById('btnExitMap').addEventListener('click', () => {
@@ -328,11 +340,12 @@
             document.getElementById('cols').value = cols;
             document.getElementById('rows').value = rows;
             renderTerrains();
+            if (page3.classList.contains('active')) drawGrid();
         });
 
         socket.on('update-tile', (data) => {
             gridData[data.key] = { color: data.color, author: data.author };
-            drawGrid();
+            if (page3.classList.contains('active')) drawGrid();
         });
 
         socket.on('update-config', (data) => {
@@ -341,7 +354,7 @@
             gridData = data.gridData || {};
             document.getElementById('cols').value = cols;
             document.getElementById('rows').value = rows;
-            initCanvas();
+            if (page3.classList.contains('active')) initCanvas();
         });
 
         // --- CANVAS & DESSIN ---
@@ -352,25 +365,27 @@
         }
 
         btnModeToggle.addEventListener('click', () => setMode(!isPaintMode));
+        
+        btnResetView.addEventListener('click', () => {
+            panX = 0;
+            panY = 0;
+            scale = 1.0;
+            drawGrid();
+        });
 
         function initCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            const rect = page3.getBoundingClientRect();
+            canvas.width = rect.width || window.innerWidth;
+            canvas.height = rect.height || window.innerHeight;
             drawGrid();
         }
-
-        window.addEventListener('resize', () => {
-            if (page3.classList.contains('active')) {
-                initCanvas();
-            }
-        });
 
         function getHexCenter(col, row) {
             const hexWidth = Math.sqrt(3) * hexRadius;
             const xOffset = (row % 2 === 1) ? hexWidth / 2 : 0;
             return {
-                x: 50 + hexWidth / 2 + col * hexWidth + xOffset,
-                y: 50 + hexRadius + row * (hexRadius * 1.5)
+                x: 80 + hexWidth / 2 + col * hexWidth + xOffset,
+                y: 80 + hexRadius + row * (hexRadius * 1.5)
             };
         }
 
@@ -392,9 +407,15 @@
         }
 
         function drawGrid() {
+            if (!ctx) return;
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Fond de carte
+            ctx.fillStyle = "#ecf0f1";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
             ctx.translate(panX, panY);
             ctx.scale(scale, scale);
 
@@ -480,7 +501,7 @@
             }
         });
 
-        // Événements Souris & Tactile (Canvas)
+        // Événements Souris & Tactile
         canvas.addEventListener('mousedown', (e) => {
             isMouseDown = true;
             startX = e.clientX - panX;
