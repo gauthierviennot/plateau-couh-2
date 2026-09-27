@@ -10,41 +10,57 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// État global du jeu
 let config = { cols: 10, rows: 8 };
 let gridData = {}; 
-let terrainsList = null; // Stocke la palette si un admin la modifie
-const activeUsers = {};  // { socketId: username }
+let terrainsList = null;
+let isLocked = false;
+const activeUsers = {}; // { socketId: username }
 
-// Fonction utilitaire pour diffuser la liste unique des pseudos uniques connectés
+// Diffusion de la liste nettoyée et sans doublons
 function broadcastUserList() {
-    const usersArray = Object.values(activeUsers);
-    io.emit('update-users-list', usersArray);
+    const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
+    const uniqueUsers = [...new Set(rawUsers)];
+    io.emit('update-users-list', uniqueUsers);
 }
 
 io.on('connection', (socket) => {
-    // 1. Envoyer l'état actuel au nouveau joueur
+    // 1. Envoi de l'état initial
+    const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
     socket.emit('init', { 
         config, 
         gridData, 
         terrains: terrainsList,
-        users: Object.values(activeUsers)
+        users: [...new Set(rawUsers)],
+        isLocked
     });
 
-    // 2. Enregistrement / mise à jour du pseudo
+    // 2. Enregistrement / ré-enregistrement du pseudo
     socket.on('set-username', (name) => {
-        socket.username = name || 'Anonyme';
-        activeUsers[socket.id] = socket.username;
-        broadcastUserList();
+        const cleanName = (name || '').trim();
+        if (cleanName.length > 0) {
+            socket.username = cleanName;
+            activeUsers[socket.id] = cleanName;
+            broadcastUserList();
+        }
     });
 
-    // 3. Demande manuelle de la liste des joueurs
     socket.on('get-users', () => {
-        socket.emit('update-users-list', Object.values(activeUsers));
+        const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
+        socket.emit('update-users-list', [...new Set(rawUsers)]);
     });
 
-    // 4. Coloration d'une case
+    socket.on('toggle-lock', (lockedState) => {
+        if (socket.username && socket.username.toLowerCase() === 'admin') {
+            isLocked = lockedState;
+            io.emit('update-lock', isLocked);
+        }
+    });
+
     socket.on('paint-tile', (data) => {
+        if (isLocked && (!socket.username || socket.username.toLowerCase() !== 'admin')) {
+            return;
+        }
+
         const { key, color } = data;
         const author = socket.username || 'Anonyme';
         
@@ -52,26 +68,23 @@ io.on('connection', (socket) => {
         io.emit('update-tile', { key, color, author });
     });
 
-    // 5. Modification des couleurs/légendes par l'admin
     socket.on('update-terrains', (newTerrains) => {
         terrainsList = newTerrains;
         socket.broadcast.emit('update-terrains', terrainsList);
     });
 
-    // 6. Redimensionnement du plateau
     socket.on('change-config', (newConfig) => {
         config = newConfig;
         gridData = {};
         io.emit('update-config', { config, gridData });
     });
 
-    // 7. Effacement de la grille
     socket.on('clear-grid', () => {
         gridData = {};
         io.emit('clear-grid');
     });
 
-    // 8. Gestion de la déconnexion
+    // Nettoyage précis à la déconnexion
     socket.on('disconnect', () => {
         if (activeUsers[socket.id]) {
             delete activeUsers[socket.id];
