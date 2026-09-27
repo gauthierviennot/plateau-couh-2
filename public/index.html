@@ -48,7 +48,12 @@
         .btn-exit { position: absolute; top: 15px; left: 15px; z-index: 50; width: 42px; height: 42px; background: #e74c3c; color: white; border: none; border-radius: 50%; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
         .btn-exit:hover { background: #c0392b; }
 
-        .fullscreen-palette { position: absolute; top: 70px; left: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; background: rgba(255, 255, 255, 0.9); padding: 10px; border-radius: 12px; backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); max-height: 75vh; overflow-y: auto; touch-action: pan-y; }
+        /* Mini Liste Joueurs sur Page 3 */
+        .mini-user-list { position: absolute; top: 65px; left: 15px; z-index: 50; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); padding: 5px 8px; border-radius: 6px; color: #ffffff; font-size: 0.65rem; max-width: 130px; max-height: 80px; overflow-y: auto; pointer-events: none; }
+        .mini-user-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+        .mini-user-item::before { content: "•"; color: #2ecc71; }
+
+        .fullscreen-palette { position: absolute; top: 155px; left: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; background: rgba(255, 255, 255, 0.9); padding: 10px; border-radius: 12px; backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); max-height: 60vh; overflow-y: auto; touch-action: pan-y; }
         
         .hex-option { width: 34px; height: 34px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); cursor: pointer; border: none; flex-shrink: 0; transition: transform 0.2s, filter 0.2s; }
         .hex-option:hover { transform: scale(1.15); }
@@ -125,6 +130,9 @@
     <div id="page3" class="page">
         <button id="btnExitMap" class="btn-exit" title="Quitter la carte">✖</button>
         
+        <!-- Liste Joueurs Coin Page 3 -->
+        <div id="miniOnlineUsers" class="mini-user-list"></div>
+
         <div class="fullscreen-palette" id="fsPalette"></div>
 
         <div class="mode-toggle-container">
@@ -154,7 +162,7 @@
         let activeColor = "#2ecc71";
         let pendingTileKey = null;
 
-        // Variables de Transformation du Canvas
+        // Transformations du Canvas
         let scale = 1.0, panX = 0, panY = 0, rotationAngle = 0;
         let cols = 10, rows = 8, hexRadius = 35;
         let gridData = {};
@@ -163,7 +171,7 @@
         let isMouseDown = false;
         let startX = 0, startY = 0;
 
-        // Variables Multi-touch (Zoom & Rotation)
+        // Ancre Multi-touch
         let initialPinchDistance = null;
         let initialPinchAngle = 0;
         let initialScale = 1.0;
@@ -194,6 +202,7 @@
         const btnLogin = document.getElementById('btnLogin');
         const welcomeUser = document.getElementById('welcomeUser');
         const onlineUsers = document.getElementById('onlineUsers');
+        const miniOnlineUsers = document.getElementById('miniOnlineUsers');
         const btnAdminConfig = document.getElementById('btnAdminConfig');
         const terrainContainer = document.getElementById('terrainContainer');
 
@@ -216,7 +225,7 @@
             page.style.display = 'flex';
         }
 
-        // --- PAGE 1 -> PAGE 2 ---
+        // --- NAVIGATION & LOGIN ---
         function handleLogin() {
             const val = usernameInput.value.trim();
             if (val.length > 0) {
@@ -235,7 +244,7 @@
         btnLogin.addEventListener('click', handleLogin);
         usernameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
 
-        // --- RENDER TERRAINS ---
+        // --- RENDU PALETTES ---
         function renderTerrains() {
             terrainContainer.innerHTML = '';
             fsPalette.innerHTML = '';
@@ -291,7 +300,6 @@
             });
         }
 
-        // --- PAGE 2 -> PAGE 3 ---
         document.getElementById('btnGo').addEventListener('click', () => {
             showPage(page3);
             resetTransform();
@@ -315,15 +323,24 @@
             showPage(page2);
         });
 
-        // --- SOCKET.IO EVENTS & SYNCHRONISATION JOUEURS ---
+        // --- SYNCHRONISATION EN TEMPS RÉEL DES JOUEURS ---
         function updateUsersUI(usersList) {
             onlineUsers.innerHTML = '';
+            miniOnlineUsers.innerHTML = '';
+
             if (Array.isArray(usersList)) {
                 usersList.forEach(u => {
+                    // Liste Page 2
                     const item = document.createElement('div');
                     item.className = 'user-item';
                     item.textContent = u;
                     onlineUsers.appendChild(item);
+
+                    // Liste Page 3 (Mini)
+                    const miniItem = document.createElement('div');
+                    miniItem.className = 'mini-user-item';
+                    miniItem.textContent = u;
+                    miniOnlineUsers.appendChild(miniItem);
                 });
             }
         }
@@ -362,7 +379,7 @@
             if (page3.classList.contains('active')) initCanvas();
         });
 
-        // --- CANVAS, TRANSFORMATIONS & DESSIN ---
+        // --- MOTEUR RENDU CANVAS & TRANSLATIONS ---
         function setMode(paintMode) {
             isPaintMode = paintMode;
             btnModeToggle.textContent = isPaintMode ? "Mode : Peindre 🎨" : "Mode : Déplacer ✋";
@@ -423,7 +440,7 @@
             ctx.fillStyle = "#ecf0f1";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Application Translation -> Rotation -> Zoom
+            // Application Translation -> Rotation -> Echelle
             ctx.translate(panX, panY);
             ctx.rotate(rotationAngle);
             ctx.scale(scale, scale);
@@ -440,7 +457,6 @@
             ctx.restore();
         }
 
-        // Conversion des coordonnées de l'écran vers le repère Canvas (avec Rotation + Zoom)
         function getCanvasCoordinates(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
             let screenX = clientX - rect.left - panX;
@@ -488,7 +504,7 @@
             }
         }
 
-        // Modales
+        // --- GESTION ÉVÉNEMENTS CLAVIER / SOURIS / TOUCH ---
         document.getElementById('btnConfirmOverride').addEventListener('click', () => {
             if (pendingTileKey) {
                 gridData[pendingTileKey] = { color: activeColor, author: myUsername };
@@ -523,7 +539,6 @@
             }
         });
 
-        // Souris
         canvas.addEventListener('mousedown', (e) => {
             isMouseDown = true;
             startX = e.clientX - panX;
@@ -544,7 +559,6 @@
 
         window.addEventListener('mouseup', () => isMouseDown = false);
 
-        // Zoom Molette
         canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
             const rect = canvas.getBoundingClientRect();
@@ -561,7 +575,7 @@
             drawGrid();
         }, { passive: false });
 
-        // GESTION TACTILE : ZOOM CENTRÉ SUR LE PINCEMENT & ROTATION (Tous Modes)
+        // GESTION TACTILE : ANCRAGE CENTRÉ DE LA ROTATION ET DU ZOOM (2 DOIGTS)
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 isMouseDown = true;
@@ -569,7 +583,7 @@
                 startY = e.touches[0].clientY - panY;
                 if (isPaintMode) paintTile(e.touches[0].clientX, e.touches[0].clientY);
             } else if (e.touches.length === 2) {
-                isMouseDown = false; // Désactive la peinture dès que deux doigts touchent
+                isMouseDown = false;
                 const t1 = e.touches[0];
                 const t2 = e.touches[1];
 
@@ -607,17 +621,26 @@
                 const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
                 const currentAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX);
 
-                // Calcul Rotation
                 const angleDiff = currentAngle - initialPinchAngle;
-                rotationAngle = initialRotation + angleDiff;
+                const newRotation = initialRotation + angleDiff;
 
-                // Calcul Zoom centré sur les 2 doigts
                 const factor = currentDistance / initialPinchDistance;
                 const newScale = Math.min(Math.max(0.3, initialScale * factor), 5.0);
 
-                panX = pinchCenter.x - (pinchCenter.x - initialPanX) * (newScale / initialScale);
-                panY = pinchCenter.y - (pinchCenter.y - initialPanY) * (newScale / initialScale);
+                // Application combinée centrée sur le point de pincement
+                const cosDiff = Math.cos(newRotation - initialRotation);
+                const sinDiff = Math.sin(newRotation - initialRotation);
+
+                const dx = initialPanX - pinchCenter.x;
+                const dy = initialPanY - pinchCenter.y;
+
+                const rotatedDx = dx * cosDiff - dy * sinDiff;
+                const rotatedDy = dx * sinDiff + dy * cosDiff;
+
                 scale = newScale;
+                rotationAngle = newRotation;
+                panX = pinchCenter.x + rotatedDx * (newScale / initialScale);
+                panY = pinchCenter.y + rotatedDy * (newScale / initialScale);
 
                 drawGrid();
             }
