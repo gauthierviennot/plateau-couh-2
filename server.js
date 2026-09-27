@@ -36,23 +36,8 @@ app.get('/', (req, res) => {
         .btn-fullscreen { background-color: #9b59b6; }
         #main { flex: 1; position: relative; background-color: #e5e9f0; overflow: hidden; display: flex; justify-content: center; align-items: center; }
         
-        /* Bouton de mode flottant en haut à droite */
-        .mode-toggle-container {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            z-index: 20;
-        }
-        .btn-mode {
-            padding: 10px 16px;
-            border: none;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 0.9rem;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            transition: background-color 0.2s, transform 0.1s;
-        }
+        .mode-toggle-container { position: absolute; top: 15px; right: 15px; z-index: 20; }
+        .btn-mode { padding: 10px 16px; border: none; border-radius: 20px; font-weight: bold; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: background-color 0.2s, transform 0.1s; }
         .btn-mode.paint { background-color: #2ecc71; color: white; }
         .btn-mode.move { background-color: #3498db; color: white; }
         .btn-mode:active { transform: scale(0.95); }
@@ -95,7 +80,6 @@ app.get('/', (req, res) => {
     </div>
 
     <div id="main">
-        <!-- Bouton flottant en haut à droite -->
         <div class="mode-toggle-container">
             <button id="btnModeToggle" class="btn-mode paint">Mode : Peindre 🎨</button>
         </div>
@@ -111,10 +95,7 @@ app.get('/', (req, res) => {
         let cols = 10, rows = 8, hexRadius = 35;
         let gridData = {};
 
-        // Modes : true = Peindre, false = Déplacer / Zoomer
         let isPaintMode = true;
-
-        // Variables de suivi tactile & drag
         let isMouseDown = false;
         let startX = 0, startY = 0;
         let initialPinchDistance = null;
@@ -126,7 +107,7 @@ app.get('/', (req, res) => {
 
         function setColor(c) { 
             inputColor.value = c; 
-            setMode(true); // Bascule automatiquement en mode peinture quand on choisit un terrain
+            setMode(true);
         }
 
         function setMode(paintMode) {
@@ -140,9 +121,7 @@ app.get('/', (req, res) => {
             }
         }
 
-        btnModeToggle.addEventListener('click', () => {
-            setMode(!isPaintMode);
-        });
+        btnModeToggle.addEventListener('click', () => setMode(!isPaintMode));
 
         socket.on('init', (data) => {
             gridData = data.gridData;
@@ -158,9 +137,10 @@ app.get('/', (req, res) => {
             drawGrid();
         });
 
-        socket.on('update-config', (config) => {
-            cols = config.cols;
-            rows = config.rows;
+        socket.on('update-config', (data) => {
+            cols = data.config.cols;
+            rows = data.config.rows;
+            gridData = data.gridData;
             inputCols.value = cols;
             inputRows.value = rows;
             initCanvas();
@@ -207,7 +187,10 @@ app.get('/', (req, res) => {
 
         function drawGrid() {
             ctx.save();
+            // Effacement sur la totalité du canvas réel
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
             ctx.translate(panX, panY);
             ctx.scale(scale, scale);
 
@@ -223,8 +206,15 @@ app.get('/', (req, res) => {
 
         function paintTile(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
-            const mouseX = (clientX - rect.left - panX) / scale;
-            const mouseY = (clientY - rect.top - panY) / scale;
+            // Prise en compte du ratio d'échelle CSS/Canvas
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            const canvasX = (clientX - rect.left) * scaleX;
+            const canvasY = (clientY - rect.top) * scaleY;
+
+            const mouseX = (canvasX - panX) / scale;
+            const mouseY = (canvasY - panY) / scale;
 
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
@@ -243,9 +233,7 @@ app.get('/', (req, res) => {
             }
         }
 
-        // --- GESTION DES ÉVÉNEMENTS (SOURIS & TACTILE) --- //
-
-        // Computer / Mouse
+        // --- ÉVÉNEMENTS --- //
         canvas.addEventListener('mousedown', (e) => {
             isMouseDown = true;
             startX = e.clientX - panX;
@@ -266,7 +254,6 @@ app.get('/', (req, res) => {
 
         window.addEventListener('mouseup', () => isMouseDown = false);
 
-        // Mobile / Touch
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 isMouseDown = true;
@@ -274,7 +261,6 @@ app.get('/', (req, res) => {
                 startY = e.touches[0].clientY - panY;
                 if (isPaintMode) paintTile(e.touches[0].clientX, e.touches[0].clientY);
             } else if (e.touches.length === 2) {
-                // Zoom pincement à 2 doigts (fonctionne quel que soit le mode sélectionné)
                 isMouseDown = false;
                 initialPinchDistance = Math.hypot(
                     e.touches[0].clientX - e.touches[1].clientX,
@@ -288,13 +274,11 @@ app.get('/', (req, res) => {
                 if (isPaintMode) {
                     paintTile(e.touches[0].clientX, e.touches[0].clientY);
                 } else {
-                    // Déplacement à 1 doigt en mode Déplacer
                     panX = e.touches[0].clientX - startX;
                     panY = e.touches[0].clientY - startY;
                     drawGrid();
                 }
             } else if (e.touches.length === 2 && initialPinchDistance) {
-                // Gestion du Zoom à 2 doigts
                 const currentDistance = Math.hypot(
                     e.touches[0].clientX - e.touches[1].clientX,
                     e.touches[0].clientY - e.touches[1].clientY
@@ -311,7 +295,6 @@ app.get('/', (req, res) => {
             initialPinchDistance = null;
         });
 
-        // Config & Nettoyage
         inputCols.addEventListener('change', updateConfig);
         inputRows.addEventListener('change', updateConfig);
 
@@ -344,7 +327,8 @@ io.on('connection', (socket) => {
     socket.on('change-config', (config) => {
         gridConfig.cols = config.cols;
         gridConfig.rows = config.rows;
-        io.emit('update-config', gridConfig);
+        gridData = {}; // Réinitialise la grille côté serveur pour éviter les reliquats
+        io.emit('update-config', { config: gridConfig, gridData });
     });
 
     socket.on('clear-grid', () => {
@@ -354,4 +338,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Serveur prêt sur le port ${PORT}`));
+server.listen(PORT, () => console.log(`Serveur prêt sur http://localhost:${PORT}`));
