@@ -35,6 +35,28 @@ app.get('/', (req, res) => {
         .btn-danger { background-color: #e74c3c; }
         .btn-fullscreen { background-color: #9b59b6; }
         #main { flex: 1; position: relative; background-color: #e5e9f0; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        
+        /* Bouton de mode flottant en haut à droite */
+        .mode-toggle-container {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 20;
+        }
+        .btn-mode {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .btn-mode.paint { background-color: #2ecc71; color: white; }
+        .btn-mode.move { background-color: #3498db; color: white; }
+        .btn-mode:active { transform: scale(0.95); }
+
         canvas { background-color: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border-radius: 8px; }
     </style>
 </head>
@@ -73,6 +95,10 @@ app.get('/', (req, res) => {
     </div>
 
     <div id="main">
+        <!-- Bouton flottant en haut à droite -->
+        <div class="mode-toggle-container">
+            <button id="btnModeToggle" class="btn-mode paint">Mode : Peindre 🎨</button>
+        </div>
         <canvas id="hexCanvas"></canvas>
     </div>
 
@@ -85,16 +111,38 @@ app.get('/', (req, res) => {
         let cols = 10, rows = 8, hexRadius = 35;
         let gridData = {};
 
-        // Suivi tactile & souris
+        // Modes : true = Peindre, false = Déplacer / Zoomer
+        let isPaintMode = true;
+
+        // Variables de suivi tactile & drag
         let isMouseDown = false;
+        let startX = 0, startY = 0;
         let initialPinchDistance = null;
-        let initialTouchCenter = null;
 
         const inputCols = document.getElementById('cols');
         const inputRows = document.getElementById('rows');
         const inputColor = document.getElementById('tileColor');
+        const btnModeToggle = document.getElementById('btnModeToggle');
 
-        function setColor(c) { inputColor.value = c; }
+        function setColor(c) { 
+            inputColor.value = c; 
+            setMode(true); // Bascule automatiquement en mode peinture quand on choisit un terrain
+        }
+
+        function setMode(paintMode) {
+            isPaintMode = paintMode;
+            if (isPaintMode) {
+                btnModeToggle.textContent = "Mode : Peindre 🎨";
+                btnModeToggle.className = "btn-mode paint";
+            } else {
+                btnModeToggle.textContent = "Mode : Déplacer / Zoomer ✋";
+                btnModeToggle.className = "btn-mode move";
+            }
+        }
+
+        btnModeToggle.addEventListener('click', () => {
+            setMode(!isPaintMode);
+        });
 
         socket.on('init', (data) => {
             gridData = data.gridData;
@@ -195,44 +243,58 @@ app.get('/', (req, res) => {
             }
         }
 
-        // --- GESTION TACTILE (1 doigt = dessiner / 2 doigts = zoom & pan) --- //
+        // --- GESTION DES ÉVÉNEMENTS (SOURIS & TACTILE) --- //
 
-        // Souris ordinateur
+        // Computer / Mouse
         canvas.addEventListener('mousedown', (e) => {
             isMouseDown = true;
-            paintTile(e.clientX, e.clientY);
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+            if (isPaintMode) paintTile(e.clientX, e.clientY);
         });
 
         canvas.addEventListener('mousemove', (e) => {
-            if (isMouseDown) paintTile(e.clientX, e.clientY);
+            if (!isMouseDown) return;
+            if (isPaintMode) {
+                paintTile(e.clientX, e.clientY);
+            } else {
+                panX = e.clientX - startX;
+                panY = e.clientY - startY;
+                drawGrid();
+            }
         });
 
         window.addEventListener('mouseup', () => isMouseDown = false);
 
-        // Tactile Smartphone
+        // Mobile / Touch
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 isMouseDown = true;
-                paintTile(e.touches[0].clientX, e.touches[0].clientY);
+                startX = e.touches[0].clientX - panX;
+                startY = e.touches[0].clientY - panY;
+                if (isPaintMode) paintTile(e.touches[0].clientX, e.touches[0].clientY);
             } else if (e.touches.length === 2) {
-                // Initialisation du zoom et déplacement à 2 doigts
+                // Zoom pincement à 2 doigts (fonctionne quel que soit le mode sélectionné)
                 isMouseDown = false;
                 initialPinchDistance = Math.hypot(
                     e.touches[0].clientX - e.touches[1].clientX,
                     e.touches[0].clientY - e.touches[1].clientY
                 );
-                initialTouchCenter = {
-                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - panX,
-                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - panY
-                };
             }
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
             if (e.touches.length === 1 && isMouseDown) {
-                paintTile(e.touches[0].clientX, e.touches[0].clientY);
-            } else if (e.touches.length === 2 && initialPinchDistance && initialTouchCenter) {
-                // 1. Zoom par écartement/pincement
+                if (isPaintMode) {
+                    paintTile(e.touches[0].clientX, e.touches[0].clientY);
+                } else {
+                    // Déplacement à 1 doigt en mode Déplacer
+                    panX = e.touches[0].clientX - startX;
+                    panY = e.touches[0].clientY - startY;
+                    drawGrid();
+                }
+            } else if (e.touches.length === 2 && initialPinchDistance) {
+                // Gestion du Zoom à 2 doigts
                 const currentDistance = Math.hypot(
                     e.touches[0].clientX - e.touches[1].clientX,
                     e.touches[0].clientY - e.touches[1].clientY
@@ -240,15 +302,6 @@ app.get('/', (req, res) => {
                 const factor = currentDistance / initialPinchDistance;
                 scale = Math.min(Math.max(scale * factor, 0.3), 3.0);
                 initialPinchDistance = currentDistance;
-
-                // 2. Déplacement de la carte avec les 2 doigts
-                const currentCenter = {
-                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2
-                };
-                panX = currentCenter.x - initialTouchCenter.x;
-                panY = currentCenter.y - initialTouchCenter.y;
-
                 drawGrid();
             }
         }, { passive: false });
@@ -256,7 +309,6 @@ app.get('/', (req, res) => {
         canvas.addEventListener('touchend', () => {
             isMouseDown = false;
             initialPinchDistance = null;
-            initialTouchCenter = null;
         });
 
         // Config & Nettoyage
