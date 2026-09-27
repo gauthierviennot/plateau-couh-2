@@ -83,7 +83,12 @@
         let isPaintMode = true;
         let isMouseDown = false;
         let startX = 0, startY = 0;
+
+        // Variables pour le centrage du zoom tactile à 2 doigts
         let initialPinchDistance = null;
+        let initialScale = 1.0;
+        let initialPanX = 0, initialPanY = 0;
+        let pinchCenter = { x: 0, y: 0 };
 
         const inputCols = document.getElementById('cols');
         const inputRows = document.getElementById('rows');
@@ -215,6 +220,7 @@
             }
         }
 
+        // --- GESTION DES ÉVÉNEMENTS SOURIS ---
         canvas.addEventListener('mousedown', (e) => {
             isMouseDown = true;
             startX = e.clientX - panX;
@@ -235,7 +241,24 @@
 
         window.addEventListener('mouseup', () => isMouseDown = false);
 
+        // --- FONCTIONS UTILITAIRES POUR LE TACTILE ---
+        function getTouchDistance(t1, t2) {
+            return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        }
+
+        function getTouchCenter(t1, t2, rect) {
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: ((t1.clientX + t2.clientX) / 2 - rect.left) * scaleX,
+                y: ((t1.clientY + t2.clientY) / 2 - rect.top) * scaleY
+            };
+        }
+
+        // --- GESTION DES ÉVÉNEMENTS TACTILES ---
         canvas.addEventListener('touchstart', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            
             if (e.touches.length === 1) {
                 isMouseDown = true;
                 startX = e.touches[0].clientX - panX;
@@ -243,10 +266,11 @@
                 if (isPaintMode) paintTile(e.touches[0].clientX, e.touches[0].clientY);
             } else if (e.touches.length === 2) {
                 isMouseDown = false;
-                initialPinchDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
+                initialPinchDistance = getTouchDistance(e.touches[0], e.touches[1]);
+                initialScale = scale;
+                initialPanX = panX;
+                initialPanY = panY;
+                pinchCenter = getTouchCenter(e.touches[0], e.touches[1], rect);
             }
         }, { passive: false });
 
@@ -260,20 +284,32 @@
                     drawGrid();
                 }
             } else if (e.touches.length === 2 && initialPinchDistance) {
-                const currentDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const currentDistance = getTouchDistance(e.touches[0], e.touches[1]);
+                const currentCenter = getTouchCenter(e.touches[0], e.touches[1], rect);
+
+                // Calcul du nouveau scale
                 const factor = currentDistance / initialPinchDistance;
-                scale = Math.min(Math.max(scale * factor, 0.3), 3.0);
-                initialPinchDistance = currentDistance;
+                let newScale = Math.min(Math.max(initialScale * factor, 0.3), 4.0);
+
+                // Compensation des décalages PanX et PanY pour conserver le point pivot centré
+                const ratio = newScale / initialScale;
+                panX = currentCenter.x - (pinchCenter.x - initialPanX) * ratio;
+                panY = currentCenter.y - (pinchCenter.y - initialPanY) * ratio;
+
+                scale = newScale;
                 drawGrid();
             }
         }, { passive: false });
 
-        canvas.addEventListener('touchend', () => {
-            isMouseDown = false;
-            initialPinchDistance = null;
+        canvas.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                initialPinchDistance = null;
+            }
+            if (e.touches.length === 0) {
+                isMouseDown = false;
+            }
         });
 
         inputCols.addEventListener('change', updateConfig);
