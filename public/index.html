@@ -4,12 +4,57 @@ const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 const path = require('path');
 
-// 1. Indiquer à Express de servir le contenu du dossier 'public'
+// Configuration du dossier contenant vos fichiers statiques (index.html, CSS, etc.)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 2. Rediriger la racine '/' vers le fichier index.html du dossier 'public'
+// Route principale envoyant le fichier index.html du dossier public
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ... Reste de votre code (Socket.io, gridData, http.listen)
+// Variables d'état du plateau
+let config = { cols: 10, rows: 8 };
+// Structure : { "col,row": { color: "#2ecc71", author: "Pseudo" } }
+let gridData = {}; 
+
+// Gestion des connexions WebSocket
+io.on('connection', (socket) => {
+    // 1. Envoyer la configuration et la grille actuelles au nouveau joueur
+    socket.emit('init', { config, gridData });
+
+    // 2. Enregistrer le pseudonyme transmis par le joueur
+    socket.on('set-username', (name) => {
+        socket.username = name || 'Anonyme';
+    });
+
+    // 3. Traiter la modification d'une case
+    socket.on('paint-tile', (data) => {
+        const { key, color } = data;
+        const author = socket.username || 'Anonyme';
+        
+        // Mettre à jour la cellule avec sa couleur et son auteur
+        gridData[key] = { color, author };
+        
+        // Diffuser le changement à tous les joueurs connectés
+        io.emit('update-tile', { key, color, author });
+    });
+
+    // 4. Redimensionner le plateau (réinitialise la grille)
+    socket.on('change-config', (newConfig) => {
+        config = newConfig;
+        gridData = {};
+        io.emit('update-config', { config, gridData });
+    });
+
+    // 5. Réinitialiser la grille
+    socket.on('clear-grid', () => {
+        gridData = {};
+        io.emit('clear-grid');
+    });
+});
+
+// Démarrage du serveur sur le port 3000
+const PORT = 3000;
+http.listen(PORT, () => {
+    console.log(`Serveur prêt sur http://localhost:${PORT}`);
+});
