@@ -12,50 +12,41 @@
         .page { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         .page.active { display: flex; }
 
-        /* --- PAGE 1 : CONNEXION --- */
+        /* PAGE 1 */
         #page1 { background: #2c3e50; justify-content: center; align-items: center; }
         .login-card { background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); width: 90%; max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 15px; }
         .login-card h1 { font-size: 1.4rem; color: #2c3e50; }
         .login-card input { padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem; text-align: center; width: 100%; }
         .login-card button { padding: 12px; border: none; border-radius: 6px; background: #3498db; color: white; font-weight: bold; font-size: 1rem; cursor: pointer; }
 
-        /* --- PAGE 2 : SALON / DASHBOARD --- */
+        /* PAGE 2 */
         #page2 { background: #e5e9f0; justify-content: center; align-items: center; padding: 20px; overflow-y: auto; }
         .dashboard-card { background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; gap: 12px; }
         .dashboard-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 8px; flex-shrink: 0; }
         .dashboard-header h2 { font-size: 1.2rem; color: #2c3e50; }
-        
         .section-title { font-weight: bold; font-size: 0.85rem; color: #7f8c8d; text-transform: uppercase; margin-top: 5px; flex-shrink: 0; }
-        
         .user-list { background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; max-height: 100px; overflow-y: auto; font-size: 0.85rem; flex-shrink: 0; touch-action: pan-y; }
         .user-item { padding: 3px 0; display: flex; align-items: center; gap: 6px; color: #2c3e50; font-weight: 500; }
         .user-item::before { content: "•"; color: #2ecc71; font-weight: bold; }
-
         .terrain-palette { flex: 1; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding-right: 4px; min-height: 150px; touch-action: pan-y; }
         .terrain-item { display: flex; align-items: center; gap: 8px; background: #f8f9fa; padding: 6px; border: 1px solid #ddd; border-radius: 6px; flex-shrink: 0; }
         .terrain-color-preview { width: 28px; height: 28px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.2); flex-shrink: 0; }
         .terrain-color-input { width: 32px; height: 32px; border: none; cursor: pointer; background: none; flex-shrink: 0; }
         .terrain-label-text { font-size: 0.9rem; font-weight: 600; color: #34495e; }
         .terrain-label-input { flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
-
         .btn-go { padding: 14px; border: none; border-radius: 8px; background: #2ecc71; color: white; font-weight: bold; font-size: 1.2rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3); flex-shrink: 0; }
         .btn-go:hover { background: #27ae60; }
         .btn-config { padding: 8px; border: none; border-radius: 6px; background: #34495e; color: white; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
 
-        /* --- PAGE 3 : CARTE EN PLEIN ÉCRAN --- */
+        /* PAGE 3 */
         #page3 { background: #2c3e50; position: relative; overflow: hidden; display: none; width: 100vw; height: 100vh; touch-action: none; }
-        
         .btn-exit { position: absolute; top: 15px; left: 15px; z-index: 50; width: 42px; height: 42px; background: #e74c3c; color: white; border: none; border-radius: 50%; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
-        .btn-exit:hover { background: #c0392b; }
-
         .mini-user-list { position: absolute; top: 65px; left: 15px; z-index: 50; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); padding: 6px 10px; border-radius: 6px; color: #ffffff; font-size: 0.7rem; max-width: 140px; max-height: 90px; overflow-y: auto; pointer-events: none; }
         .mini-user-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
         .mini-user-item::before { content: "•"; color: #2ecc71; }
 
         .fullscreen-palette { position: absolute; top: 165px; left: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; background: rgba(255, 255, 255, 0.9); padding: 10px; border-radius: 12px; backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,0.2); max-height: 55vh; overflow-y: auto; touch-action: pan-y; }
-        
-        .hex-option { width: 34px; height: 34px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); cursor: pointer; border: none; flex-shrink: 0; transition: transform 0.2s, filter 0.2s; }
-        .hex-option:hover { transform: scale(1.15); }
+        .hex-option { width: 34px; height: 34px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); cursor: pointer; border: none; flex-shrink: 0; transition: transform 0.2s; }
         .hex-option.selected { transform: scale(1.25); filter: drop-shadow(0px 0px 5px #000); }
 
         .mode-toggle-container { position: absolute; top: 15px; right: 15px; z-index: 50; display: flex; gap: 8px; }
@@ -65,7 +56,7 @@
         .btn-lock { padding: 10px 16px; border: none; border-radius: 20px; font-weight: bold; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); background-color: #e67e22; color: white; }
         .btn-reset-view { padding: 10px; border: none; border-radius: 50%; background: #ffffff; color: #333; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; }
 
-        /* --- BOUSSOLE --- */
+        /* BOUSSOLE */
         .compass-container { position: absolute; bottom: 20px; right: 20px; z-index: 50; width: 80px; height: 80px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px); border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 2px solid #2c3e50; }
         .compass-dial { width: 100%; height: 100%; position: relative; border-radius: 50%; transition: transform 0.1s ease-out; }
         .compass-btn { position: absolute; font-weight: bold; font-size: 0.75rem; color: #2c3e50; cursor: pointer; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, 0.5); }
@@ -93,7 +84,7 @@
 </head>
 <body>
 
-    <!-- PAGE 1 : CONNEXION -->
+    <!-- PAGE 1 -->
     <div id="page1" class="page active">
         <div class="login-card">
             <h1>Plateau Hexagonal</h1>
@@ -102,7 +93,7 @@
         </div>
     </div>
 
-    <!-- PAGE 2 : SALON -->
+    <!-- PAGE 2 -->
     <div id="page2" class="page">
         <div class="dashboard-card">
             <div class="dashboard-header">
@@ -138,7 +129,7 @@
         </div>
     </div>
 
-    <!-- PAGE 3 : PLEIN ÉCRAN / CARTE -->
+    <!-- PAGE 3 -->
     <div id="page3" class="page">
         <button id="btnExitMap" class="btn-exit" title="Quitter la carte">✖</button>
         <div id="miniOnlineUsers" class="mini-user-list"></div>
@@ -150,7 +141,6 @@
             <button id="btnModeToggle" class="btn-mode move">Mode : Déplacer ✋</button>
         </div>
 
-        <!-- BOUSSOLE -->
         <div class="compass-container">
             <div class="compass-dial" id="compassDial">
                 <div class="compass-needle"></div>
@@ -183,9 +173,7 @@
         let isLocked = false;
         let activeColor = "#2ecc71";
         let pendingTileKey = null;
-        let localUsersList = [];
 
-        // Transformations Canvas
         let scale = 1.0, panX = 0, panY = 0, rotationAngle = 0;
         let cols = 10, rows = 8, hexRadius = 35;
         let gridData = {};
@@ -194,7 +182,6 @@
         let isMouseDown = false;
         let startX = 0, startY = 0;
 
-        // Multi-touch
         let initialPinchDistance = null;
         let initialPinchAngle = 0;
         let initialScale = 1.0;
@@ -202,20 +189,7 @@
         let pinchCenter = { x: 0, y: 0 };
         let initialPanX = 0, initialPanY = 0;
 
-        let terrains = [
-            { color: '#2ecc71', label: 'Plaine' },
-            { color: '#27ae60', label: 'Forêt' },
-            { color: '#3498db', label: 'Eau' },
-            { color: '#f1c40f', label: 'Désert' },
-            { color: '#95a5a6', label: 'Montagne' },
-            { color: '#ffffff', label: 'Gomme' },
-            { color: '#e74c3c', label: 'Lave' },
-            { color: '#8e44ad', label: 'Marais' },
-            { color: '#e67e22', label: 'Canyon' },
-            { color: '#16a085', label: 'Jungle' },
-            { color: '#34495e', label: 'Rocher' },
-            { color: '#d35400', label: 'Terre' }
-        ];
+        let terrains = [];
 
         const page1 = document.getElementById('page1');
         const page2 = document.getElementById('page2');
@@ -241,7 +215,6 @@
             page1.classList.remove('active');
             page2.classList.remove('active');
             page3.classList.remove('active');
-            
             page1.style.display = 'none';
             page2.style.display = 'none';
             page3.style.display = 'none';
@@ -251,21 +224,10 @@
         }
 
         function updateUsersUI(usersList) {
-            let cleanList = [];
-            if (Array.isArray(usersList)) {
-                cleanList = usersList.filter(u => typeof u === 'string' && u.trim() !== '');
-            }
-
-            if (myUsername && !cleanList.includes(myUsername)) {
-                cleanList.push(myUsername);
-            }
-
-            localUsersList = Array.from(new Set(cleanList));
-
             onlineUsers.innerHTML = '';
             miniOnlineUsers.innerHTML = '';
 
-            localUsersList.forEach(u => {
+            usersList.forEach(u => {
                 const item = document.createElement('div');
                 item.className = 'user-item';
                 item.textContent = u;
@@ -281,20 +243,21 @@
         function handleLogin() {
             const val = usernameInput.value.trim();
             if (val.length > 0) {
-                myUsername = val;
-                isAdmin = myUsername.toLowerCase() === 'admin';
-                welcomeUser.textContent = `Joueur : ${myUsername}`;
-                
-                btnAdminConfig.style.display = isAdmin ? 'block' : 'none';
-                btnLockToggle.style.display = isAdmin ? 'block' : 'none';
-
                 if (socket) {
-                    socket.emit('set-username', myUsername);
-                    socket.emit('get-users');
+                    socket.emit('set-username', val, (response) => {
+                        if (response && !response.success) {
+                            alert(response.message);
+                            return;
+                        }
+                        myUsername = val;
+                        isAdmin = myUsername.toLowerCase() === 'admin';
+                        welcomeUser.textContent = `Joueur : ${myUsername}`;
+                        btnAdminConfig.style.display = isAdmin ? 'block' : 'none';
+                        btnLockToggle.style.display = isAdmin ? 'block' : 'none';
+                        renderTerrains();
+                        showPage(page2);
+                    });
                 }
-                updateUsersUI([myUsername]);
-                renderTerrains();
-                showPage(page2);
             }
         }
 
@@ -361,25 +324,9 @@
             setMode(false);
             initCanvas();
             centerMap();
-            
-            if (page3.requestFullscreen) {
-                page3.requestFullscreen().catch(() => {});
-            }
         });
 
-        const resizeObserver = new ResizeObserver(() => {
-            if (page3.classList.contains('active')) {
-                initCanvas();
-            }
-        });
-        resizeObserver.observe(page3);
-
-        document.getElementById('btnExitMap').addEventListener('click', () => {
-            if (document.fullscreenElement) {
-                document.exitFullscreen().catch(() => {});
-            }
-            showPage(page2);
-        });
+        document.getElementById('btnExitMap').addEventListener('click', () => showPage(page2));
 
         btnLockToggle.addEventListener('click', () => {
             isLocked = !isLocked;
@@ -391,7 +338,6 @@
             btnLockToggle.textContent = isLocked ? "🔒 Verrouillé" : "🔓 Déverrouillé";
             btnLockToggle.style.backgroundColor = isLocked ? "#e74c3c" : "#2ecc71";
             
-            // Masquer les options de peinture si verrouillé (y compris pour l'admin)
             if (isLocked) {
                 fsPalette.style.display = "none";
                 btnModeToggle.style.display = "none";
@@ -403,24 +349,9 @@
         }
 
         if (socket) {
-            socket.on('connect', () => {
-                if (myUsername && myUsername.length > 0) {
-                    socket.emit('set-username', myUsername);
-                }
-            });
-
             socket.on('update-users-list', updateUsersUI);
-            socket.on('users-list', updateUsersUI);
-
-            socket.on('update-terrains', (newTerrains) => {
-                terrains = newTerrains;
-                renderTerrains();
-            });
-
-            socket.on('update-lock', (lockedState) => {
-                isLocked = lockedState;
-                updateLockUI();
-            });
+            socket.on('update-terrains', (newTerrains) => { terrains = newTerrains; renderTerrains(); });
+            socket.on('update-lock', (lockedState) => { isLocked = lockedState; updateLockUI(); });
 
             socket.on('init', (data) => {
                 gridData = data.gridData || {};
@@ -480,7 +411,6 @@
 
         function centerMap() {
             rotationAngle = 0;
-
             const hexWidth = Math.sqrt(3) * hexRadius;
             const gridWidth = cols * hexWidth + (rows > 1 ? hexWidth / 2 : 0);
             const gridHeight = hexRadius * 2 + (rows - 1) * (hexRadius * 1.5);
@@ -493,7 +423,6 @@
             const scaleY = (screenHeight - padding * 2) / gridHeight;
 
             scale = Math.min(scaleX, scaleY, 1.0);
-
             panX = (screenWidth - gridWidth * scale) / 2;
             panY = (screenHeight - gridHeight * scale) / 2;
 
@@ -502,8 +431,32 @@
 
         btnResetView.addEventListener('click', centerMap);
 
+        // Rotation centrée sur le milieu exact de l'écran
         function setCardinalAngle(deg) {
-            rotationAngle = deg * (Math.PI / 180);
+            const newAngle = deg * (Math.PI / 180);
+            
+            const screenCenterX = canvas.width / 2;
+            const screenCenterY = canvas.height / 2;
+
+            // Coordonnées du point central sur la carte non rotatée
+            const worldX = (screenCenterX - panX) / scale;
+            const worldY = (screenCenterY - panY) / scale;
+
+            const currentCos = Math.cos(rotationAngle);
+            const currentSin = Math.sin(rotationAngle);
+            const unrotatedX = worldX * currentCos + worldY * currentSin;
+            const unrotatedY = -worldX * currentSin + worldY * currentCos;
+
+            rotationAngle = newAngle;
+
+            const newCos = Math.cos(newAngle);
+            const newSin = Math.sin(newAngle);
+            const newRotatedX = unrotatedX * newCos - unrotatedY * newSin;
+            const newRotatedY = unrotatedX * newSin + unrotatedY * newCos;
+
+            panX = screenCenterX - newRotatedX * scale;
+            panY = screenCenterY - newRotatedY * scale;
+
             drawGrid();
         }
 
@@ -534,7 +487,6 @@
         function drawGrid() {
             if (!ctx) return;
             
-            // Mise à jour de l'aiguille de la boussole
             if (compassDial) {
                 compassDial.style.transform = `rotate(${-rotationAngle}rad)`;
             }
@@ -573,14 +525,10 @@
             const rx = screenX * cos - screenY * sin;
             const ry = screenX * sin + screenY * cos;
 
-            return {
-                x: rx / scale,
-                y: ry / scale
-            };
+            return { x: rx / scale, y: ry / scale };
         }
 
         function paintTile(clientX, clientY) {
-            // Blocage de la peinture si verrouillé
             if (isLocked) return;
 
             const coords = getCanvasCoordinates(clientX, clientY);
@@ -754,12 +702,8 @@
         }, { passive: false });
 
         canvas.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) {
-                initialPinchDistance = null;
-            }
-            if (e.touches.length === 0) {
-                isMouseDown = false;
-            }
+            if (e.touches.length < 2) initialPinchDistance = null;
+            if (e.touches.length === 0) isMouseDown = false;
         });
     </script>
 </body>
