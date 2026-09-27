@@ -4,31 +4,26 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: { origin: "*" }
-});
+const io = new Server(server, { cors: { origin: "*" } });
 
-// Stockage de l'état du plateau en mémoire
 let gridData = {};
 let gridConfig = { cols: 10, rows: 8, hexRadius: 35 };
 
-// Servir la page Web
 app.get('/', (req, res) => {
     res.send(`
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Plateau Hexagonal Collaboratif</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; touch-action: none; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; touch-action: none; user-select: none; }
         body { display: flex; height: 100vh; background-color: #f0f2f5; color: #333; overflow: hidden; }
         #sidebar { width: 280px; background: #ffffff; padding: 15px; box-shadow: 2px 0 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 10; }
         h1 { font-size: 1.1rem; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
-        .status { font-size: 0.8rem; padding: 6px; border-radius: 4px; text-align: center; font-weight: bold; }
-        .online { background: #e8f8f5; color: #27ae60; }
+        .status { font-size: 0.8rem; padding: 6px; border-radius: 4px; text-align: center; font-weight: bold; background: #e8f8f5; color: #27ae60; }
         .control-group { display: flex; flex-direction: column; gap: 5px; }
         label { font-weight: 600; font-size: 0.8rem; color: #555; }
         input[type="number"], input[type="color"] { padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 100%; }
@@ -40,15 +35,13 @@ app.get('/', (req, res) => {
         .btn-danger { background-color: #e74c3c; }
         .btn-fullscreen { background-color: #9b59b6; }
         #main { flex: 1; position: relative; background-color: #e5e9f0; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-        .zoom-controls { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; z-index: 20; background: rgba(255, 255, 255, 0.9); padding: 5px; border-radius: 8px; }
-        .zoom-btn { width: 36px; height: 36px; border: none; background: #ffffff; color: #333; font-weight: bold; font-size: 1.1rem; border-radius: 4px; cursor: pointer; }
-        canvas { background-color: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border-radius: 8px; touch-action: none; }
+        canvas { background-color: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border-radius: 8px; }
     </style>
 </head>
 <body>
     <div id="sidebar">
         <h1>Plateau Collaboratif</h1>
-        <div id="status" class="status online">En ligne</div>
+        <div id="status" class="status">En ligne</div>
 
         <div class="control-group">
             <label>Dimensions</label>
@@ -80,11 +73,6 @@ app.get('/', (req, res) => {
     </div>
 
     <div id="main">
-        <div class="zoom-controls">
-            <button class="zoom-btn" id="btnZoomIn">+</button>
-            <button class="zoom-btn" id="btnZoomOut">-</button>
-            <button class="zoom-btn" id="btnZoomReset">1:1</button>
-        </div>
         <canvas id="hexCanvas"></canvas>
     </div>
 
@@ -96,7 +84,11 @@ app.get('/', (req, res) => {
         let scale = 1.0, panX = 0, panY = 0;
         let cols = 10, rows = 8, hexRadius = 35;
         let gridData = {};
+
+        // Suivi tactile & souris
         let isMouseDown = false;
+        let initialPinchDistance = null;
+        let initialTouchCenter = null;
 
         const inputCols = document.getElementById('cols');
         const inputRows = document.getElementById('rows');
@@ -104,7 +96,6 @@ app.get('/', (req, res) => {
 
         function setColor(c) { inputColor.value = c; }
 
-        // Synchronisation WebSocket
         socket.on('init', (data) => {
             gridData = data.gridData;
             cols = data.config.cols;
@@ -175,17 +166,15 @@ app.get('/', (req, res) => {
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     const { x, y } = getHexCenter(c, r);
-                    const key = \`\${c},\${r}\`;
+                    const key = `${c},${r}`;
                     drawHexagon(x, y, hexRadius, gridData[key] || '#ffffff');
                 }
             }
             ctx.restore();
         }
 
-        function paintTile(e) {
+        function paintTile(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             const mouseX = (clientX - rect.left - panX) / scale;
             const mouseY = (clientY - rect.top - panY) / scale;
 
@@ -193,7 +182,7 @@ app.get('/', (req, res) => {
                 for (let c = 0; c < cols; c++) {
                     const { x, y } = getHexCenter(c, r);
                     if (Math.hypot(mouseX - x, mouseY - y) < hexRadius * 0.85) {
-                        const key = \`\${c},\${r}\`;
+                        const key = `${c},${r}`;
                         const color = inputColor.value;
                         if (gridData[key] !== color) {
                             gridData[key] = color;
@@ -206,15 +195,71 @@ app.get('/', (req, res) => {
             }
         }
 
-        // Événements
-        canvas.addEventListener('mousedown', (e) => { isMouseDown = true; paintTile(e); });
-        canvas.addEventListener('mousemove', (e) => { if (isMouseDown) paintTile(e); });
+        // --- GESTION TACTILE (1 doigt = dessiner / 2 doigts = zoom & pan) --- //
+
+        // Souris ordinateur
+        canvas.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            paintTile(e.clientX, e.clientY);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isMouseDown) paintTile(e.clientX, e.clientY);
+        });
+
         window.addEventListener('mouseup', () => isMouseDown = false);
 
-        canvas.addEventListener('touchstart', (e) => { isMouseDown = true; paintTile(e); }, { passive: false });
-        canvas.addEventListener('touchmove', (e) => { if (isMouseDown) paintTile(e); }, { passive: false });
-        canvas.addEventListener('touchend', () => isMouseDown = false);
+        // Tactile Smartphone
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isMouseDown = true;
+                paintTile(e.touches[0].clientX, e.touches[0].clientY);
+            } else if (e.touches.length === 2) {
+                // Initialisation du zoom et déplacement à 2 doigts
+                isMouseDown = false;
+                initialPinchDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                initialTouchCenter = {
+                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - panX,
+                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - panY
+                };
+            }
+        }, { passive: false });
 
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && isMouseDown) {
+                paintTile(e.touches[0].clientX, e.touches[0].clientY);
+            } else if (e.touches.length === 2 && initialPinchDistance && initialTouchCenter) {
+                // 1. Zoom par écartement/pincement
+                const currentDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const factor = currentDistance / initialPinchDistance;
+                scale = Math.min(Math.max(scale * factor, 0.3), 3.0);
+                initialPinchDistance = currentDistance;
+
+                // 2. Déplacement de la carte avec les 2 doigts
+                const currentCenter = {
+                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+                };
+                panX = currentCenter.x - initialTouchCenter.x;
+                panY = currentCenter.y - initialTouchCenter.y;
+
+                drawGrid();
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => {
+            isMouseDown = false;
+            initialPinchDistance = null;
+            initialTouchCenter = null;
+        });
+
+        // Config & Nettoyage
         inputCols.addEventListener('change', updateConfig);
         inputRows.addEventListener('change', updateConfig);
 
@@ -225,9 +270,6 @@ app.get('/', (req, res) => {
         }
 
         document.getElementById('btnClear').addEventListener('click', () => socket.emit('clear-grid'));
-        document.getElementById('btnZoomIn').addEventListener('click', () => { scale = Math.min(scale * 1.2, 3); drawGrid(); });
-        document.getElementById('btnZoomOut').addEventListener('click', () => { scale = Math.max(scale / 1.2, 0.4); drawGrid(); });
-        document.getElementById('btnZoomReset').addEventListener('click', () => { scale = 1; panX = 0; panY = 0; drawGrid(); });
         document.getElementById('btnFullscreen').addEventListener('click', () => {
             const main = document.getElementById('main');
             if (!document.fullscreenElement) main.requestFullscreen();
@@ -239,25 +281,20 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Événements Socket.IO (Gestion du temps réel)
 io.on('connection', (socket) => {
-    // Envoyer l'état actuel au nouveau joueur
     socket.emit('init', { gridData, config: gridConfig });
 
-    // Réception de la modification d'une tuile
     socket.on('paint-tile', (data) => {
         gridData[data.key] = data.color;
         socket.broadcast.emit('update-tile', data);
     });
 
-    // Modification des dimensions de la carte
     socket.on('change-config', (config) => {
         gridConfig.cols = config.cols;
         gridConfig.rows = config.rows;
         io.emit('update-config', gridConfig);
     });
 
-    // Effacement complet
     socket.on('clear-grid', () => {
         gridData = {};
         io.emit('clear-grid');
@@ -265,4 +302,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
+server.listen(PORT, () => console.log(`Serveur prêt sur le port ${PORT}`));
