@@ -13,7 +13,7 @@ app.get('/', (req, res) => {
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 
-// Structure par défaut (si data.json n'existe pas encore)
+// Structure par défaut si data.json n'existe pas encore
 let state = {
     config: { cols: 10, rows: 8 },
     gridData: {},
@@ -34,7 +34,7 @@ let state = {
     isLocked: false
 };
 
-// Charger le fichier s'il existe déjà
+// Charge le fichier existant pour conserver la carte, légendes et couleurs
 function loadData() {
     try {
         if (fs.existsSync(DATA_FILE)) {
@@ -80,7 +80,7 @@ io.on('connection', (socket) => {
         const cleanName = (name || '').trim();
         const lowerName = cleanName.toLowerCase();
 
-        // Vérification : Un seul Admin à la fois
+        // Sécurité : Un seul Admin connecté à la fois
         if (lowerName === 'admin') {
             const alreadyAdmin = Object.values(activeUsers).some(u => u.toLowerCase() === 'admin');
             if (alreadyAdmin && socket.username?.toLowerCase() !== 'admin') {
@@ -115,7 +115,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('paint-tile', (data) => {
-        if (state.isLocked) return; // Bloqué pour tout le monde si verrouillé
+        if (state.isLocked) return;
 
         const { key, color } = data;
         const author = socket.username || 'Anonyme';
