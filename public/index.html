@@ -1,60 +1,508 @@
-const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http);
-const path = require('path');
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Plateau Hexagonal Collaboratif</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; touch-action: none; user-select: none; }
+        body { display: flex; height: 100vh; background-color: #f0f2f5; color: #333; overflow: hidden; }
+        #sidebar { width: 280px; background: #ffffff; padding: 15px; box-shadow: 2px 0 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 10; }
+        h1 { font-size: 1.1rem; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
+        .user-info { font-size: 0.85rem; background: #eef2f7; padding: 8px; border-radius: 4px; font-weight: 600; color: #34495e; text-align: center; }
+        .status { font-size: 0.8rem; padding: 6px; border-radius: 4px; text-align: center; font-weight: bold; background: #e8f8f5; color: #27ae60; }
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-weight: 600; font-size: 0.8rem; color: #555; }
+        input[type="text"], input[type="number"], input[type="color"] { padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 100%; }
+        input[type="color"] { height: 35px; cursor: pointer; }
+        .terrain-palette { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+        .terrain-btn { padding: 6px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; background: #fff; }
+        .color-sample { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.2); }
+        .btn { padding: 8px; border: none; border-radius: 4px; background-color: #3498db; color: white; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
+        .btn-config { background-color: #34495e; }
+        .btn-danger { background-color: #e74c3c; }
+        .btn-fullscreen { background-color: #9b59b6; }
+        #main { flex: 1; position: relative; background-color: #e5e9f0; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        .mode-toggle-container { position: absolute; top: 15px; right: 15px; z-index: 20; }
+        .btn-mode { padding: 10px 16px; border: none; border-radius: 20px; font-weight: bold; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: background-color 0.2s, transform 0.1s; }
+        .btn-mode.paint { background-color: #2ecc71; color: white; }
+        .btn-mode.move { background-color: #3498db; color: white; }
+        .btn-mode:active { transform: scale(0.95); }
+        canvas { background-color: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border-radius: 8px; }
 
-// Configuration du dossier contenant vos fichiers statiques (index.html, CSS, etc.)
-app.use(express.static(path.join(__dirname, 'public')));
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
+        .modal-overlay.hidden { display: none; }
+        .modal-content { background: #ffffff; padding: 20px; border-radius: 8px; width: 340px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 15px; }
+        .modal-content h2 { font-size: 1.1rem; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+        .btn-secondary { background-color: #95a5a6; }
+        .alert-warning { background-color: #fce4e4; border: 1px solid #f5c6cb; color: #721c24; padding: 10px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; line-height: 1.3; }
 
-// Route principale envoyant le fichier index.html du dossier public
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+        .btn-exit-fullscreen {
+            display: none; position: absolute; top: 15px; left: 15px; z-index: 30;
+            width: 40px; height: 40px; background: #e74c3c; color: white;
+            border: none; border-radius: 50%; font-size: 1.2rem; font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            align-items: center; justify-content: center;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .btn-exit-fullscreen:hover { background-color: #c0392b; }
+        .btn-exit-fullscreen:active { transform: scale(0.9); }
+        :fullscreen .btn-exit-fullscreen, :-webkit-full-screen .btn-exit-fullscreen { display: flex; }
 
-// Variables d'état du plateau
-let config = { cols: 10, rows: 8 };
-// Structure : { "col,row": { color: "#2ecc71", author: "Pseudo" } }
-let gridData = {}; 
+        .fullscreen-palette {
+            position: absolute; top: 70px; left: 15px; z-index: 30;
+            display: none; flex-direction: column; gap: 10px;
+            background: rgba(255, 255, 255, 0.85); padding: 10px;
+            border-radius: 12px; backdrop-filter: blur(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        :fullscreen .fullscreen-palette, :-webkit-full-screen .fullscreen-palette { display: flex; }
 
-// Gestion des connexions WebSocket
-io.on('connection', (socket) => {
-    // 1. Envoyer la configuration et la grille actuelles au nouveau joueur
-    socket.emit('init', { config, gridData });
+        .hex-option {
+            width: 38px; height: 38px;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            cursor: pointer; border: none;
+            transition: transform 0.2s ease, filter 0.2s;
+        }
+        .hex-option:hover { transform: scale(1.15); }
+        .hex-option.selected { transform: scale(1.2); filter: drop-shadow(0px 0px 4px #000); }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h1>Plateau Collaboratif</h1>
+        <div id="status" class="status">En ligne</div>
+        <div id="displayUsername" class="user-info">Joueur : Anonyme</div>
 
-    // 2. Enregistrer le pseudonyme transmis par le joueur
-    socket.on('set-username', (name) => {
-        socket.username = name || 'Anonyme';
-    });
+        <button class="btn btn-config" id="btnOpenModal">⚙️ Régler la taille du plateau</button>
 
-    // 3. Traiter la modification d'une case
-    socket.on('paint-tile', (data) => {
-        const { key, color } = data;
-        const author = socket.username || 'Anonyme';
+        <div class="control-group">
+            <label>Couleur</label>
+            <input type="color" id="tileColor" value="#2ecc71">
+        </div>
+
+        <div class="control-group">
+            <label>Terrains</label>
+            <div class="terrain-palette">
+                <button class="terrain-btn" onclick="setColor('#2ecc71')"><span class="color-sample" style="background: #2ecc71;"></span> Plaine</button>
+                <button class="terrain-btn" onclick="setColor('#27ae60')"><span class="color-sample" style="background: #27ae60;"></span> Forêt</button>
+                <button class="terrain-btn" onclick="setColor('#3498db')"><span class="color-sample" style="background: #3498db;"></span> Eau</button>
+                <button class="terrain-btn" onclick="setColor('#f1c40f')"><span class="color-sample" style="background: #f1c40f;"></span> Désert</button>
+                <button class="terrain-btn" onclick="setColor('#95a5a6')"><span class="color-sample" style="background: #95a5a6;"></span> Montagne</button>
+                <button class="terrain-btn" onclick="setColor('#ffffff')"><span class="color-sample" style="background: #ffffff;"></span> Gomme</button>
+            </div>
+        </div>
+
+        <button class="btn btn-fullscreen" id="btnFullscreen">⛶ Plein Écran</button>
+        <button class="btn btn-danger" id="btnClear">Effacer Tout</button>
+    </div>
+
+    <div id="main">
+        <button id="btnExitFullscreen" class="btn-exit-fullscreen" title="Quitter le plein écran">✖</button>
+
+        <div class="fullscreen-palette" id="fsPalette">
+            <button class="hex-option selected" style="background: #2ecc71;" onclick="setColor('#2ecc71')"></button>
+            <button class="hex-option" style="background: #27ae60;" onclick="setColor('#27ae60')"></button>
+            <button class="hex-option" style="background: #3498db;" onclick="setColor('#3498db')"></button>
+            <button class="hex-option" style="background: #f1c40f;" onclick="setColor('#f1c40f')"></button>
+            <button class="hex-option" style="background: #95a5a6;" onclick="setColor('#95a5a6')"></button>
+            <button class="hex-option" style="background: #ffffff; border: 1px solid #ccc;" onclick="setColor('#ffffff')"></button>
+        </div>
+
+        <div class="mode-toggle-container">
+            <button id="btnModeToggle" class="btn-mode paint">Mode : Peindre 🎨</button>
+        </div>
+        <canvas id="hexCanvas"></canvas>
+    </div>
+
+    <div id="loginModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Bienvenue !</h2>
+            <div class="control-group">
+                <label for="usernameInput">Entrez votre pseudo :</label>
+                <input type="text" id="usernameInput" placeholder="Ex: Alex" maxlength="15">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" id="btnConfirmUsername">Rejoindre la partie</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="overrideModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Modification d'une case</h2>
+            <p id="overrideMessage" style="font-size: 0.9rem; line-height: 1.4; color: #2c3e50;"></p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="btnCancelOverride">Annuler</button>
+                <button class="btn btn-danger" id="btnConfirmOverride">Confirmer le changement</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="configModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Dimensions du Plateau</h2>
+            <div class="control-group">
+                <label for="cols">Nombre de plaques en largeur (Colonnes)</label>
+                <input type="number" id="cols" value="10" min="2" max="50">
+            </div>
+            <div class="control-group">
+                <label for="rows">Nombre de plaques en longueur (Lignes)</label>
+                <input type="number" id="rows" value="8" min="2" max="50">
+            </div>
+            <div class="alert-warning">
+                ⚠️ Attention : Modifier la taille du plateau effacera toutes les données actuelles !
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="btnCloseModal">Annuler</button>
+                <button class="btn btn-danger" id="btnApplyConfig">Confirmer et appliquer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const canvas = document.getElementById('hexCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let myUsername = "Anonyme";
+        let pendingTileKey = null;
+
+        let scale = 1.0, panX = 0, panY = 0;
+        let cols = 10, rows = 8, hexRadius = 35;
+        let gridData = {};
+
+        let isPaintMode = true;
+        let isMouseDown = false;
+        let startX = 0, startY = 0;
+
+        let initialPinchDistance = null;
+        let initialScale = 1.0;
+        let initialPanX = 0, initialPanY = 0;
+        let pinchCenter = { x: 0, y: 0 };
+
+        const inputCols = document.getElementById('cols');
+        const inputRows = document.getElementById('rows');
+        const inputColor = document.getElementById('tileColor');
+        const btnModeToggle = document.getElementById('btnModeToggle');
         
-        // Mettre à jour la cellule avec sa couleur et son auteur
-        gridData[key] = { color, author };
-        
-        // Diffuser le changement à tous les joueurs connectés
-        io.emit('update-tile', { key, color, author });
-    });
+        const loginModal = document.getElementById('loginModal');
+        const usernameInput = document.getElementById('usernameInput');
+        const btnConfirmUsername = document.getElementById('btnConfirmUsername');
+        const displayUsername = document.getElementById('displayUsername');
 
-    // 4. Redimensionner le plateau (réinitialise la grille)
-    socket.on('change-config', (newConfig) => {
-        config = newConfig;
-        gridData = {};
-        io.emit('update-config', { config, gridData });
-    });
+        const overrideModal = document.getElementById('overrideModal');
+        const overrideMessage = document.getElementById('overrideMessage');
+        const btnCancelOverride = document.getElementById('btnCancelOverride');
+        const btnConfirmOverride = document.getElementById('btnConfirmOverride');
 
-    // 5. Réinitialiser la grille
-    socket.on('clear-grid', () => {
-        gridData = {};
-        io.emit('clear-grid');
-    });
-});
+        const configModal = document.getElementById('configModal');
+        const btnOpenModal = document.getElementById('btnOpenModal');
+        const btnCloseModal = document.getElementById('btnCloseModal');
+        const btnApplyConfig = document.getElementById('btnApplyConfig');
 
-// Démarrage du serveur sur le port 3000
-const PORT = 3000;
-http.listen(PORT, () => {
-    console.log(`Serveur prêt sur http://localhost:${PORT}`);
-});
+        const btnExitFullscreen = document.getElementById('btnExitFullscreen');
+        const hexOptions = document.querySelectorAll('.hex-option');
+
+        function submitUsername() {
+            const val = usernameInput.value.trim();
+            if (val.length > 0) {
+                myUsername = val;
+                displayUsername.textContent = "Joueur : " + myUsername;
+                socket.emit('set-username', myUsername);
+                loginModal.classList.add('hidden');
+            }
+        }
+
+        btnConfirmUsername.addEventListener('click', submitUsername);
+        usernameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') submitUsername();
+        });
+
+        function setColor(c) { 
+            inputColor.value = c; 
+            hexOptions.forEach(opt => {
+                if(opt.style.backgroundColor === c || (c === '#ffffff' && opt.style.backgroundColor.includes('255'))) {
+                    opt.classList.add('selected');
+                } else {
+                    opt.classList.remove('selected');
+                }
+            });
+            setMode(true);
+        }
+
+        inputColor.addEventListener('input', (e) => setColor(e.target.value));
+
+        btnOpenModal.addEventListener('click', () => {
+            inputCols.value = cols;
+            inputRows.value = rows;
+            configModal.classList.remove('hidden');
+        });
+
+        btnCloseModal.addEventListener('click', () => configModal.classList.add('hidden'));
+
+        btnApplyConfig.addEventListener('click', () => {
+            const newCols = parseInt(inputCols.value);
+            const newRows = parseInt(inputRows.value);
+
+            if (newCols !== cols || newRows !== rows) {
+                if (confirm("Toutes les données du plateau vont être perdues. Voulez-vous continuer ?")) {
+                    cols = newCols;
+                    rows = newRows;
+                    socket.emit('change-config', { cols, rows });
+                    configModal.classList.add('hidden');
+                }
+            } else {
+                configModal.classList.add('hidden');
+            }
+        });
+
+        function setMode(paintMode) {
+            isPaintMode = paintMode;
+            if (isPaintMode) {
+                btnModeToggle.textContent = "Mode : Peindre 🎨";
+                btnModeToggle.className = "btn-mode paint";
+            } else {
+                btnModeToggle.textContent = "Mode : Déplacer / Zoomer ✋";
+                btnModeToggle.className = "btn-mode move";
+            }
+        }
+
+        btnModeToggle.addEventListener('click', () => setMode(!isPaintMode));
+
+        socket.on('init', (data) => {
+            gridData = data.gridData;
+            cols = data.config.cols;
+            rows = data.config.rows;
+            inputCols.value = cols;
+            inputRows.value = rows;
+            initCanvas();
+        });
+
+        socket.on('update-tile', (data) => {
+            gridData[data.key] = { color: data.color, author: data.author };
+            drawGrid();
+        });
+
+        socket.on('update-config', (data) => {
+            cols = data.config.cols;
+            rows = data.config.rows;
+            gridData = data.gridData;
+            inputCols.value = cols;
+            inputRows.value = rows;
+            initCanvas();
+        });
+
+        socket.on('clear-grid', () => {
+            gridData = {};
+            drawGrid();
+        });
+
+        function initCanvas() {
+            const hexWidth = Math.sqrt(3) * hexRadius;
+            const hexHeight = 2 * hexRadius;
+            canvas.width = cols * hexWidth + (hexWidth / 2) + 20;
+            canvas.height = rows * (hexHeight * 0.75) + (hexHeight * 0.25) + 20;
+            drawGrid();
+        }
+
+        function getHexCenter(col, row) {
+            const hexWidth = Math.sqrt(3) * hexRadius;
+            const xOffset = (row % 2 === 1) ? hexWidth / 2 : 0;
+            return {
+                x: 10 + hexWidth / 2 + col * hexWidth + xOffset,
+                y: 10 + hexRadius + row * (hexRadius * 1.5)
+            };
+        }
+
+        function drawHexagon(x, y, radius, fillColor) {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 180) * (60 * i - 30);
+                const pointX = x + radius * Math.cos(angle);
+                const pointY = y + radius * Math.sin(angle);
+                if (i === 0) ctx.moveTo(pointX, pointY);
+                else ctx.lineTo(pointX, pointY);
+            }
+            ctx.closePath();
+            ctx.fillStyle = fillColor || '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+
+        function drawGrid() {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.translate(panX, panY);
+            ctx.scale(scale, scale);
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const { x, y } = getHexCenter(c, r);
+                    const key = `${c},${r}`;
+                    const tile = gridData[key];
+                    const color = tile ? tile.color : '#ffffff';
+                    drawHexagon(x, y, hexRadius, color);
+                }
+            }
+            ctx.restore();
+        }
+
+        function paintTile(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            const canvasX = (clientX - rect.left) * scaleX;
+            const canvasY = (clientY - rect.top) * scaleY;
+
+            const mouseX = (canvasX - panX) / scale;
+            const mouseY = (canvasY - panY) / scale;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const { x, y } = getHexCenter(c, r);
+                    if (Math.hypot(mouseX - x, mouseY - y) < hexRadius * 0.85) {
+                        const key = `${c},${r}`;
+                        const currentColor = inputColor.value;
+                        const existingTile = gridData[key];
+
+                        if (existingTile && existingTile.author && existingTile.author !== myUsername && existingTile.color !== currentColor) {
+                            isMouseDown = false;
+                            pendingTileKey = key;
+                            overrideMessage.innerHTML = `L'utilisateur <strong>${existingTile.author}</strong> a déjà modifié cet hexagone.<br><br>Voulez-vous vraiment remplacer sa couleur ?`;
+                            overrideModal.classList.remove('hidden');
+                            return;
+                        }
+
+                        if (!existingTile || existingTile.color !== currentColor) {
+                            gridData[key] = { color: currentColor, author: myUsername };
+                            drawGrid();
+                            socket.emit('paint-tile', { key, color: currentColor });
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
+        btnConfirmOverride.addEventListener('click', () => {
+            if (pendingTileKey) {
+                const color = inputColor.value;
+                gridData[pendingTileKey] = { color, author: myUsername };
+                drawGrid();
+                socket.emit('paint-tile', { key: pendingTileKey, color });
+                pendingTileKey = null;
+            }
+            overrideModal.classList.add('hidden');
+        });
+
+        btnCancelOverride.addEventListener('click', () => {
+            pendingTileKey = null;
+            overrideModal.classList.add('hidden');
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+            if (isPaintMode) paintTile(e.clientX, e.clientY);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isMouseDown) return;
+            if (isPaintMode) {
+                paintTile(e.clientX, e.clientY);
+            } else {
+                panX = e.clientX - startX;
+                panY = e.clientY - startY;
+                drawGrid();
+            }
+        });
+
+        window.addEventListener('mouseup', () => isMouseDown = false);
+
+        function getTouchDistance(t1, t2) {
+            return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        }
+
+        function getTouchCenter(t1, t2, rect) {
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: ((t1.clientX + t2.clientX) / 2 - rect.left) * scaleX,
+                y: ((t1.clientY + t2.clientY) / 2 - rect.top) * scaleY
+            };
+        }
+
+        canvas.addEventListener('touchstart', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            
+            if (e.touches.length === 1) {
+                isMouseDown = true;
+                startX = e.touches[0].clientX - panX;
+                startY = e.touches[0].clientY - panY;
+                if (isPaintMode) paintTile(e.touches[0].clientX, e.touches[0].clientY);
+            } else if (e.touches.length === 2) {
+                isMouseDown = false;
+                initialPinchDistance = getTouchDistance(e.touches[0], e.touches[1]);
+                initialScale = scale;
+                initialPanX = panX;
+                initialPanY = panY;
+                pinchCenter = getTouchCenter(e.touches[0], e.touches[1], rect);
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && isMouseDown) {
+                if (isPaintMode) {
+                    paintTile(e.touches[0].clientX, e.touches[0].clientY);
+                } else {
+                    panX = e.touches[0].clientX - startX;
+                    panY = e.touches[0].clientY - startY;
+                    drawGrid();
+                }
+            } else if (e.touches.length === 2 && initialPinchDistance) {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const currentDistance = getTouchDistance(e.touches[0], e.touches[1]);
+                const currentCenter = getTouchCenter(e.touches[0], e.touches[1], rect);
+
+                const factor = currentDistance / initialPinchDistance;
+                let newScale = Math.min(Math.max(initialScale * factor, 0.3), 4.0);
+
+                const ratio = newScale / initialScale;
+                panX = currentCenter.x - (pinchCenter.x - initialPanX) * ratio;
+                panY = currentCenter.y - (pinchCenter.y - initialPanY) * ratio;
+
+                scale = newScale;
+                drawGrid();
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) initialPinchDistance = null;
+            if (e.touches.length === 0) isMouseDown = false;
+        });
+
+        document.getElementById('btnClear').addEventListener('click', () => socket.emit('clear-grid'));
+
+        document.getElementById('btnFullscreen').addEventListener('click', () => {
+            const main = document.getElementById('main');
+            if (!document.fullscreenElement) main.requestFullscreen();
+        });
+
+        btnExitFullscreen.addEventListener('click', () => {
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
+        });
+    </script>
+</body>
+</html>
