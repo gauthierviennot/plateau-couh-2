@@ -102,7 +102,6 @@
             <button class="btn-go" id="btnGo">🚀 GO !</button>
         </div>
 
-        <!-- Modale Configuration Admin (Page 2) -->
         <div id="configModal" class="modal-overlay hidden">
             <div class="modal-content">
                 <h3>Taille du Plateau</h3>
@@ -129,13 +128,12 @@
         <div class="fullscreen-palette" id="fsPalette"></div>
 
         <div class="mode-toggle-container">
-            <button id="btnResetView" class="btn-reset-view" title="Centrer la carte">🎯</button>
+            <button id="btnResetView" class="btn-reset-view" title="Réinitialiser la vue">🎯</button>
             <button id="btnModeToggle" class="btn-mode paint">Mode : Peindre 🎨</button>
         </div>
 
         <canvas id="hexCanvas"></canvas>
 
-        <!-- Modale Confirmation Écriture (Désormais rattachée à la Page 3) -->
         <div id="overrideModal" class="modal-overlay hidden">
             <div class="modal-content">
                 <h3>Remplacer la case ?</h3>
@@ -156,15 +154,22 @@
         let activeColor = "#2ecc71";
         let pendingTileKey = null;
 
-        let scale = 1.0, panX = 0, panY = 0;
+        // Variables de Transformation du Canvas
+        let scale = 1.0, panX = 0, panY = 0, rotationAngle = 0;
         let cols = 10, rows = 8, hexRadius = 35;
         let gridData = {};
 
         let isPaintMode = true;
         let isMouseDown = false;
         let startX = 0, startY = 0;
+
+        // Variables Multi-touch (Zoom & Rotation)
         let initialPinchDistance = null;
+        let initialPinchAngle = 0;
         let initialScale = 1.0;
+        let initialRotation = 0;
+        let pinchCenter = { x: 0, y: 0 };
+        let initialPanX = 0, initialPanY = 0;
 
         let terrains = [
             { color: '#2ecc71', label: 'Plaine' },
@@ -181,7 +186,6 @@
             { color: '#d35400', label: 'Terre' }
         ];
 
-        // Éléments DOM
         const page1 = document.getElementById('page1');
         const page2 = document.getElementById('page2');
         const page3 = document.getElementById('page3');
@@ -287,12 +291,10 @@
             });
         }
 
-        // --- PAGE 2 -> PAGE 3 : GO! ---
+        // --- PAGE 2 -> PAGE 3 ---
         document.getElementById('btnGo').addEventListener('click', () => {
             showPage(page3);
-            panX = 0;
-            panY = 0;
-            scale = 1.0;
+            resetTransform();
             
             if (page3.requestFullscreen) {
                 page3.requestFullscreen().catch(() => {});
@@ -313,19 +315,21 @@
             showPage(page2);
         });
 
-        // --- SOCKET.IO EVENTS ---
-        function updateUsersUI(users) {
+        // --- SOCKET.IO EVENTS & SYNCHRONISATION JOUEURS ---
+        function updateUsersUI(usersList) {
             onlineUsers.innerHTML = '';
-            users.forEach(u => {
-                const item = document.createElement('div');
-                item.className = 'user-item';
-                item.textContent = u;
-                onlineUsers.appendChild(item);
-            });
+            if (Array.isArray(usersList)) {
+                usersList.forEach(u => {
+                    const item = document.createElement('div');
+                    item.className = 'user-item';
+                    item.textContent = u;
+                    onlineUsers.appendChild(item);
+                });
+            }
         }
 
-        socket.on('update-users-list', (users) => updateUsersUI(users));
-        socket.on('users-list', (users) => updateUsersUI(users));
+        socket.on('update-users-list', updateUsersUI);
+        socket.on('users-list', updateUsersUI);
 
         socket.on('update-terrains', (newTerrains) => {
             terrains = newTerrains;
@@ -358,7 +362,7 @@
             if (page3.classList.contains('active')) initCanvas();
         });
 
-        // --- CANVAS & DESSIN ---
+        // --- CANVAS, TRANSFORMATIONS & DESSIN ---
         function setMode(paintMode) {
             isPaintMode = paintMode;
             btnModeToggle.textContent = isPaintMode ? "Mode : Peindre 🎨" : "Mode : Déplacer ✋";
@@ -367,12 +371,15 @@
 
         btnModeToggle.addEventListener('click', () => setMode(!isPaintMode));
         
-        btnResetView.addEventListener('click', () => {
+        function resetTransform() {
             panX = 0;
             panY = 0;
             scale = 1.0;
+            rotationAngle = 0;
             drawGrid();
-        });
+        }
+
+        btnResetView.addEventListener('click', resetTransform);
 
         function initCanvas() {
             const rect = page3.getBoundingClientRect();
@@ -416,7 +423,9 @@
             ctx.fillStyle = "#ecf0f1";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // Application Translation -> Rotation -> Zoom
             ctx.translate(panX, panY);
+            ctx.rotate(rotationAngle);
             ctx.scale(scale, scale);
 
             for (let r = 0; r < rows; r++) {
@@ -431,18 +440,31 @@
             ctx.restore();
         }
 
-        function paintTile(clientX, clientY) {
+        // Conversion des coordonnées de l'écran vers le repère Canvas (avec Rotation + Zoom)
+        function getCanvasCoordinates(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
-            const canvasX = clientX - rect.left;
-            const canvasY = clientY - rect.top;
+            let screenX = clientX - rect.left - panX;
+            let screenY = clientY - rect.top - panY;
 
-            const mouseX = (canvasX - panX) / scale;
-            const mouseY = (canvasY - panY) / scale;
+            const cos = Math.cos(-rotationAngle);
+            const sin = Math.sin(-rotationAngle);
+
+            const rx = screenX * cos - screenY * sin;
+            const ry = screenX * sin + screenY * cos;
+
+            return {
+                x: rx / scale,
+                y: ry / scale
+            };
+        }
+
+        function paintTile(clientX, clientY) {
+            const coords = getCanvasCoordinates(clientX, clientY);
 
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     const { x, y } = getHexCenter(c, r);
-                    if (Math.hypot(mouseX - x, mouseY - y) < hexRadius * 0.85) {
+                    if (Math.hypot(coords.x - x, coords.y - y) < hexRadius * 0.85) {
                         const key = `${c},${r}`;
                         const currentColor = activeColor;
                         const existingTile = gridData[key];
@@ -522,15 +544,24 @@
 
         window.addEventListener('mouseup', () => isMouseDown = false);
 
-        // Zoom à la molette
+        // Zoom Molette
         canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
             const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-            scale = Math.min(Math.max(0.3, scale * zoomFactor), 4.0);
+            const newScale = Math.min(Math.max(0.3, scale * zoomFactor), 5.0);
+
+            panX = mouseX - (mouseX - panX) * (newScale / scale);
+            panY = mouseY - (mouseY - panY) * (newScale / scale);
+            scale = newScale;
+
             drawGrid();
         }, { passive: false });
 
-        // Tactile (1 doigt : peinture/déplacement, 2 doigts : pinch zoom)
+        // GESTION TACTILE : ZOOM CENTRÉ SUR LE PINCEMENT & ROTATION (Tous Modes)
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 isMouseDown = true;
@@ -538,39 +569,67 @@
                 startY = e.touches[0].clientY - panY;
                 if (isPaintMode) paintTile(e.touches[0].clientX, e.touches[0].clientY);
             } else if (e.touches.length === 2) {
-                isMouseDown = false;
-                initialPinchDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
+                isMouseDown = false; // Désactive la peinture dès que deux doigts touchent
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+
+                const rect = canvas.getBoundingClientRect();
+                pinchCenter = {
+                    x: (t1.clientX + t2.clientX) / 2 - rect.left,
+                    y: (t1.clientY + t2.clientY) / 2 - rect.top
+                };
+
+                initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                initialPinchAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX);
+
                 initialScale = scale;
+                initialRotation = rotationAngle;
+                initialPanX = panX;
+                initialPanY = panY;
             }
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
+
             if (e.touches.length === 1 && isMouseDown) {
                 if (isPaintMode) {
                     paintTile(e.touches[0].clientX, e.touches[0].clientY);
                 } else {
                     panX = e.touches[0].clientX - startX;
-                    panY = e.clientY - startY;
+                    panY = e.touches[0].clientY - startY;
                     drawGrid();
                 }
             } else if (e.touches.length === 2 && initialPinchDistance) {
-                const currentDist = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                const factor = currentDist / initialPinchDistance;
-                scale = Math.min(Math.max(0.3, initialScale * factor), 4.0);
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+
+                const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                const currentAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX);
+
+                // Calcul Rotation
+                const angleDiff = currentAngle - initialPinchAngle;
+                rotationAngle = initialRotation + angleDiff;
+
+                // Calcul Zoom centré sur les 2 doigts
+                const factor = currentDistance / initialPinchDistance;
+                const newScale = Math.min(Math.max(0.3, initialScale * factor), 5.0);
+
+                panX = pinchCenter.x - (pinchCenter.x - initialPanX) * (newScale / initialScale);
+                panY = pinchCenter.y - (pinchCenter.y - initialPanY) * (newScale / initialScale);
+                scale = newScale;
+
                 drawGrid();
             }
         }, { passive: false });
 
         canvas.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) initialPinchDistance = null;
-            if (e.touches.length === 0) isMouseDown = false;
+            if (e.touches.length < 2) {
+                initialPinchDistance = null;
+            }
+            if (e.touches.length === 0) {
+                isMouseDown = false;
+            }
         });
     </script>
 </body>
