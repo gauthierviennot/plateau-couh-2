@@ -30,21 +30,37 @@
         .btn-mode:active { transform: scale(0.95); }
         canvas { background-color: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border-radius: 8px; }
 
-        /* MODAL DE CONFIGURATION DES DIMENSIONS */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.5); display: flex;
-            justify-content: center; align-items: center; z-index: 100;
-        }
+        /* MODAL DE CONFIGURATION */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
         .modal-overlay.hidden { display: none; }
-        .modal-content {
-            background: #ffffff; padding: 20px; border-radius: 8px;
-            width: 320px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            display: flex; flex-direction: column; gap: 15px;
-        }
+        .modal-content { background: #ffffff; padding: 20px; border-radius: 8px; width: 320px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 15px; }
         .modal-content h2 { font-size: 1.1rem; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
         .btn-secondary { background-color: #95a5a6; }
+
+        /* PALETTE PLEIN ÉCRAN (ICÔNE HEXAGONALE) */
+        .fullscreen-palette { position: absolute; top: 15px; left: 15px; z-index: 30; display: none; flex-direction: column; align-items: flex-start; gap: 8px; }
+        :fullscreen .fullscreen-palette, :-webkit-full-screen .fullscreen-palette { display: flex; }
+        
+        .hex-icon-btn {
+            width: 44px; height: 44px; background: #2ecc71;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            cursor: pointer; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.2s ease;
+        }
+        .hex-icon-btn:active { transform: scale(0.9); }
+
+        .fullscreen-menu {
+            display: none; background: rgba(255, 255, 255, 0.95); padding: 10px;
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            grid-template-columns: repeat(3, 1fr); gap: 8px; backdrop-filter: blur(4px);
+        }
+        .fullscreen-menu.open { display: grid; }
+        .hex-option {
+            width: 32px; height: 32px;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            cursor: pointer; border: none;
+        }
     </style>
 </head>
 <body>
@@ -76,13 +92,26 @@
     </div>
 
     <div id="main">
+        <!-- ICÔNE DE SÉLECTION DE COULEUR HEXAGONALE EN PLEIN ÉCRAN -->
+        <div class="fullscreen-palette">
+            <button id="fsHexIcon" class="hex-icon-btn" title="Changer de couleur"></button>
+            <div id="fsMenu" class="fullscreen-menu">
+                <button class="hex-option" style="background: #2ecc71;" onclick="setColor('#2ecc71')"></button>
+                <button class="hex-option" style="background: #27ae60;" onclick="setColor('#27ae60')"></button>
+                <button class="hex-option" style="background: #3498db;" onclick="setColor('#3498db')"></button>
+                <button class="hex-option" style="background: #f1c40f;" onclick="setColor('#f1c40f')"></button>
+                <button class="hex-option" style="background: #95a5a6;" onclick="setColor('#95a5a6')"></button>
+                <button class="hex-option" style="background: #ffffff; border: 1px solid #ccc;" onclick="setColor('#ffffff')"></button>
+            </div>
+        </div>
+
         <div class="mode-toggle-container">
             <button id="btnModeToggle" class="btn-mode paint">Mode : Peindre 🎨</button>
         </div>
         <canvas id="hexCanvas"></canvas>
     </div>
 
-    <!-- MODAL POPUP DIMENSIONS -->
+    <!-- MODAL CONFIGURATION -->
     <div id="configModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2>Dimensions du Plateau</h2>
@@ -129,16 +158,38 @@
         const btnCloseModal = document.getElementById('btnCloseModal');
         const btnApplyConfig = document.getElementById('btnApplyConfig');
 
-        // GESTION DU MODAL
+        const fsHexIcon = document.getElementById('fsHexIcon');
+        const fsMenu = document.getElementById('fsMenu');
+
+        // GESTION COULEURS EN PLEIN ÉCRAN
+        function setColor(c) { 
+            inputColor.value = c; 
+            fsHexIcon.style.backgroundColor = c;
+            fsMenu.classList.remove('open');
+            setMode(true);
+        }
+
+        inputColor.addEventListener('input', (e) => {
+            fsHexIcon.style.backgroundColor = e.target.value;
+        });
+
+        fsHexIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fsMenu.classList.toggle('open');
+        });
+
+        document.addEventListener('click', () => {
+            fsMenu.classList.remove('open');
+        });
+
+        // GESTION MODAL
         btnOpenModal.addEventListener('click', () => {
             inputCols.value = cols;
             inputRows.value = rows;
             configModal.classList.remove('hidden');
         });
 
-        btnCloseModal.addEventListener('click', () => {
-            configModal.classList.add('hidden');
-        });
+        btnCloseModal.addEventListener('click', () => configModal.classList.add('hidden'));
 
         btnApplyConfig.addEventListener('click', () => {
             cols = parseInt(inputCols.value);
@@ -146,11 +197,6 @@
             socket.emit('change-config', { cols, rows });
             configModal.classList.add('hidden');
         });
-
-        function setColor(c) { 
-            inputColor.value = c; 
-            setMode(true);
-        }
 
         function setMode(paintMode) {
             isPaintMode = paintMode;
