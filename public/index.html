@@ -43,7 +43,7 @@
         .btn-config { padding: 8px; border: none; border-radius: 6px; background: #34495e; color: white; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
 
         /* --- PAGE 3 : CARTE EN PLEIN ÉCRAN --- */
-        #page3 { background: #2c3e50; position: relative; overflow: hidden; display: none; width: 100vw; height: 100vh; }
+        #page3 { background: #2c3e50; position: relative; overflow: hidden; display: none; width: 100vw; height: 100vh; touch-action: none; }
         
         .btn-exit { position: absolute; top: 15px; left: 15px; z-index: 50; width: 42px; height: 42px; background: #e74c3c; color: white; border: none; border-radius: 50%; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
         .btn-exit:hover { background: #c0392b; }
@@ -60,7 +60,7 @@
         .btn-mode.move { background-color: #3498db; color: white; }
         .btn-reset-view { padding: 10px; border: none; border-radius: 50%; background: #ffffff; color: #333; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
 
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #ecf0f1; display: block; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #ecf0f1; display: block; touch-action: none; }
 
         /* Modales */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
@@ -101,6 +101,25 @@
 
             <button class="btn-go" id="btnGo">🚀 GO !</button>
         </div>
+
+        <!-- Modale Configuration Admin (Page 2) -->
+        <div id="configModal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3>Taille du Plateau</h3>
+                <div class="control-group">
+                    <label>Colonnes (largeur)</label>
+                    <input type="number" id="cols" value="10" min="2" max="50">
+                </div>
+                <div class="control-group">
+                    <label>Lignes (longueur)</label>
+                    <input type="number" id="rows" value="8" min="2" max="50">
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" id="btnCloseModal">Annuler</button>
+                    <button class="btn-danger" id="btnApplyConfig">Appliquer</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ==================== PAGE 3 : PLEIN ÉCRAN / CARTE ==================== -->
@@ -115,35 +134,16 @@
         </div>
 
         <canvas id="hexCanvas"></canvas>
-    </div>
 
-    <!-- Modale Configuration Admin -->
-    <div id="configModal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3>Taille du Plateau</h3>
-            <div class="control-group">
-                <label>Colonnes (largeur)</label>
-                <input type="number" id="cols" value="10" min="2" max="50">
-            </div>
-            <div class="control-group">
-                <label>Lignes (longueur)</label>
-                <input type="number" id="rows" value="8" min="2" max="50">
-            </div>
-            <div class="modal-actions">
-                <button class="btn-secondary" id="btnCloseModal">Annuler</button>
-                <button class="btn-danger" id="btnApplyConfig">Appliquer</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modale Confirmation Écriture -->
-    <div id="overrideModal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3>Remplacer la case ?</h3>
-            <p id="overrideMessage" style="font-size: 0.85rem; color: #2c3e50;"></p>
-            <div class="modal-actions">
-                <button class="btn-secondary" id="btnCancelOverride">Annuler</button>
-                <button class="btn-danger" id="btnConfirmOverride">Confirmer</button>
+        <!-- Modale Confirmation Écriture (Désormais rattachée à la Page 3) -->
+        <div id="overrideModal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3>Remplacer la case ?</h3>
+                <p id="overrideMessage" style="font-size: 0.85rem; color: #2c3e50;"></p>
+                <div class="modal-actions">
+                    <button class="btn-secondary" id="btnCancelOverride">Annuler</button>
+                    <button class="btn-danger" id="btnConfirmOverride">Confirmer</button>
+                </div>
             </div>
         </div>
     </div>
@@ -163,6 +163,8 @@
         let isPaintMode = true;
         let isMouseDown = false;
         let startX = 0, startY = 0;
+        let initialPinchDistance = null;
+        let initialScale = 1.0;
 
         let terrains = [
             { color: '#2ecc71', label: 'Plaine' },
@@ -197,7 +199,6 @@
         const btnModeToggle = document.getElementById('btnModeToggle');
         const btnResetView = document.getElementById('btnResetView');
 
-        // Navigation entre les pages
         function showPage(page) {
             page1.classList.remove('active');
             page2.classList.remove('active');
@@ -236,7 +237,6 @@
             fsPalette.innerHTML = '';
 
             terrains.forEach((t, idx) => {
-                // Page 2
                 const item = document.createElement('div');
                 item.className = 'terrain-item';
 
@@ -276,7 +276,6 @@
 
                 terrainContainer.appendChild(item);
 
-                // Page 3 (Palette carte)
                 const hexBtn = document.createElement('button');
                 hexBtn.className = 'hex-option' + (t.color === activeColor ? ' selected' : '');
                 hexBtn.style.backgroundColor = t.color;
@@ -300,7 +299,6 @@
             }
         });
 
-        // Détecte quand la Page 3 devient réellement visible à l'écran pour dimensionner et dessiner
         const resizeObserver = new ResizeObserver(() => {
             if (page3.classList.contains('active')) {
                 initCanvas();
@@ -308,7 +306,6 @@
         });
         resizeObserver.observe(page3);
 
-        // --- PAGE 3 -> PAGE 2 : QUITTER ---
         document.getElementById('btnExitMap').addEventListener('click', () => {
             if (document.fullscreenElement) {
                 document.exitFullscreen().catch(() => {});
@@ -317,7 +314,7 @@
         });
 
         // --- SOCKET.IO EVENTS ---
-        socket.on('update-users-list', (users) => {
+        function updateUsersUI(users) {
             onlineUsers.innerHTML = '';
             users.forEach(u => {
                 const item = document.createElement('div');
@@ -325,7 +322,10 @@
                 item.textContent = u;
                 onlineUsers.appendChild(item);
             });
-        });
+        }
+
+        socket.on('update-users-list', (users) => updateUsersUI(users));
+        socket.on('users-list', (users) => updateUsersUI(users));
 
         socket.on('update-terrains', (newTerrains) => {
             terrains = newTerrains;
@@ -337,6 +337,7 @@
             cols = data.config ? data.config.cols : 10;
             rows = data.config ? data.config.rows : 8;
             if (data.terrains) terrains = data.terrains;
+            if (data.users) updateUsersUI(data.users);
             document.getElementById('cols').value = cols;
             document.getElementById('rows').value = rows;
             renderTerrains();
@@ -412,7 +413,6 @@
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Fond de carte
             ctx.fillStyle = "#ecf0f1";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -501,7 +501,7 @@
             }
         });
 
-        // Événements Souris & Tactile
+        // Souris
         canvas.addEventListener('mousedown', (e) => {
             isMouseDown = true;
             startX = e.clientX - panX;
@@ -522,28 +522,56 @@
 
         window.addEventListener('mouseup', () => isMouseDown = false);
 
+        // Zoom à la molette
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+            scale = Math.min(Math.max(0.3, scale * zoomFactor), 4.0);
+            drawGrid();
+        }, { passive: false });
+
+        // Tactile (1 doigt : peinture/déplacement, 2 doigts : pinch zoom)
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 isMouseDown = true;
                 startX = e.touches[0].clientX - panX;
                 startY = e.touches[0].clientY - panY;
                 if (isPaintMode) paintTile(e.touches[0].clientX, e.touches[0].clientY);
+            } else if (e.touches.length === 2) {
+                isMouseDown = false;
+                initialPinchDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                initialScale = scale;
             }
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
             if (e.touches.length === 1 && isMouseDown) {
                 if (isPaintMode) {
                     paintTile(e.touches[0].clientX, e.touches[0].clientY);
                 } else {
                     panX = e.touches[0].clientX - startX;
-                    panY = e.touches[0].clientY - startY;
+                    panY = e.clientY - startY;
                     drawGrid();
                 }
+            } else if (e.touches.length === 2 && initialPinchDistance) {
+                const currentDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const factor = currentDist / initialPinchDistance;
+                scale = Math.min(Math.max(0.3, initialScale * factor), 4.0);
+                drawGrid();
             }
         }, { passive: false });
 
-        canvas.addEventListener('touchend', () => isMouseDown = false);
+        canvas.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) initialPinchDistance = null;
+            if (e.touches.length === 0) isMouseDown = false;
+        });
     </script>
 </body>
 </html>
