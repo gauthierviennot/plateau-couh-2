@@ -1,38 +1,48 @@
 const express = require('express');
-const http = require('http');
-const path = require('path');
-const { Server } = require('socket.io');
-
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
 
-let gridData = {};
-let gridConfig = { cols: 10, rows: 8, hexRadius: 35 };
+app.use(express.static(__dirname));
 
-// Servir les fichiers statiques du dossier public
-app.use(express.static(path.join(__dirname, 'public')));
+let config = { cols: 10, rows: 8 };
+// gridData stocke désormais la couleur ET l'auteur : { "x,y": { color: "#...", author: "Pseudo" } }
+let gridData = {}; 
 
 io.on('connection', (socket) => {
-    socket.emit('init', { gridData, config: gridConfig });
+    // 1. Envoyer l'état actuel à la connexion
+    socket.emit('init', { config, gridData });
 
+    // 2. Gestion du changement de pseudonyme
+    socket.on('set-username', (name) => {
+        socket.username = name || 'Anonyme';
+    });
+
+    // 3. Application directe ou écrasement de la tuile
     socket.on('paint-tile', (data) => {
-        gridData[data.key] = data.color;
-        socket.broadcast.emit('update-tile', data);
+        const { key, color } = data;
+        const author = socket.username || 'Anonyme';
+        
+        gridData[key] = { color, author };
+        
+        // Diffuser la mise à jour à l'ensemble des clients
+        io.emit('update-tile', { key, color, author });
     });
 
-    socket.on('change-config', (config) => {
-        gridConfig.cols = config.cols;
-        gridConfig.rows = config.rows;
+    // 4. Redimensionnement du plateau
+    socket.on('change-config', (newConfig) => {
+        config = newConfig;
         gridData = {};
-        io.emit('update-config', { config: gridConfig, gridData });
+        io.emit('update-config', { config, gridData });
     });
 
+    // 5. Effacement complet
     socket.on('clear-grid', () => {
         gridData = {};
         io.emit('clear-grid');
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Serveur prêt sur le port ${PORT}`));
+http.listen(3000, () => {
+    console.log('Serveur actif sur http://localhost:3000');
+});
