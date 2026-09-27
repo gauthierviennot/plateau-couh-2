@@ -65,6 +65,19 @@
         .btn-lock { padding: 10px 16px; border: none; border-radius: 20px; font-weight: bold; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); background-color: #e67e22; color: white; }
         .btn-reset-view { padding: 10px; border: none; border-radius: 50%; background: #ffffff; color: #333; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; }
 
+        /* --- BOUSSOLE --- */
+        .compass-container { position: absolute; bottom: 20px; right: 20px; z-index: 50; width: 80px; height: 80px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px); border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 2px solid #2c3e50; }
+        .compass-dial { width: 100%; height: 100%; position: relative; border-radius: 50%; transition: transform 0.1s ease-out; }
+        .compass-btn { position: absolute; font-weight: bold; font-size: 0.75rem; color: #2c3e50; cursor: pointer; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, 0.5); }
+        .compass-btn:hover { background: #3498db; color: white; }
+        .compass-btn.n { top: 2px; left: 27px; color: #e74c3c; font-weight: 900; }
+        .compass-btn.e { right: 2px; top: 27px; }
+        .compass-btn.s { bottom: 2px; left: 27px; }
+        .compass-btn.w { left: 2px; top: 27px; }
+        .compass-needle { position: absolute; top: 50%; left: 50%; width: 4px; height: 36px; margin-top: -18px; margin-left: -2px; pointer-events: none; }
+        .compass-needle::before { content: ''; position: absolute; top: 0; left: 0; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 18px solid #e74c3c; }
+        .compass-needle::after { content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 18px solid #7f8c8d; }
+
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #ecf0f1; display: block; touch-action: none; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
@@ -135,6 +148,17 @@
             <button id="btnLockToggle" class="btn-lock" style="display: none;">🔓 Déverrouillé</button>
             <button id="btnResetView" class="btn-reset-view" title="Centrer la carte">🎯</button>
             <button id="btnModeToggle" class="btn-mode move">Mode : Déplacer ✋</button>
+        </div>
+
+        <!-- BOUSSOLE -->
+        <div class="compass-container">
+            <div class="compass-dial" id="compassDial">
+                <div class="compass-needle"></div>
+                <div class="compass-btn n" onclick="setCardinalAngle(0)">N</div>
+                <div class="compass-btn e" onclick="setCardinalAngle(270)">E</div>
+                <div class="compass-btn s" onclick="setCardinalAngle(180)">S</div>
+                <div class="compass-btn w" onclick="setCardinalAngle(90)">O</div>
+            </div>
         </div>
 
         <canvas id="hexCanvas"></canvas>
@@ -211,6 +235,7 @@
         const fsPalette = document.getElementById('fsPalette');
         const btnModeToggle = document.getElementById('btnModeToggle');
         const btnResetView = document.getElementById('btnResetView');
+        const compassDial = document.getElementById('compassDial');
 
         function showPage(page) {
             page1.classList.remove('active');
@@ -225,14 +250,12 @@
             page.style.display = 'flex';
         }
 
-        // MISE À JOUR SÉCURISÉE DE LA LISTE JOUEURS
         function updateUsersUI(usersList) {
             let cleanList = [];
             if (Array.isArray(usersList)) {
                 cleanList = usersList.filter(u => typeof u === 'string' && u.trim() !== '');
             }
 
-            // Conserver son propre pseudo si déjà connecté
             if (myUsername && !cleanList.includes(myUsername)) {
                 cleanList.push(myUsername);
             }
@@ -367,11 +390,18 @@
         function updateLockUI() {
             btnLockToggle.textContent = isLocked ? "🔒 Verrouillé" : "🔓 Déverrouillé";
             btnLockToggle.style.backgroundColor = isLocked ? "#e74c3c" : "#2ecc71";
-            fsPalette.style.opacity = (isLocked && !isAdmin) ? "0.3" : "1.0";
-            fsPalette.style.pointerEvents = (isLocked && !isAdmin) ? "none" : "auto";
+            
+            // Masquer les options de peinture si verrouillé (y compris pour l'admin)
+            if (isLocked) {
+                fsPalette.style.display = "none";
+                btnModeToggle.style.display = "none";
+                setMode(false);
+            } else {
+                fsPalette.style.display = "flex";
+                btnModeToggle.style.display = "block";
+            }
         }
 
-        // GESTION SOCKET.IO AVEC RÉ-ENREGISTREMENT AUTOMATIQUE
         if (socket) {
             socket.on('connect', () => {
                 if (myUsername && myUsername.length > 0) {
@@ -431,6 +461,7 @@
         }
 
         function setMode(paintMode) {
+            if (isLocked) paintMode = false;
             isPaintMode = paintMode;
             btnModeToggle.textContent = isPaintMode ? "Mode : Peindre 🎨" : "Mode : Déplacer ✋";
             btnModeToggle.className = isPaintMode ? "btn-mode paint" : "btn-mode move";
@@ -471,6 +502,11 @@
 
         btnResetView.addEventListener('click', centerMap);
 
+        function setCardinalAngle(deg) {
+            rotationAngle = deg * (Math.PI / 180);
+            drawGrid();
+        }
+
         function initCanvas() {
             const rect = page3.getBoundingClientRect();
             canvas.width = rect.width || window.innerWidth;
@@ -497,6 +533,12 @@
 
         function drawGrid() {
             if (!ctx) return;
+            
+            // Mise à jour de l'aiguille de la boussole
+            if (compassDial) {
+                compassDial.style.transform = `rotate(${-rotationAngle}rad)`;
+            }
+
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -538,7 +580,8 @@
         }
 
         function paintTile(clientX, clientY) {
-            if (isLocked && !isAdmin) return;
+            // Blocage de la peinture si verrouillé
+            if (isLocked) return;
 
             const coords = getCanvasCoordinates(clientX, clientY);
 
@@ -570,7 +613,7 @@
         }
 
         document.getElementById('btnConfirmOverride').addEventListener('click', () => {
-            if (pendingTileKey) {
+            if (pendingTileKey && !isLocked) {
                 gridData[pendingTileKey] = { color: activeColor, author: myUsername };
                 drawGrid();
                 if (socket) socket.emit('paint-tile', { key: pendingTileKey, color: activeColor });
@@ -609,12 +652,12 @@
             isMouseDown = true;
             startX = e.clientX - panX;
             startY = e.clientY - panY;
-            if (isPaintMode) paintTile(e.clientX, e.clientY);
+            if (isPaintMode && !isLocked) paintTile(e.clientX, e.clientY);
         });
 
         canvas.addEventListener('mousemove', (e) => {
             if (!isMouseDown) return;
-            if (isPaintMode) {
+            if (isPaintMode && !isLocked) {
                 paintTile(e.clientX, e.clientY);
             } else {
                 panX = e.clientX - startX;
@@ -646,7 +689,7 @@
                 isMouseDown = true;
                 startX = e.touches[0].clientX - panX;
                 startY = e.touches[0].clientY - panY;
-                if (isPaintMode) paintTile(e.touches[0].clientX, e.touches[0].clientY);
+                if (isPaintMode && !isLocked) paintTile(e.touches[0].clientX, e.touches[0].clientY);
             } else if (e.touches.length === 2) {
                 isMouseDown = false;
                 const t1 = e.touches[0];
@@ -672,7 +715,7 @@
             e.preventDefault();
 
             if (e.touches.length === 1 && isMouseDown) {
-                if (isPaintMode) {
+                if (isPaintMode && !isLocked) {
                     paintTile(e.touches[0].clientX, e.touches[0].clientY);
                 } else {
                     panX = e.touches[0].clientX - startX;
