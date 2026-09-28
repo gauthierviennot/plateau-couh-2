@@ -13,8 +13,8 @@ app.get('/', (req, res) => {
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 
-// Légendes et couleurs exactes issues des captures d'écran
 const DEFAULT_STATE = {
+    mapName: "Carte Principale",
     config: { cols: 150, rows: 100 },
     gridData: {},
     terrainsList: [
@@ -38,23 +38,19 @@ let state = { ...DEFAULT_STATE };
 function loadData() {
     try {
         if (fs.existsSync(DATA_FILE)) {
-            const fileData = fs.readFileSync(DATA_FILE, 'utf8');
-            const savedState = JSON.parse(fileData);
-            
+            const savedState = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
             state = {
+                mapName: savedState.mapName || DEFAULT_STATE.mapName,
                 config: savedState.config || DEFAULT_STATE.config,
                 gridData: savedState.gridData || DEFAULT_STATE.gridData,
-                terrainsList: (savedState.terrainsList && savedState.terrainsList.length > 0) 
-                    ? savedState.terrainsList 
-                    : DEFAULT_STATE.terrainsList,
+                terrainsList: (savedState.terrainsList && savedState.terrainsList.length > 0) ? savedState.terrainsList : DEFAULT_STATE.terrainsList,
                 isLocked: savedState.isLocked !== undefined ? savedState.isLocked : DEFAULT_STATE.isLocked
             };
-            console.log('✅ Données chargées avec succès depuis data.json');
         } else {
             saveData();
         }
     } catch (err) {
-        console.error('⚠️ Erreur chargement data.json :', err.message);
+        console.error('Erreur chargement data.json :', err.message);
     }
 }
 
@@ -62,7 +58,7 @@ function saveData() {
     try {
         fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), 'utf8');
     } catch (err) {
-        console.error('⚠️ Erreur sauvegarde data.json :', err.message);
+        console.error('Erreur sauvegarde data.json :', err.message);
     }
 }
 
@@ -71,18 +67,17 @@ loadData();
 const activeUsers = {};
 
 function broadcastUserList() {
-    const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
-    io.emit('update-users-list', [...new Set(rawUsers)]);
+    const uniqueUsers = [...new Set(Object.values(activeUsers).filter(u => u && u.trim() !== ''))];
+    io.emit('update-users-list', uniqueUsers);
 }
 
 io.on('connection', (socket) => {
-    const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
-    
     socket.emit('init', { 
+        mapName: state.mapName,
         config: state.config, 
         gridData: state.gridData, 
         terrains: state.terrainsList,
-        users: [...new Set(rawUsers)],
+        users: [...new Set(Object.values(activeUsers).filter(u => u && u.trim() !== ''))],
         isLocked: state.isLocked
     });
 
@@ -93,9 +88,7 @@ io.on('connection', (socket) => {
         if (lowerName === 'admin') {
             const alreadyAdmin = Object.values(activeUsers).some(u => u.toLowerCase() === 'admin');
             if (alreadyAdmin && socket.username?.toLowerCase() !== 'admin') {
-                if (typeof callback === 'function') {
-                    callback({ success: false, message: "Un administrateur est déjà connecté !" });
-                }
+                if (typeof callback === 'function') callback({ success: false, message: "Un administrateur est déjà connecté !" });
                 return;
             }
         }
@@ -104,74 +97,44 @@ io.on('connection', (socket) => {
             socket.username = cleanName;
             activeUsers[socket.id] = cleanName;
             broadcastUserList();
-            if (typeof callback === 'function') {
-                callback({ success: true });
-            }
-        }
-    });
-
-    socket.on('get-users', () => {
-        const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
-        socket.emit('update-users-list', [...new Set(rawUsers)]);
-    });
-
-    socket.on('toggle-lock', (lockedState) => {
-        if (socket.username && socket.username.toLowerCase() === 'admin') {
-            state.isLocked = lockedState;
-            saveData();
-            io.emit('update-lock', state.isLocked);
+            if (typeof callback === 'function') callback({ success: true });
         }
     });
 
     socket.on('paint-tile', (data) => {
         if (state.isLocked) return;
-        const { key, color } = data;
-        const author = socket.username || 'Anonyme';
-        
-        state.gridData[key] = { color, author };
+        state.gridData[data.key] = { color: data.color, author: socket.username || 'Anonyme' };
         saveData();
-        io.emit('update-tile', { key, color, author });
+        io.emit('update-tile', { key: data.key, color: data.color, author: socket.username });
     });
 
     socket.on('update-terrains', (newTerrains) => {
-        if (socket.username && socket.username.toLowerCase() === 'admin') {
+        if (socket.username?.toLowerCase() === 'admin') {
             state.terrainsList = newTerrains;
             saveData();
             io.emit('update-terrains', state.terrainsList);
         }
     });
 
-    socket.on('change-config', (newConfig) => {
-        if (socket.username && socket.username.toLowerCase() === 'admin') {
-            state.config = newConfig;
+    // Nouvelle carte avec Nom, Lignes et Colonnes réglables
+    socket.on('create-new-map', ({ name, cols, rows }) => {
+        if (socket.username?.toLowerCase() === 'admin') {
+            state.mapName = name || "Nouvelle Carte";
+            state.config = { cols: parseInt(cols) || 150, rows: parseInt(rows) || 100 };
             state.gridData = {};
             saveData();
-            io.emit('update-config', { config: state.config, gridData: state.gridData });
+            io.emit('map-reloaded', state);
         }
     });
 
-    // Nouvelle carte (Reset de la grille)
-    socket.on('reset-map', () => {
-        if (socket.username && socket.username.toLowerCase() === 'admin') {
-            state.gridData = {};
-            saveData();
-            io.emit('update-config', { config: state.config, gridData: state.gridData });
-        }
-    });
-
-    // Chargement d'un fichier .json envoyé par l'Admin
     socket.on('load-map-file', (importedData) => {
-        if (socket.username && socket.username.toLowerCase() === 'admin') {
-            if (importedData && importedData.config && importedData.gridData) {
-                state.config = importedData.config;
-                state.gridData = importedData.gridData;
-                if (importedData.terrainsList) {
-                    state.terrainsList = importedData.terrainsList;
-                    io.emit('update-terrains', state.terrainsList);
-                }
-                saveData();
-                io.emit('update-config', { config: state.config, gridData: state.gridData });
-            }
+        if (socket.username?.toLowerCase() === 'admin' && importedData) {
+            state.mapName = importedData.mapName || "Carte Importée";
+            state.config = importedData.config || state.config;
+            state.gridData = importedData.gridData || {};
+            if (importedData.terrainsList) state.terrainsList = importedData.terrainsList;
+            saveData();
+            io.emit('map-reloaded', state);
         }
     });
 
@@ -184,6 +147,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => {
-    console.log(`Serveur démarré sur le port ${PORT}`);
-});
+http.listen(PORT, () => console.log(`Serveur prêt sur le port ${PORT}`));
