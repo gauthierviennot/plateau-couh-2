@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 // ⚠️ CHANGEZ CE MOT DE PASSE (Ne le laissez pas vide en production !)
-const ADMIN_PASSWORD = "MonMotDePasseSecurise123!"; 
+const ADMIN_PASSWORD = ""; 
 
 // Configuration et légende par défaut
 const DEFAULT_STATE = {
