@@ -51,7 +51,7 @@
         /* Page 2 : tableau de bord */
         #pageDashboard { background: #e5e9f0; justify-content: center; align-items: center; padding: 16px; }
         .dashboard-card { background: #fff; padding: 20px; border-radius: var(--radius); box-shadow: 0 4px 15px rgba(0,0,0,.1); width: 100%; max-width: 520px; max-height: 100%; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; touch-action: pan-y; }
-        .dashboard-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 2px solid var(--blue); padding-bottom: 8px; }
+        .dashboard-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 2px solid var(--blue); padding-bottom: 8px; }
         .dashboard-header h2 { font-size: 1.2rem; color: var(--dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .section-title { font-weight: bold; font-size: 0.85rem; color: var(--muted); margin-top: 5px; }
 
@@ -92,26 +92,20 @@
         .hex-option { width: 34px; height: 34px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); border: none; flex-shrink: 0; transition: transform .2s; }
         .hex-option.selected { transform: scale(1.25); filter: drop-shadow(0 0 5px #000); }
 
-        .map-toolbar { position: absolute; top: 15px; right: 15px; z-index: 50; display: flex; gap: 8px; }
+        .map-toolbar { position: absolute; top: 15px; right: 15px; z-index: 50; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: calc(100% - 80px); }
         .btn-pill { padding: 10px 16px; border: none; border-radius: 20px; font-weight: bold; font-size: 0.9rem; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,.2); }
         .btn-pill.paint { background: var(--green); }
         .btn-pill.move { background: var(--blue); }
-        .btn-pill.lock { background: var(--green); }
-        .btn-pill.lock.locked { background: var(--red); }
-        .btn-reset-view { width: 42px; height: 42px; border: none; border-radius: 50%; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; }
-
-        .compass { position: absolute; bottom: 20px; right: 20px; z-index: 50; width: 80px; height: 80px; background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,.3); border: 2px solid var(--dark); }
-        .compass-dial { width: 100%; height: 100%; position: relative; border-radius: 50%; }
-        .compass-btn { position: absolute; font-weight: bold; font-size: 0.75rem; color: var(--dark); width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 50%; background: rgba(255,255,255,.5); }
-        .compass-btn:hover { background: var(--blue); color: #fff; }
-        .compass-btn.n { top: 2px; left: 27px; color: var(--red); font-weight: 900; }
-        .compass-btn.e { right: 2px; top: 27px; }
-        .compass-btn.s { bottom: 2px; left: 27px; }
-        .compass-btn.w { left: 2px; top: 27px; }
-        .compass-needle { position: absolute; top: 50%; left: 50%; width: 4px; height: 36px; margin: -18px 0 0 -2px; pointer-events: none; }
-        .compass-needle::before, .compass-needle::after { content: ''; position: absolute; left: 0; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
-        .compass-needle::before { top: 0; border-bottom: 18px solid var(--red); }
-        .compass-needle::after { bottom: 0; border-top: 18px solid var(--muted); }
+        .btn-pill.erase { background: var(--red); }
+        .btn-pill.restore { background: var(--orange); }
+        .btn-round { width: 42px; height: 42px; border: none; border-radius: 50%; background: #fff; font-size: 1.15rem; line-height: 1; box-shadow: 0 4px 10px rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; }
+        .btn-round.lock { background: var(--green); }
+        .btn-round.lock.locked { background: var(--red); }
+        .btn-round.active { outline: 3px solid var(--dark); }
+        .rotate-controls { position: absolute; bottom: 20px; right: 20px; z-index: 50; display: flex; gap: 10px; }
+        .rotate-controls .btn-round { width: 48px; height: 48px; font-size: 1.5rem; }
+        .header-actions { display: flex; gap: 6px; }
+        .modal-wide { width: min(420px, 94vw); max-height: 90%; }
 
         /* Fenêtres modales et notifications */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
@@ -144,7 +138,10 @@
         <div class="dashboard-card">
             <div class="dashboard-header">
                 <h2 id="welcomeUser">Bienvenue !</h2>
-                <button id="btnAdminConfig" class="btn btn-dark admin-only" hidden>⚙️ Régler plateau</button>
+                <div class="header-actions admin-only" hidden>
+                    <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
+                    <button id="btnAdminConfig" class="btn btn-dark">⚙️ Plateau</button>
+                </div>
             </div>
 
             <div class="section-title">Joueurs en ligne</div>
@@ -153,13 +150,6 @@
             <div class="section-title">Couleurs et légendes</div>
             <div id="terrainContainer" class="terrain-palette"></div>
             <button id="btnAddTerrain" class="btn btn-secondary admin-only" hidden>＋ Ajouter une couleur</button>
-
-            <div class="section-title admin-only" hidden>Cartes enregistrées</div>
-            <div class="map-save admin-only" hidden>
-                <input type="text" id="mapNameInput" placeholder="Nom de la carte" maxlength="60" autocomplete="off">
-                <button id="btnSaveMap" class="btn btn-primary">💾 Enregistrer</button>
-            </div>
-            <div id="mapList" class="map-list admin-only" hidden></div>
 
             <button id="btnGo" class="btn-go">🚀 GO !</button>
         </div>
@@ -191,19 +181,17 @@
         <div id="fsPalette" class="fullscreen-palette"></div>
 
         <div class="map-toolbar">
-            <button id="btnLockToggle" class="btn-pill lock admin-only" hidden>🔓 Déverrouillé</button>
-            <button id="btnResetView" class="btn-reset-view" title="Centrer la carte" aria-label="Centrer la carte">🎯</button>
+            <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
+            <button id="btnMapsToolbar" class="btn-round admin-only" title="Cartes enregistrées" aria-label="Cartes enregistrées" hidden>🗺️</button>
+            <button id="btnErase" class="btn-round" title="Supprimer des hexagones" aria-label="Supprimer des hexagones" hidden>✂️</button>
+            <button id="btnRestore" class="btn-round" title="Rétablir des hexagones" aria-label="Rétablir des hexagones" hidden>↩️</button>
+            <button id="btnResetView" class="btn-round" title="Centrer la carte" aria-label="Centrer la carte">🎯</button>
             <button id="btnModeToggle" class="btn-pill move">Mode : Déplacer ✋</button>
         </div>
 
-        <div class="compass">
-            <div id="compassDial" class="compass-dial">
-                <div class="compass-needle"></div>
-                <button class="compass-btn n" data-angle="0" aria-label="Nord en haut">N</button>
-                <button class="compass-btn e" data-angle="270" aria-label="Est en haut">E</button>
-                <button class="compass-btn s" data-angle="180" aria-label="Sud en haut">S</button>
-                <button class="compass-btn w" data-angle="90" aria-label="Ouest en haut">O</button>
-            </div>
+        <div class="rotate-controls">
+            <button id="btnRotateLeft" class="btn-round" title="Pivoter de 90° vers la gauche" aria-label="Pivoter de 90 degrés vers la gauche">↺</button>
+            <button id="btnRotateRight" class="btn-round" title="Pivoter de 90° vers la droite" aria-label="Pivoter de 90 degrés vers la droite">↻</button>
         </div>
 
         <canvas id="hexCanvas"></canvas>
@@ -219,6 +207,20 @@
             </div>
         </div>
     </main>
+
+    <div id="mapsModal" class="modal-overlay" hidden>
+        <div class="modal-content modal-wide">
+            <h3>Cartes enregistrées</h3>
+            <div class="map-save">
+                <input type="text" id="mapNameInput" placeholder="Nom de la carte à enregistrer" maxlength="60" autocomplete="off">
+                <button id="btnSaveMap" class="btn btn-primary">💾 Enregistrer</button>
+            </div>
+            <div id="mapList" class="map-list"></div>
+            <div class="modal-actions">
+                <button id="btnCloseMaps" class="btn btn-secondary">Fermer</button>
+            </div>
+        </div>
+    </div>
 
     <div id="toast" class="toast" role="status" hidden></div>
 
@@ -257,7 +259,7 @@
             password: '',
             isAdmin: false,
             isLocked: false,
-            paintMode: false,
+            mode: 'move', // move | paint | erase | restore
             activeColor: null,
             cols: 10,
             rows: 8,
@@ -290,7 +292,9 @@
             overrideMessage: $('overrideMessage'),
             btnLock: $('btnLockToggle'),
             btnMode: $('btnModeToggle'),
-            compass: $('compassDial'),
+            btnErase: $('btnErase'),
+            btnRestore: $('btnRestore'),
+            mapsModal: $('mapsModal'),
             canvas: $('hexCanvas'),
             toast: $('toast')
         };
@@ -347,6 +351,7 @@
 
         function applyRole() {
             document.querySelectorAll('.admin-only').forEach((node) => { node.hidden = !state.isAdmin; });
+            updateLockUI();
         }
 
         function updateUsers(users) {
@@ -565,7 +570,9 @@
                 actions.append(
                     actionButton('Charger', 'btn-primary', `Charger ${map.name}`, () => {
                         if (confirm(`Charger « ${map.name} » ? Le plateau actuel sera remplacé pour tous les joueurs (une sauvegarde automatique est créée).`)) {
-                            runMapAction('load-map', { id: map.id });
+                            runMapAction('load-map', { id: map.id }).then((res) => {
+                                if (res.success) el.mapsModal.hidden = true;
+                            });
                         }
                     }),
                     actionButton('✏️', 'btn-dark', `Renommer ${map.name}`, () => {
@@ -597,6 +604,13 @@
             if (res.success) el.mapName.value = '';
         }
 
+        function openMapsModal() {
+            socket?.emit('list-maps');
+            el.mapsModal.hidden = false;
+        }
+        $('btnOpenMaps').addEventListener('click', openMapsModal);
+        $('btnMapsToolbar').addEventListener('click', openMapsModal);
+        $('btnCloseMaps').addEventListener('click', () => { el.mapsModal.hidden = true; });
         $('btnSaveMap').addEventListener('click', saveCurrentMap);
         el.mapName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveCurrentMap(); });
 
@@ -630,21 +644,42 @@
         /* Verrouillage et mode peinture                                 */
         /* ============================================================ */
 
-        function setPaintMode(on) {
-            state.paintMode = on && !state.isLocked;
-            el.btnMode.textContent = state.paintMode ? 'Mode : Peindre 🎨' : 'Mode : Déplacer ✋';
-            el.btnMode.className = `btn-pill ${state.paintMode ? 'paint' : 'move'}`;
+        const MODE_LABELS = {
+            move: 'Mode : Déplacer ✋',
+            paint: 'Mode : Peindre 🎨',
+            erase: 'Mode : Supprimer ✂️',
+            restore: 'Mode : Rétablir ↩️'
+        };
+
+        function setMode(mode) {
+            const adminOnly = mode === 'erase' || mode === 'restore';
+            state.mode = state.isLocked || (adminOnly && !state.isAdmin) ? 'move' : mode;
+            el.btnMode.textContent = MODE_LABELS[state.mode];
+            el.btnMode.className = `btn-pill ${state.mode}`;
+            el.btnErase.classList.toggle('active', state.mode === 'erase');
+            el.btnRestore.classList.toggle('active', state.mode === 'restore');
+            requestDraw();
         }
 
         function updateLockUI() {
-            el.btnLock.textContent = state.isLocked ? '🔒 Verrouillé' : '🔓 Déverrouillé';
+            const canEdit = state.isAdmin && !state.isLocked;
+            const label = state.isLocked ? 'Déverrouiller le plateau' : 'Verrouiller le plateau';
+            el.btnLock.textContent = state.isLocked ? '🔒' : '🔓';
+            el.btnLock.title = label;
+            el.btnLock.setAttribute('aria-label', label);
             el.btnLock.classList.toggle('locked', state.isLocked);
             el.fsPalette.hidden = state.isLocked;
             el.btnMode.hidden = state.isLocked;
-            if (state.isLocked) setPaintMode(false);
+            el.btnErase.hidden = !canEdit;
+            el.btnRestore.hidden = !canEdit;
+            if (state.isLocked || (!state.isAdmin && (state.mode === 'erase' || state.mode === 'restore'))) {
+                setMode('move');
+            }
         }
 
-        el.btnMode.addEventListener('click', () => setPaintMode(!state.paintMode));
+        el.btnMode.addEventListener('click', () => setMode(state.mode === 'paint' ? 'move' : 'paint'));
+        el.btnErase.addEventListener('click', () => setMode(state.mode === 'erase' ? 'move' : 'erase'));
+        el.btnRestore.addEventListener('click', () => setMode(state.mode === 'restore' ? 'move' : 'restore'));
         el.btnLock.addEventListener('click', () => socket?.emit('toggle-lock', !state.isLocked));
 
         /* ============================================================ */
@@ -662,7 +697,7 @@
             }
 
             showPage('map');
-            setPaintMode(false);
+            setMode('move');
             resizeCanvas();
             centerMap();
         });
@@ -782,8 +817,6 @@
         function draw() {
             if (!isMapActive()) return;
 
-            el.compass.style.transform = `rotate(${-view.rotation}rad)`;
-
             const ratio = window.devicePixelRatio || 1;
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.fillStyle = BACKGROUND;
@@ -798,11 +831,19 @@
             const withOutline = HEX_RADIUS * view.scale >= 5;
             const fills = new Map(); // couleur -> Path2D (un seul tracé par couleur)
             const outline = new Path2D();
+            const ghosts = new Path2D();
+            const showGhosts = state.isAdmin && (state.mode === 'erase' || state.mode === 'restore');
 
             for (let row = minRow; row <= maxRow; row++) {
                 for (let col = minCol; col <= maxCol; col++) {
                     const { x, y } = hexCenter(col, row);
-                    const color = state.gridData[`${col},${row}`]?.color ?? EMPTY_COLOR;
+                    const tile = state.gridData[`${col},${row}`];
+                    if (tile?.removed) {
+                        // Case supprimée : invisible, sauf pour l'admin en mode supprimer / rétablir.
+                        if (showGhosts) addHexPath(ghosts, x, y);
+                        continue;
+                    }
+                    const color = tile?.color ?? EMPTY_COLOR;
                     let path = fills.get(color);
                     if (!path) {
                         path = new Path2D();
@@ -829,6 +870,14 @@
                 ctx.lineWidth = 1.5;
                 ctx.stroke(outline);
             }
+
+            if (showGhosts) {
+                ctx.setLineDash([6, 4]);
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke(ghosts);
+                ctx.setLineDash([]);
+            }
         }
 
         function centerMap() {
@@ -845,13 +894,13 @@
 
         $('btnResetView').addEventListener('click', centerMap);
 
-        // Rotation autour du centre exact de l'écran.
-        function rotateTo(degrees) {
+        // Rotation de 90° autour du centre exact de l'écran.
+        function rotateBy(degrees) {
             const cx = viewW / 2;
             const cy = viewH / 2;
             const world = screenToWorld(cx, cy);
 
-            view.rotation = (degrees * Math.PI) / 180;
+            view.rotation += (degrees * Math.PI) / 180;
             const cos = Math.cos(view.rotation);
             const sin = Math.sin(view.rotation);
             view.panX = cx - (world.x * cos - world.y * sin) * view.scale;
@@ -859,9 +908,8 @@
             requestDraw();
         }
 
-        document.querySelectorAll('.compass-btn').forEach((button) => {
-            button.addEventListener('click', () => rotateTo(Number(button.dataset.angle)));
-        });
+        $('btnRotateLeft').addEventListener('click', () => rotateBy(-90));
+        $('btnRotateRight').addEventListener('click', () => rotateBy(90));
 
         window.addEventListener('resize', () => { if (isMapActive()) resizeCanvas(); });
 
@@ -889,8 +937,22 @@
             el.overrideModal.hidden = false;
         }
 
-        function paintAt(clientX, clientY) {
-            if (state.isLocked || !state.paintMode || !state.activeColor) return;
+        function removeTile(key, existing) {
+            if (!state.isAdmin || existing?.removed) return;
+            state.gridData[key] = { removed: true, author: state.username };
+            requestDraw();
+            socket?.emit('set-tile-removed', { key, removed: true });
+        }
+
+        function restoreTile(key, existing) {
+            if (!state.isAdmin || !existing?.removed) return;
+            delete state.gridData[key];
+            requestDraw();
+            socket?.emit('set-tile-removed', { key, removed: false });
+        }
+
+        function useToolAt(clientX, clientY) {
+            if (state.isLocked || state.mode === 'move') return;
 
             const rect = el.canvas.getBoundingClientRect();
             const world = screenToWorld(clientX - rect.left, clientY - rect.top);
@@ -899,7 +961,12 @@
 
             const key = `${hex.col},${hex.row}`;
             const existing = state.gridData[key];
-            if (existing?.color === state.activeColor) return;
+
+            if (state.mode === 'erase') return removeTile(key, existing);
+            if (state.mode === 'restore') return restoreTile(key, existing);
+
+            // Peinture : une case supprimée ne peut pas être coloriée.
+            if (!state.activeColor || existing?.removed || existing?.color === state.activeColor) return;
 
             if (existing?.author && existing.author !== state.username) {
                 endGestures();
@@ -951,9 +1018,7 @@
                 gesture = {
                     type: 'pinch',
                     distance: Math.hypot(b.x - a.x, b.y - a.y) || 1,
-                    angle: Math.atan2(b.y - a.y, b.x - a.x),
                     scale: view.scale,
-                    rotation: view.rotation,
                     anchor: screenToWorld((a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top)
                 };
             } else {
@@ -966,7 +1031,7 @@
             el.canvas.setPointerCapture(e.pointerId);
             pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
             beginGesture();
-            if (gesture?.type === 'single') paintAt(e.clientX, e.clientY);
+            if (gesture?.type === 'single') useToolAt(e.clientX, e.clientY);
         });
 
         el.canvas.addEventListener('pointermove', (e) => {
@@ -975,8 +1040,8 @@
             if (!gesture) return;
 
             if (gesture.type === 'single') {
-                if (state.paintMode && !state.isLocked && !gesture.panOnly) {
-                    paintAt(e.clientX, e.clientY);
+                if (state.mode !== 'move' && !state.isLocked && !gesture.panOnly) {
+                    useToolAt(e.clientX, e.clientY);
                 } else {
                     view.panX = e.clientX - gesture.startX;
                     view.panY = e.clientY - gesture.startY;
@@ -985,14 +1050,12 @@
                 return;
             }
 
-            // Pincement : zoom, rotation et déplacement à deux doigts, ancrés sur le point de départ.
+            // Pincement : zoom et déplacement à deux doigts (sans rotation), ancrés sur le point de départ.
             const [a, b] = [...pointers.values()];
             const rect = el.canvas.getBoundingClientRect();
             const distance = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-            const angle = Math.atan2(b.y - a.y, b.x - a.x);
 
             view.scale = clamp(gesture.scale * (distance / gesture.distance), MIN_SCALE, MAX_SCALE);
-            view.rotation = gesture.rotation + (angle - gesture.angle);
 
             const cos = Math.cos(view.rotation);
             const sin = Math.sin(view.rotation);
@@ -1066,8 +1129,10 @@
                 updateLockUI();
             });
 
-            socket.on('update-tile', ({ key, color, author }) => {
-                state.gridData[key] = { color, author };
+            socket.on('update-tile', ({ key, color, author, removed }) => {
+                if (removed) state.gridData[key] = { removed: true, author };
+                else if (color) state.gridData[key] = { color, author };
+                else delete state.gridData[key];
                 requestDraw();
             });
 
