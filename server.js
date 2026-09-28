@@ -12,6 +12,7 @@ app.get('/', (req, res) => {
 });
 
 const DATA_FILE = path.join(__dirname, 'data.json');
+const ADMIN_PASSWORD = "ChangeMoi2026";
 
 // Configuration et légende par défaut (utilisées UNIQUEMENT si data.json n'existe pas)
 const DEFAULT_STATE = {
@@ -55,7 +56,7 @@ function loadData() {
             console.log('✅ Cartes, légendes et couleurs existantes conservées depuis data.json !');
         } else {
             console.log('🆕 Aucun data.json trouvé. Création avec les paramètres par défaut (150x100).');
-            saveData();
+            saveDataDebounced();
         }
     } catch (err) {
         console.error('⚠️ Erreur lors de la lecture de data.json, utilisation des secours :', err.message);
@@ -92,30 +93,53 @@ io.on('connection', (socket) => {
         isLocked: state.isLocked
     });
 
-    socket.on('set-username', (name, callback) => {
-        const cleanName = (name || '').trim();
-        const lowerName = cleanName.toLowerCase();
+socket.on('set-username', (data, callback) => {
 
-        // Un seul Admin à la fois
-        if (lowerName === 'admin') {
-            const alreadyAdmin = Object.values(activeUsers).some(u => u.toLowerCase() === 'admin');
-            if (alreadyAdmin && socket.username?.toLowerCase() !== 'admin') {
-                if (typeof callback === 'function') {
-                    callback({ success: false, message: "Un administrateur est déjà connecté !" });
-                }
-                return;
-            }
+    const cleanName = (data.username || '').trim();
+    const adminPassword = (data.password || '').trim();
+
+    if (cleanName.length < 1 || cleanName.length > 20) {
+        return callback?.({
+            success: false,
+            message: "Pseudo invalide"
+        });
+    }
+
+    const lowerName = cleanName.toLowerCase();
+
+    if (lowerName === 'admin') {
+
+        if (adminPassword !== ADMIN_PASSWORD) {
+            return callback?.({
+                success: false,
+                message: "Mot de passe administrateur incorrect"
+            });
         }
 
-        if (cleanName.length > 0) {
-            socket.username = cleanName;
-            activeUsers[socket.id] = cleanName;
-            broadcastUserList();
-            if (typeof callback === 'function') {
-                callback({ success: true });
-            }
+        const alreadyAdmin = Object.values(activeUsers)
+            .some(u => u.toLowerCase() === 'admin');
+
+        if (alreadyAdmin &&
+            socket.username?.toLowerCase() !== 'admin') {
+
+            return callback?.({
+                success: false,
+                message: "Un administrateur est déjà connecté"
+            });
         }
+    }
+
+    socket.username = cleanName;
+    activeUsers[socket.id] = cleanName;
+
+    broadcastUserList();
+
+    callback?.({
+        success: true,
+        isAdmin: lowerName === 'admin'
     });
+
+});
 
     socket.on('get-users', () => {
         const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
@@ -125,7 +149,7 @@ io.on('connection', (socket) => {
     socket.on('toggle-lock', (lockedState) => {
         if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.isLocked = lockedState;
-            saveData();
+            saveDataDebounced();
             io.emit('update-lock', state.isLocked);
         }
     });
@@ -133,18 +157,65 @@ io.on('connection', (socket) => {
     socket.on('paint-tile', (data) => {
         if (state.isLocked) return;
 
-        const { key, color } = data;
+        const { key, color } = data || {};
+
+if (!key || typeof key !== 'string') {
+    return;
+}
+
+if (!/^#[0-9A-F]{6}$/i.test(color)) {
+    return;
+}
+
+
+const parts = key.split(',');
+ 
+if (parts.length !== 2) {
+return;
+}
+ 
+const col = parseInt(parts[0]);
+const row = parseInt(parts[1]);
+ 
+if (
+isNaN(col) ||
+isNaN(row) ||
+col < 0 ||
+row < 0 ||
+col >= state.config.cols ||
+row >= state.config.rows
+) {
+return;
+}
+
+
+
         const author = socket.username || 'Anonyme';
         
         state.gridData[key] = { color, author };
-        saveData();
+        saveDataDebounced();
         io.emit('update-tile', { key, color, author });
     });
 
     socket.on('update-terrains', (newTerrains) => {
         if (socket.username && socket.username.toLowerCase() === 'admin') {
-            state.terrainsList = newTerrains;
-            saveData();
+            if (!Array.isArray(newTerrains)) {
+return;
+}
+ 
+if (newTerrains.length > 50) {
+return;
+}
+ 
+const validTerrains = newTerrains.filter(t =>
+t &&
+typeof t.label === 'string' &&
+t.label.length < 50 &&
+/^#[0-9A-F]{6}$/i.test(t.color)
+);
+ 
+state.terrainsList = validTerrains;
+            saveDataDebounced();
             io.emit('update-terrains', state.terrainsList);
         }
     });
@@ -153,7 +224,7 @@ io.on('connection', (socket) => {
         if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.config = newConfig;
             state.gridData = {};
-            saveData();
+            saveDataDebounced();
             io.emit('update-config', { config: state.config, gridData: state.gridData });
         }
     });
@@ -170,3 +241,19 @@ const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
     console.log(`Serveur prêt sur http://localhost:${PORT}`);
 });
+
+
+
+let saveTimer = null;
+function saveDataDebounced() {
+ 
+if (saveTimer) {
+clearTimeout(saveTimer);
+}
+ 
+saveTimer = setTimeout(() => {
+saveDataDebounced();
+}, 1500);
+ 
+}
+``
