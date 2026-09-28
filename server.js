@@ -12,7 +12,7 @@ app.get('/', (req, res) => {
 });
 
 const DATA_FILE = path.join(__dirname, 'data.json');
-const ADMIN_PASSWORD = "ChangeMoi2026";
+const ADMIN_PASSWORD = "";
 
 // Configuration et légende par défaut (utilisées UNIQUEMENT si data.json n'existe pas)
 const DEFAULT_STATE = {
