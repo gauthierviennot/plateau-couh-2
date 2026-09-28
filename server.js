@@ -105,11 +105,13 @@ function sanitizeGrid(grid, config) {
     const clean = {};
     if (!grid || typeof grid !== 'object') return clean;
     for (const [key, tile] of Object.entries(grid)) {
-        if (!isValidKey(key, config) || !tile || !isHex(tile.color)) continue;
-        clean[key] = {
-            color: tile.color.toLowerCase(),
-            author: typeof tile.author === 'string' ? tile.author.slice(0, LIMITS.maxName) : ''
-        };
+        if (!isValidKey(key, config) || !tile) continue;
+        const author = typeof tile.author === 'string' ? tile.author.slice(0, LIMITS.maxName) : '';
+        if (tile.removed === true) {
+            clean[key] = { removed: true, author }; // case supprimée du plateau
+        } else if (isHex(tile.color)) {
+            clean[key] = { color: tile.color.toLowerCase(), author };
+        }
     }
     return clean;
 }
@@ -390,11 +392,33 @@ io.on('connection', (socket) => {
 
         const lower = color.toLowerCase();
         const author = socket.data.name;
-        if (state.gridData[key]?.color === lower) return;
+        const existing = state.gridData[key];
+        if (existing?.removed || existing?.color === lower) return;
 
         state.gridData[key] = { color: lower, author };
         scheduleSave();
-        io.emit('update-tile', { key, color: lower, author });
+        io.emit('update-tile', { key, color: lower, author, removed: false });
+    });
+
+    // Suppression / rétablissement d'un hexagone (admin uniquement).
+    socket.on('set-tile-removed', (data) => {
+        if (!requireAdmin(socket) || state.isLocked) return;
+
+        const key = data?.key;
+        if (!isValidKey(key, state.config)) return;
+
+        const isRemoved = Boolean(state.gridData[key]?.removed);
+        if (data.removed === true) {
+            if (isRemoved) return;
+            const author = socket.data.name;
+            state.gridData[key] = { removed: true, author };
+            io.emit('update-tile', { key, color: null, author, removed: true });
+        } else {
+            if (!isRemoved) return;
+            delete state.gridData[key];
+            io.emit('update-tile', { key, color: null, author: null, removed: false });
+        }
+        scheduleSave();
     });
 
     socket.on('toggle-lock', (locked) => {
