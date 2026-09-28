@@ -89,6 +89,11 @@
         <div class="login-card">
             <h1>Plateau Hexagonal</h1>
             <input type="text" id="usernameInput" placeholder="Entrez votre pseudo" maxlength="15" autofocus>
+<input
+type="password"
+id="adminPassword"
+placeholder="Mot de passe admin (si besoin)"
+>
             <button id="btnLogin">Rejoindre</button>
         </div>
     </div>
@@ -167,6 +172,9 @@
 
     <script>
         const socket = (typeof io !== 'undefined') ? io() : null;
+
+const adminPasswordInput =
+document.getElementById('adminPassword');
         
         let myUsername = "";
         let isAdmin = false;
@@ -244,13 +252,18 @@
             const val = usernameInput.value.trim();
             if (val.length > 0) {
                 if (socket) {
-                    socket.emit('set-username', val, (response) => {
+                   socket.emit(
+'set-username',
+{
+username: val,
+password: adminPasswordInput.value
+}, (response) => {
                         if (response && !response.success) {
                             alert(response.message);
                             return;
                         }
                         myUsername = val;
-                        isAdmin = myUsername.toLowerCase() === 'admin';
+                        isAdmin = !!response.isAdmin;
                         welcomeUser.textContent = `Joueur : ${myUsername}`;
                         btnAdminConfig.style.display = isAdmin ? 'block' : 'none';
                         btnLockToggle.style.display = isAdmin ? 'block' : 'none';
@@ -402,6 +415,17 @@
                     initCanvas();
                     centerMap();
                 }
+
+if (
+terrains.length > 0 &&
+!terrains.some(
+t => t.color === activeColor
+)
+) {
+activeColor =
+terrains[0].color;
+}
+
             });
 
             socket.on('update-tile', (data) => {
@@ -574,7 +598,13 @@
                         if (existingTile && existingTile.author && existingTile.author !== myUsername && existingTile.color !== currentColor) {
                             isMouseDown = false;
                             pendingTileKey = key;
-                            document.getElementById('overrideMessage').innerHTML = `L'utilisateur <strong>${existingTile.author}</strong> a déjà modifié cette case.<br>Voulez-vous la remplacer ?`;
+                            const overrideMessage =
+document.getElementById(
+'overrideMessage'
+);
+ 
+overrideMessage.textContent =
+`${existingTile.author} a déjà modifié cette case. Voulez-vous la remplacer ?`;
                             document.getElementById('overrideModal').classList.remove('hidden');
                             return;
                         }
@@ -741,6 +771,71 @@
                 initCanvas();
             }
         });
+
+
+function saveViewSettings() {
+ 
+localStorage.setItem(
+'mapView',
+JSON.stringify({
+scale,
+panX,
+panY,
+rotationAngle
+})
+);
+ 
+}
+
+function loadViewSettings() {
+ 
+const raw =
+localStorage.getItem('mapView');
+ 
+if (!raw) return;
+ 
+try {
+ 
+const cfg = JSON.parse(raw);
+ 
+scale =
+cfg.scale ?? scale;
+ 
+panX =
+cfg.panX ?? panX;
+ 
+panY =
+cfg.panY ?? panY;
+ 
+rotationAngle =
+cfg.rotationAngle ?? rotationAngle;
+ 
+}
+catch {}
+ 
+}
+
+
+
+let redrawPending = false;
+
+
+function requestRedraw() {
+ 
+if (redrawPending) return;
+ 
+redrawPending = true;
+ 
+requestAnimationFrame(() => {
+ 
+redrawPending = false;
+ 
+drawGrid();
+ 
+});
+ 
+}
+
     </script>
 </body>
 </html>
