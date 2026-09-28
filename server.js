@@ -12,7 +12,6 @@ app.get('/', (req, res) => {
 });
 
 const DATA_FILE = path.join(__dirname, 'data.json');
-const ADMIN_PASSWORD = "";
 
 // Configuration et légende par défaut (utilisées UNIQUEMENT si data.json n'existe pas)
 const DEFAULT_STATE = {
@@ -36,6 +35,9 @@ const DEFAULT_STATE = {
 
 let state = { ...DEFAULT_STATE };
 
+let saveTimer = null;
+
+
 // Fonction de chargement sécurisé : Conserve TOUTES vos données existantes
 function loadData() {
     try {
@@ -56,7 +58,7 @@ function loadData() {
             console.log('✅ Cartes, légendes et couleurs existantes conservées depuis data.json !');
         } else {
             console.log('🆕 Aucun data.json trouvé. Création avec les paramètres par défaut (150x100).');
-            saveDataDebounced();
+            saveData();
         }
     } catch (err) {
         console.error('⚠️ Erreur lors de la lecture de data.json, utilisation des secours :', err.message);
@@ -64,11 +66,46 @@ function loadData() {
 }
 
 function saveData() {
-    try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), 'utf8');
-    } catch (err) {
-        console.error('⚠️ Erreur lors de la sauvegarde de data.json :', err.message);
-    }
+ 
+try {
+ 
+if (fs.existsSync(DATA_FILE)) {
+ 
+fs.copyFileSync(
+DATA_FILE,
+DATA_FILE + '.backup'
+);
+ 
+}
+ 
+fs.writeFileSync(
+DATA_FILE,
+JSON.stringify(state, null, 2),
+'utf8'
+);
+ 
+}
+catch (err) {
+ 
+console.error(
+'⚠️ Erreur lors de la sauvegarde :',
+err.message
+);
+ 
+}
+ 
+}
+ 
+function saveDataDebounced() {
+ 
+if (saveTimer) {
+clearTimeout(saveTimer);
+}
+ 
+saveTimer = setTimeout(() => {
+saveData();
+}, 1500);
+ 
 }
 
 // Initialisation au démarrage du serveur
@@ -93,53 +130,30 @@ io.on('connection', (socket) => {
         isLocked: state.isLocked
     });
 
-socket.on('set-username', (data, callback) => {
+    socket.on('set-username', (name, callback) => {
+        const cleanName = (name || '').trim();
+        const lowerName = cleanName.toLowerCase();
 
-    const cleanName = (data.username || '').trim();
-    const adminPassword = (data.password || '').trim();
-
-    if (cleanName.length < 1 || cleanName.length > 20) {
-        return callback?.({
-            success: false,
-            message: "Pseudo invalide"
-        });
-    }
-
-    const lowerName = cleanName.toLowerCase();
-
-    if (lowerName === 'admin') {
-
-        if (adminPassword !== ADMIN_PASSWORD) {
-            return callback?.({
-                success: false,
-                message: "Mot de passe administrateur incorrect"
-            });
+        // Un seul Admin à la fois
+        if (lowerName === 'admin') {
+            const alreadyAdmin = Object.values(activeUsers).some(u => u.toLowerCase() === 'admin');
+            if (alreadyAdmin && socket.username?.toLowerCase() !== 'admin') {
+                if (typeof callback === 'function') {
+                    callback({ success: false, message: "Un administrateur est déjà connecté !" });
+                }
+                return;
+            }
         }
 
-        const alreadyAdmin = Object.values(activeUsers)
-            .some(u => u.toLowerCase() === 'admin');
-
-        if (alreadyAdmin &&
-            socket.username?.toLowerCase() !== 'admin') {
-
-            return callback?.({
-                success: false,
-                message: "Un administrateur est déjà connecté"
-            });
+        if (cleanName.length > 0) {
+            socket.username = cleanName;
+            activeUsers[socket.id] = cleanName;
+            broadcastUserList();
+            if (typeof callback === 'function') {
+                callback({ success: true });
+            }
         }
-    }
-
-    socket.username = cleanName;
-    activeUsers[socket.id] = cleanName;
-
-    broadcastUserList();
-
-    callback?.({
-        success: true,
-        isAdmin: lowerName === 'admin'
     });
-
-});
 
     socket.on('get-users', () => {
         const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
@@ -149,73 +163,80 @@ socket.on('set-username', (data, callback) => {
     socket.on('toggle-lock', (lockedState) => {
         if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.isLocked = lockedState;
-            saveDataDebounced();
+            saveData();
             io.emit('update-lock', state.isLocked);
         }
     });
 
-    socket.on('paint-tile', (data) => {
-        if (state.isLocked) return;
 
-        const { key, color } = data || {};
-
-if (!key || typeof key !== 'string') {
-    return;
-}
-
-if (!/^#[0-9A-F]{6}$/i.test(color)) {
-    return;
-}
-
-
-const parts = key.split(',');
+socket.on('export-data', () => {
  
-if (parts.length !== 2) {
-return;
-}
+socket.emit(
+'export-result',
+state
+);
  
-const col = parseInt(parts[0]);
-const row = parseInt(parts[1]);
+});
+
+socket.on('import-state', (newState) => {
  
 if (
-isNaN(col) ||
-isNaN(row) ||
-col < 0 ||
-row < 0 ||
-col >= state.config.cols ||
-row >= state.config.rows
+socket.username &&
+socket.username.toLowerCase() === 'admin'
+) {
+ 
+if (
+!newState ||
+!newState.config ||
+!newState.gridData ||
+!newState.terrainsList
 ) {
 return;
 }
+ 
+state = {
+config: newState.config,
+gridData: newState.gridData,
+terrainsList: newState.terrainsList,
+isLocked: !!newState.isLocked
+};
+ 
+saveData();
+ 
+io.emit('init', {
+config: state.config,
+gridData: state.gridData,
+terrains: state.terrainsList,
+users: Object.values(activeUsers),
+isLocked: state.isLocked
+});
+ 
+}
+ 
+});
 
 
 
+
+    socket.on('paint-tile', (data) => {
+        if (state.isLocked) return;
+
+        const { key, color } = data;
         const author = socket.username || 'Anonyme';
         
-        state.gridData[key] = { color, author };
-        saveDataDebounced();
+state.gridData[key] = {
+color,
+author,
+timestamp: Date.now()
+};
+        saveData();
         io.emit('update-tile', { key, color, author });
     });
 
     socket.on('update-terrains', (newTerrains) => {
         if (socket.username && socket.username.toLowerCase() === 'admin') {
-            if (!Array.isArray(newTerrains)) {
-return;
-}
- 
-if (newTerrains.length > 50) {
-return;
-}
- 
-const validTerrains = newTerrains.filter(t =>
-t &&
-typeof t.label === 'string' &&
-t.label.length < 50 &&
-/^#[0-9A-F]{6}$/i.test(t.color)
-);
- 
-state.terrainsList = validTerrains;
-            saveDataDebounced();
+            state.terrainsList = newTerrains;
+            saveData();
             io.emit('update-terrains', state.terrainsList);
         }
     });
@@ -224,7 +245,7 @@ state.terrainsList = validTerrains;
         if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.config = newConfig;
             state.gridData = {};
-            saveDataDebounced();
+            saveData();
             io.emit('update-config', { config: state.config, gridData: state.gridData });
         }
     });
@@ -238,22 +259,11 @@ state.terrainsList = validTerrains;
 });
 
 const PORT = process.env.PORT || 3000;
+ 
 http.listen(PORT, () => {
-    console.log(`Serveur prêt sur http://localhost:${PORT}`);
+ 
+console.log(
+`Serveur prêt sur http://localhost:${PORT}`
+);
+ 
 });
-
-
-
-let saveTimer = null;
-function saveDataDebounced() {
- 
-if (saveTimer) {
-clearTimeout(saveTimer);
-}
- 
-saveTimer = setTimeout(() => {
-saveDataDebounced();
-}, 1500);
- 
-}
-``
