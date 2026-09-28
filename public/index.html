@@ -6,164 +6,256 @@
     <title>Plateau de Jeu</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        body { background-color: #e9ecef; display: flex; justify-content: center; padding: 10px; }
-        .card { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 450px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .title { font-size: 1.2rem; font-weight: bold; }
-        .btn { padding: 8px 12px; border: none; border-radius: 6px; background: #2c3e50; color: white; cursor: pointer; font-weight: bold; }
-        .btn-green { background: #2ecc71; width: 100%; padding: 12px; font-size: 1.1rem; margin-top: 15px; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #1a202c; }
+
+        .page { display: none; width: 100vw; height: 100vh; }
+        .page.active { display: flex; }
+
+        /* PAGE 1 : PSEUDO & REGLAGES */
+        #page-login { justify-content: center; align-items: center; background: #e9ecef; }
+        .card { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 420px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); max-height: 90vh; overflow-y: auto; }
+        .title { font-size: 1.3rem; font-weight: bold; margin-bottom: 15px; text-align: center; color: #2d3748; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #4a5568; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+        .btn { padding: 10px 15px; border: none; border-radius: 6px; background: #2c3e50; color: white; cursor: pointer; font-weight: bold; width: 100%; margin-top: 8px; }
+        .btn-green { background: #2ecc71; font-size: 1.1rem; padding: 12px; }
+        .btn-red { background: #e74c3c; }
+        
         .section-title { font-size: 0.85rem; color: #7f8c8d; font-weight: bold; margin: 15px 0 8px 0; text-transform: uppercase; }
-        .user-box { background: #f8f9fa; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.9rem; color: #2d3748; }
-        .terrain-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .user-box { background: #f8f9fa; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.9rem; max-height: 80px; overflow-y: auto; }
+        .terrain-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
         .color-picker { width: 35px; height: 35px; border: none; border-radius: 4px; cursor: pointer; }
-        .terrain-input { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; }
-        .admin-section { background: #fff3cd; padding: 10px; border-radius: 6px; border: 1px solid #ffeeba; margin-top: 15px; }
-        .admin-section button { margin-top: 5px; width: 100%; }
+        .terrain-input { flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; }
+
+        /* PAGE 2 : PLATEAU PLEIN ÉCRAN */
+        #page-game { flex-direction: column; position: relative; background: #2d3748; }
+        .top-bar { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
+        .top-bar * { pointer-events: auto; }
+        .map-info { background: rgba(0,0,0,0.7); color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .btn-logout { background: #e74c3c; color: white; padding: 8px 15px; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; }
+        
+        #board-container { flex: 1; width: 100%; height: 100%; overflow: auto; display: grid; background: #1a202c; padding: 50px 10px 80px 10px; }
+        .tile { border: 1px solid rgba(255,255,255,0.05); width: 20px; height: 20px; box-sizing: border-box; }
+
+        .bottom-palette { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 30px; overflow-x: auto; max-width: 95vw; z-index: 10; }
+        .palette-item { width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; cursor: pointer; flex-shrink: 0; }
+        .palette-item.active { transform: scale(1.2); border-color: #f1c40f; }
+
+        /* MODAL ADMIN CRÉATION */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 100; }
+        .modal-content { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 350px; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <div class="header">
-        <div class="title" id="user-display">Joueur : ...</div>
-        <button class="btn" id="btn-config" style="display:none;">⚙️ Régler plateau</button>
+<!-- PAGE 1 : PSEUDO ET LÉGENDES -->
+<div id="page-login" class="page active">
+    <div class="card">
+        <div class="title">Connexion Plateau</div>
+        
+        <div class="input-group">
+            <label>Votre Pseudo :</label>
+            <input type="text" id="username-input" placeholder="Entrez votre pseudo...">
+        </div>
+
+        <div class="section-title">Joueurs en ligne</div>
+        <div class="user-box" id="users-list">• Aucun</div>
+
+        <div class="section-title">Couleurs & Légendes</div>
+        <div id="terrains-container"></div>
+
+        <div id="admin-tools" style="display: none; margin-top: 15px; border-top: 2px dashed #ccc; pt: 10px;">
+            <div class="section-title" style="color: #d35400;">Outils Admin</div>
+            <button id="btn-open-create-modal" class="btn">🆕 Créer une nouvelle carte</button>
+            <button id="btn-export-map" class="btn">📥 Sauvegarder dans le téléphone</button>
+            <button id="btn-import-trigger" class="btn">📤 Charger depuis le téléphone</button>
+            <input type="file" id="file-input-map" accept=".json" style="display: none;">
+        </div>
+
+        <button class="btn btn-green" id="btn-go">🚀 REJOINDRE LE PLATEAU</button>
+    </div>
+</div>
+
+<!-- PAGE 2 : PLEIN ÉCRAN (JEU) -->
+<div id="page-game" class="page">
+    <div class="top-bar">
+        <div class="map-info" id="map-title-display">Carte : ...</div>
+        <button class="btn-logout" id="btn-logout">🚪 Déconnexion</button>
     </div>
 
-    <div class="section-title">Joueurs en ligne</div>
-    <div class="user-box" id="users-list">• Aucun</div>
+    <div id="board-container"></div>
 
-    <div class="section-title">Couleurs & Légendes</div>
-    <div id="terrains-container"></div>
+    <div class="bottom-palette" id="palette-container"></div>
+</div>
 
-    <!-- Outils réservés à l'Administrateur -->
-    <div id="admin-map-tools" class="admin-section" style="display: none;">
-        <div class="section-title" style="margin-top:0; color:#856404;">Gestion Carte (Admin)</div>
-        <button id="btn-new-map" class="btn">🆕 Nouvelle carte</button>
-        <button id="btn-export-map" class="btn">📥 Sauvegarder dans le téléphone</button>
-        <button id="btn-import-trigger" class="btn">📤 Charger depuis le téléphone</button>
-        <input type="file" id="file-input-map" accept=".json" style="display: none;">
+<!-- MODAL CRÉATION CARTE (ADMIN) -->
+<div class="modal" id="modal-create">
+    <div class="modal-content">
+        <div class="title">Nouvelle Carte</div>
+        <div class="input-group">
+            <label>Nom de la carte :</label>
+            <input type="text" id="new-map-name" value="Ma Carte">
+        </div>
+        <div class="input-group">
+            <label>Largeur (Colonnes) :</label>
+            <input type="number" id="new-map-cols" value="150">
+        </div>
+        <div class="input-group">
+            <label>Hauteur (Lignes) :</label>
+            <input type="number" id="new-map-rows" value="100">
+        </div>
+        <button class="btn btn-green" id="btn-confirm-create">Créer</button>
+        <button class="btn btn-red" onclick="document.getElementById('modal-create').style.display='none'">Annuler</button>
     </div>
-
-    <button class="btn btn-green" id="btn-go">🚀 GO !</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io();
-    let currentConfig = { cols: 150, rows: 100 };
-    let currentGridData = {};
-    let currentTerrains = [];
+    let state = {};
+    let selectedColor = '';
     let myUsername = '';
 
-    // Demander le pseudo
-    function initUser() {
-        myUsername = localStorage.getItem('username') || prompt("Entrez votre pseudo :") || "Anonyme";
-        socket.emit('set-username', myUsername, (res) => {
-            if (res && !res.success) {
-                alert(res.message);
-                localStorage.removeItem('username');
-                initUser();
-            } else {
-                localStorage.setItem('username', myUsername);
-                document.getElementById('user-display').innerText = `Joueur : ${myUsername}`;
-                checkAdminRights();
-            }
-        });
-    }
+    // Déconnexion automatique à la fermeture/quitte la page
+    window.addEventListener('beforeunload', () => socket.disconnect());
 
-    function checkAdminRights() {
-        const isAdmin = myUsername.toLowerCase() === 'admin';
-        document.getElementById('admin-map-tools').style.display = isAdmin ? 'block' : 'none';
-        document.getElementById('btn-config').style.display = isAdmin ? 'block' : 'none';
-    }
-
-    socket.on('init', (data) => {
-        currentConfig = data.config;
-        currentGridData = data.gridData;
-        currentTerrains = data.terrains;
-        renderUsers(data.users);
-        renderTerrains(data.terrains);
-        initUser();
-    });
-
+    socket.on('init', (data) => updateLocalState(data));
+    socket.on('map-reloaded', (data) => updateLocalState(data));
     socket.on('update-users-list', (users) => renderUsers(users));
-    socket.on('update-terrains', (terrains) => {
-        currentTerrains = terrains;
-        renderTerrains(terrains);
+    socket.on('update-terrains', (terrains) => { state.terrains = terrains; renderTerrains(); });
+    socket.on('update-tile', ({ key, color }) => {
+        state.gridData[key] = { color };
+        const el = document.getElementById(`tile-${key}`);
+        if (el) el.style.backgroundColor = color;
     });
-    socket.on('update-config', (data) => {
-        currentConfig = data.config;
-        currentGridData = data.gridData;
-    });
+
+    function updateLocalState(data) {
+        state = data;
+        document.getElementById('map-title-display').innerText = `${state.mapName} (${state.config.cols}x${state.config.rows})`;
+        renderUsers(state.users);
+        renderTerrains();
+        if (document.getElementById('page-game').classList.contains('active')) {
+            buildBoard();
+        }
+    }
 
     function renderUsers(users) {
-        const container = document.getElementById('users-list');
-        container.innerHTML = users.map(u => `• ${u}`).join('<br>') || '• Aucun';
+        document.getElementById('users-list').innerHTML = users.map(u => `• ${u}`).join('<br>') || '• Aucun';
     }
 
-    function renderTerrains(terrains) {
+    function renderTerrains() {
         const container = document.getElementById('terrains-container');
+        const palette = document.getElementById('palette-container');
         container.innerHTML = '';
-        terrains.forEach((t, i) => {
-            const div = document.createElement('div');
-            div.className = 'terrain-row';
-            div.innerHTML = `
-                <input type="color" class="color-picker" value="${t.color}" disabled>
-                <input type="text" class="terrain-input" value="${t.label}" readonly>
-            `;
-            container.appendChild(div);
+        palette.innerHTML = '';
+
+        state.terrains.forEach((t, i) => {
+            // Liste Page 1
+            container.innerHTML += `
+                <div class="terrain-row">
+                    <input type="color" class="color-picker" value="${t.color}" disabled>
+                    <input type="text" class="terrain-input" value="${t.label}" readonly>
+                </div>`;
+
+            // Palette Page 2
+            const item = document.createElement('div');
+            item.className = `palette-item ${i === 0 ? 'active' : ''}`;
+            item.style.backgroundColor = t.color;
+            item.onclick = () => {
+                document.querySelectorAll('.palette-item').forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+                selectedColor = t.color;
+            };
+            palette.appendChild(item);
         });
+        if (state.terrains.length > 0) selectedColor = state.terrains[0].color;
     }
 
-    // --- ACTIONS ADMIN : EXPORT / IMPORT / RESET ---
+    // Connexion / Validation du Pseudo
+    document.getElementById('btn-go').addEventListener('click', () => {
+        const input = document.getElementById('username-input').value.trim();
+        if (!input) return alert("Veuillez entrer un pseudo.");
 
-    // 1. Nouvelle Carte
-    document.getElementById('btn-new-map').addEventListener('click', () => {
-        if (confirm("Créer une nouvelle carte vierge ?")) {
-            socket.emit('reset-map');
+        socket.emit('set-username', input, (res) => {
+            if (res && !res.success) {
+                alert(res.message);
+            } else {
+                myUsername = input;
+                if (myUsername.toLowerCase() === 'admin') {
+                    document.getElementById('admin-tools').style.display = 'block';
+                }
+                showPage('page-game');
+                buildBoard();
+            }
+        });
+    });
+
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+    }
+
+    // Déconnexion
+    document.getElementById('btn-logout').addEventListener('click', () => {
+        location.reload();
+    });
+
+    // Construction du Plateau Plein Écran
+    function buildBoard() {
+        const board = document.getElementById('board-container');
+        board.innerHTML = '';
+        board.style.gridTemplateColumns = `repeat(${state.config.cols}, 20px)`;
+
+        for (let r = 0; r < state.config.rows; r++) {
+            for (let c = 0; c < state.config.cols; c++) {
+                const key = `${r}_${c}`;
+                const tile = document.createElement('div');
+                tile.id = `tile-${key}`;
+                tile.className = 'tile';
+                if (state.gridData[key]) tile.style.backgroundColor = state.gridData[key].color;
+
+                tile.addEventListener('pointerdown', () => {
+                    tile.style.backgroundColor = selectedColor;
+                    socket.emit('paint-tile', { key, color: selectedColor });
+                });
+                board.appendChild(tile);
+            }
         }
-    });
+    }
 
-    // 2. Exporter la carte au format JSON
-    document.getElementById('btn-export-map').addEventListener('click', () => {
-        const mapData = {
-            config: currentConfig,
-            gridData: currentGridData,
-            terrainsList: currentTerrains
-        };
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(mapData, null, 2));
-        const downloadAnchor = document.createElement('a');
-        const dateStr = new Date().toISOString().slice(0, 10);
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `carte_${dateStr}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-    });
+    // ADMIN : MODAL ET GESTION CARTE
+    document.getElementById('btn-open-create-modal').onclick = () => {
+        document.getElementById('modal-create').style.display = 'flex';
+    };
 
-    // 3. Importer une carte depuis le téléphone
-    document.getElementById('btn-import-trigger').addEventListener('click', () => {
-        document.getElementById('file-input-map').click();
-    });
+    document.getElementById('btn-confirm-create').onclick = () => {
+        const name = document.getElementById('new-map-name').value;
+        const cols = document.getElementById('new-map-cols').value;
+        const rows = document.getElementById('new-map-rows').value;
+        
+        socket.emit('create-new-map', { name, cols, rows });
+        document.getElementById('modal-create').style.display = 'none';
+    };
 
-    document.getElementById('file-input-map').addEventListener('change', (e) => {
+    document.getElementById('btn-export-map').onclick = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+        const a = document.createElement('a');
+        a.href = dataStr;
+        a.download = `${state.mapName}.json`;
+        a.click();
+    };
+
+    document.getElementById('btn-import-trigger').onclick = () => document.getElementById('file-input-map').click();
+    document.getElementById('file-input-map').onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (event) => {
-            try {
-                const importedData = JSON.parse(event.target.result);
-                if (confirm("Remplacer le plateau actuel par le fichier sélectionné ?")) {
-                    socket.emit('load-map-file', importedData);
-                }
-            } catch (err) {
-                alert("Erreur lors de la lecture du fichier JSON.");
-            }
+            socket.emit('load-map-file', JSON.parse(event.target.result));
         };
         reader.readAsText(file);
-        e.target.value = '';
-    });
+    };
 </script>
 
 </body>
