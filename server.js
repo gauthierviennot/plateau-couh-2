@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
 const DATA_FILE = path.join(__dirname, 'data.json');
 const ADMIN_PASSWORD = "";
 
-// Configuration et légende par défaut (utilisées UNIQUEMENT si data.json n'existe pas)
+// Configuration et légende par défaut
 const DEFAULT_STATE = {
     config: { cols: 150, rows: 100 },
     gridData: {},
@@ -35,18 +35,15 @@ const DEFAULT_STATE = {
 };
 
 let state = { ...DEFAULT_STATE };
-
 let saveTimer = null;
 
-
-// Fonction de chargement sécurisé : Conserve TOUTES vos données existantes
+// Fonction de chargement sécurisé
 function loadData() {
     try {
         if (fs.existsSync(DATA_FILE)) {
             const fileData = fs.readFileSync(DATA_FILE, 'utf8');
             const savedState = JSON.parse(fileData);
             
-            // Fusion sécurisée : On privilégie les cartes/couleurs enregistrées dans data.json
             state = {
                 config: savedState.config || DEFAULT_STATE.config,
                 gridData: savedState.gridData || DEFAULT_STATE.gridData,
@@ -67,52 +64,29 @@ function loadData() {
 }
 
 function saveData() {
- 
-try {
- 
-if (fs.existsSync(DATA_FILE)) {
- 
-fs.copyFileSync(
-DATA_FILE,
-DATA_FILE + '.backup'
-);
- 
-}
- 
-fs.writeFileSync(
-DATA_FILE,
-JSON.stringify(state, null, 2),
-'utf8'
-);
- 
-}
-catch (err) {
- 
-console.error(
-'⚠️ Erreur lors de la sauvegarde :',
-err.message
-);
- 
-}
- 
-}
- 
-function saveDataDebounced() {
- 
-if (saveTimer) {
-clearTimeout(saveTimer);
-}
- 
-saveTimer = setTimeout(() => {
-saveData();
-}, 1500);
- 
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            fs.copyFileSync(DATA_FILE, DATA_FILE + '.backup');
+        }
+        fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), 'utf8');
+    } catch (err) {
+        console.error('⚠️ Erreur lors de la sauvegarde :', err.message);
+    }
 }
 
-// Initialisation au démarrage du serveur
+function saveDataDebounced() {
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+    }
+    saveTimer = setTimeout(() => {
+        saveData();
+    }, 1500);
+}
+
+// Initialisation au démarrage
 loadData();
 
-const activeUsers = {}; // { socketId: username }
+const activeUsers = {};
 
 function broadcastUserList() {
     const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
@@ -135,7 +109,6 @@ io.on('connection', (socket) => {
         const cleanName = (name || '').trim();
         const lowerName = cleanName.toLowerCase();
 
-        // Un seul Admin à la fois
         if (lowerName === 'admin') {
             const alreadyAdmin = Object.values(activeUsers).some(u => u.toLowerCase() === 'admin');
             if (alreadyAdmin && socket.username?.toLowerCase() !== 'admin') {
@@ -164,60 +137,39 @@ io.on('connection', (socket) => {
     socket.on('toggle-lock', (lockedState) => {
         if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.isLocked = lockedState;
-            saveData();
+            saveData(); // Ici on sauvegarde immédiatement car c'est une action rare et importante
             io.emit('update-lock', state.isLocked);
         }
     });
 
+    socket.on('export-data', () => {
+        socket.emit('export-result', state);
+    });
 
-socket.on('export-data', () => {
- 
-socket.emit(
-'export-result',
-state
-);
- 
-});
-
-socket.on('import-state', (newState) => {
- 
-if (
-socket.username &&
-socket.username.toLowerCase() === 'admin'
-) {
- 
-if (
-!newState ||
-!newState.config ||
-!newState.gridData ||
-!newState.terrainsList
-) {
-return;
-}
- 
-state = {
-config: newState.config,
-gridData: newState.gridData,
-terrainsList: newState.terrainsList,
-isLocked: !!newState.isLocked
-};
- 
-saveData();
- 
-io.emit('init', {
-config: state.config,
-gridData: state.gridData,
-terrains: state.terrainsList,
-users: Object.values(activeUsers),
-isLocked: state.isLocked
-});
- 
-}
- 
-});
-
-
-
+    socket.on('import-state', (newState) => {
+        if (socket.username && socket.username.toLowerCase() === 'admin') {
+            if (!newState || !newState.config || !newState.gridData || !newState.terrainsList) {
+                return;
+            }
+            
+            state = {
+                config: newState.config,
+                gridData: newState.gridData,
+                terrainsList: newState.terrainsList,
+                isLocked: !!newState.isLocked
+            };
+            
+            saveData();
+            
+            io.emit('init', {
+                config: state.config,
+                gridData: state.gridData,
+                terrains: state.terrainsList,
+                users: Object.values(activeUsers),
+                isLocked: state.isLocked
+            });
+        }
+    });
 
     socket.on('paint-tile', (data) => {
         if (state.isLocked) return;
@@ -225,12 +177,15 @@ isLocked: state.isLocked
         const { key, color } = data;
         const author = socket.username || 'Anonyme';
         
-state.gridData[key] = {
-color,
-author,
-timestamp: Date.now()
-};
-        saveData();
+        state.gridData[key] = {
+            color,
+            author,
+            timestamp: Date.now()
+        };
+
+        // CORRECTION : Utilisation du debounce pour éviter de saturer le disque
+        saveDataDebounced();
+        
         io.emit('update-tile', { key, color, author });
     });
 
@@ -260,11 +215,7 @@ timestamp: Date.now()
 });
 
 const PORT = process.env.PORT || 3000;
- 
+
 http.listen(PORT, () => {
- 
-console.log(
-`Serveur prêt sur http://localhost:${PORT}`
-);
- 
+    console.log(`Serveur prêt sur http://localhost:${PORT}`);
 });
