@@ -794,6 +794,17 @@ overrideMessage.textContent =
         });
 
 
+
+
+
+
+
+
+
+
+
+
+
 function saveViewSettings() {
  
 localStorage.setItem(
@@ -856,6 +867,156 @@ drawGrid();
 });
  
 }
+
+
+
+
+
+// ===== EXPORT PNG =====
+ 
+document.getElementById("btnExportPng")
+.addEventListener("click", () => {
+ 
+const link =
+document.createElement("a");
+ 
+link.download = "plateau.png";
+ 
+link.href =
+canvas.toDataURL("image/png");
+ 
+link.click();
+ 
+});
+ 
+// ===== EXPORT JSON =====
+ 
+document.getElementById("btnExportJson")
+.addEventListener("click", () => {
+ 
+if(socket){
+socket.emit("export-data");
+}
+ 
+});
+ 
+// réception des données exportées
+ 
+if(socket){
+ 
+socket.on(
+"export-result",
+(data) => {
+ 
+const blob =
+new Blob(
+[
+JSON.stringify(
+data,
+null,
+2
+)
+],
+{
+type:
+"application/json"
+}
+);
+ 
+const url =
+URL.createObjectURL(blob);
+ 
+const link =
+document.createElement("a");
+ 
+link.href = url;
+ 
+link.download =
+"plateau.json";
+ 
+link.click();
+ 
+URL.revokeObjectURL(url);
+ 
+}
+);
+ 
+}
+
+
+
+document.getElementById("importFile")
+.addEventListener(
+"change",
+(e) => {
+ 
+const file =
+e.target.files[0];
+ 
+if(!file){
+return;
+}
+ 
+const reader =
+new FileReader();
+ 
+reader.onload =
+(event) => {
+ 
+try{
+ 
+const importedState =
+JSON.parse(
+event.target.result
+);
+ 
+if(socket){
+ 
+socket.emit(
+"import-state",
+importedState
+);
+ 
+}
+ 
+alert(
+"Plateau importé"
+);
+ 
+}
+catch(err){
+ 
+alert(
+"Fichier invalide"
+);
+ 
+}
+ 
+};
+ 
+reader.readAsText(file);
+ 
+}
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     </script>
 </body>
