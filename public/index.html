@@ -144,6 +144,27 @@ placeholder="Mot de passe admin (si besoin)"
             <button id="btnLockToggle" class="btn-lock" style="display: none;">🔓 Déverrouillé</button>
             <button id="btnResetView" class="btn-reset-view" title="Centrer la carte">🎯</button>
             <button id="btnModeToggle" class="btn-mode move">Mode : Déplacer ✋</button>
+
+<button id="btnExportPng" class="btn-mode">
+📷 PNG
+</button>
+ 
+<button id="btnExportJson" class="btn-mode">
+💾 JSON
+</button>
+ 
+<label class="btn-mode" for="importFile">
+📂 Import
+</label>
+ 
+<input
+type="file"
+id="importFile"
+accept=".json"
+style="display:none;"
+>
+
+
         </div>
 
         <div class="compass-container">
