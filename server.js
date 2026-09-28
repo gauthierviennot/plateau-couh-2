@@ -13,10 +13,7 @@ app.get('/', (req, res) => {
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 
-// ⚠️ CHANGEZ CE MOT DE PASSE (Ne le laissez pas vide en production !)
-const ADMIN_PASSWORD = ""; 
-
-// Configuration et légende par défaut
+// Configuration et légende par défaut (utilisées UNIQUEMENT si data.json n'existe pas)
 const DEFAULT_STATE = {
     config: { cols: 150, rows: 100 },
     gridData: {},
@@ -37,15 +34,15 @@ const DEFAULT_STATE = {
 };
 
 let state = { ...DEFAULT_STATE };
-let saveTimer = null;
 
-// Fonction de chargement sécurisé
+// Fonction de chargement sécurisé : Conserve TOUTES vos données existantes
 function loadData() {
     try {
         if (fs.existsSync(DATA_FILE)) {
             const fileData = fs.readFileSync(DATA_FILE, 'utf8');
             const savedState = JSON.parse(fileData);
             
+            // Fusion sécurisée : On privilégie les cartes/couleurs enregistrées dans data.json
             state = {
                 config: savedState.config || DEFAULT_STATE.config,
                 gridData: savedState.gridData || DEFAULT_STATE.gridData,
@@ -67,28 +64,16 @@ function loadData() {
 
 function saveData() {
     try {
-        if (fs.existsSync(DATA_FILE)) {
-            fs.copyFileSync(DATA_FILE, DATA_FILE + '.backup');
-        }
         fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), 'utf8');
     } catch (err) {
-        console.error('⚠️ Erreur lors de la sauvegarde :', err.message);
+        console.error('⚠️ Erreur lors de la sauvegarde de data.json :', err.message);
     }
 }
 
-function saveDataDebounced() {
-    if (saveTimer) {
-        clearTimeout(saveTimer);
-    }
-    saveTimer = setTimeout(() => {
-        saveData();
-    }, 1500);
-}
-
-// Initialisation au démarrage
+// Initialisation au démarrage du serveur
 loadData();
 
-const activeUsers = {};
+const activeUsers = {}; // { socketId: username }
 
 function broadcastUserList() {
     const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
@@ -96,15 +81,7 @@ function broadcastUserList() {
     io.emit('update-users-list', uniqueUsers);
 }
 
-// Middleware interne pour valider les droits d'administration
-function isAdmin(socket) {
-    return socket.username && socket.username.toLowerCase() === 'admin' && socket.isAdminAuthenticated === true;
-}
-
 io.on('connection', (socket) => {
-    // Initialisation du flag de sécurité
-    socket.isAdminAuthenticated = false;
-
     const rawUsers = Object.values(activeUsers).filter(u => u && u.trim() !== '');
     
     socket.emit('init', { 
@@ -115,55 +92,28 @@ io.on('connection', (socket) => {
         isLocked: state.isLocked
     });
 
-    // CORRECTION : Ajout d'un paramètre password optionnel
-    socket.on('set-username', (data, callback) => {
-        // Gestion de la rétrocompatibilité ou du format de données (string vs objet)
-        const inputName = typeof data === 'object' ? data.name : data;
-        const inputPassword = typeof data === 'object' ? data.password : null;
-
-        const cleanName = (inputName || '').trim();
+    socket.on('set-username', (name, callback) => {
+        const cleanName = (name || '').trim();
         const lowerName = cleanName.toLowerCase();
 
-        if (cleanName.length === 0) {
-            if (typeof callback === 'function') callback({ success: false, message: "Le pseudo ne peut pas être vide." });
-            return;
-        }
-
+        // Un seul Admin à la fois
         if (lowerName === 'admin') {
-            // 1. Vérification du mot de passe requis pour l'admin
-            if (!inputPassword || inputPassword !== ADMIN_PASSWORD) {
-                if (typeof callback === 'function') {
-                    callback({ success: false, message: "Mot de passe administrateur incorrect !" });
-                }
-                return;
-            }
-
-            // 2. Vérification si un admin est déjà connecté
-            const alreadyAdmin = Object.entries(activeUsers).some(([id, u]) => u.toLowerCase() === 'admin' && id !== socket.id);
-            if (alreadyAdmin) {
+            const alreadyAdmin = Object.values(activeUsers).some(u => u.toLowerCase() === 'admin');
+            if (alreadyAdmin && socket.username?.toLowerCase() !== 'admin') {
                 if (typeof callback === 'function') {
                     callback({ success: false, message: "Un administrateur est déjà connecté !" });
                 }
                 return;
             }
-
-            // Validation des privilèges
-            socket.isAdminAuthenticated = true;
-        } else {
-            // Empêche un utilisateur classique d'utiliser un pseudo contenant 'admin' de manière détournée si besoin
-            if (lowerName.includes('admin')) {
-                if (typeof callback === 'function') callback({ success: false, message: "Ce pseudo contient un mot interdit." });
-                return;
-            }
-            socket.isAdminAuthenticated = false;
         }
 
-        socket.username = cleanName;
-        activeUsers[socket.id] = cleanName;
-        broadcastUserList();
-
-        if (typeof callback === 'function') {
-            callback({ success: true, isAdmin: socket.isAdminAuthenticated });
+        if (cleanName.length > 0) {
+            socket.username = cleanName;
+            activeUsers[socket.id] = cleanName;
+            broadcastUserList();
+            if (typeof callback === 'function') {
+                callback({ success: true });
+            }
         }
     });
 
@@ -172,75 +122,35 @@ io.on('connection', (socket) => {
         socket.emit('update-users-list', [...new Set(rawUsers)]);
     });
 
-    // CORRECTION : Vérification stricte via la fonction isAdmin
     socket.on('toggle-lock', (lockedState) => {
-        if (isAdmin(socket)) {
+        if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.isLocked = lockedState;
-            saveData(); 
-            io.emit('update-lock', state.isLocked);
-        }
-    });
-
-    socket.on('export-data', () => {
-        socket.emit('export-result', state);
-    });
-
-    // CORRECTION : Vérification stricte via la fonction isAdmin
-    socket.on('import-state', (newState) => {
-        if (isAdmin(socket)) {
-            if (!newState || !newState.config || !newState.gridData || !newState.terrainsList) {
-                return;
-            }
-            
-            state = {
-                config: newState.config,
-                gridData: newState.gridData,
-                terrainsList: newState.terrainsList,
-                isLocked: !!newState.isLocked
-            };
-            
             saveData();
-            
-            io.emit('init', {
-                config: state.config,
-                gridData: state.gridData,
-                terrains: state.terrainsList,
-                users: Object.values(activeUsers),
-                isLocked: state.isLocked
-            });
+            io.emit('update-lock', state.isLocked);
         }
     });
 
     socket.on('paint-tile', (data) => {
         if (state.isLocked) return;
-        // CORRECTION : Sécurité anti-triche : un admin authentifié ou un utilisateur ayant un pseudo enregistré
-        if (!socket.username) return; 
 
         const { key, color } = data;
-        const author = socket.username;
+        const author = socket.username || 'Anonyme';
         
-        state.gridData[key] = {
-            color,
-            author,
-            timestamp: Date.now()
-        };
-
-        saveDataDebounced();
+        state.gridData[key] = { color, author };
+        saveData();
         io.emit('update-tile', { key, color, author });
     });
 
-    // CORRECTION : Vérification stricte via la fonction isAdmin
     socket.on('update-terrains', (newTerrains) => {
-        if (isAdmin(socket)) {
+        if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.terrainsList = newTerrains;
             saveData();
             io.emit('update-terrains', state.terrainsList);
         }
     });
 
-    // CORRECTION : Vérification stricte via la fonction isAdmin
     socket.on('change-config', (newConfig) => {
-        if (isAdmin(socket)) {
+        if (socket.username && socket.username.toLowerCase() === 'admin') {
             state.config = newConfig;
             state.gridData = {};
             saveData();
@@ -257,7 +167,6 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-
 http.listen(PORT, () => {
     console.log(`Serveur prêt sur http://localhost:${PORT}`);
 });
