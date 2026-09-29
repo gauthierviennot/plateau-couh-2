@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const { Server } = require('socket.io');
 
 /* ------------------------------------------------------------------ */
-/* Configuration                                                       */
+/* Configuration */
 /* ------------------------------------------------------------------ */
 
 const PORT = process.env.PORT || 3000;
@@ -17,6 +17,8 @@ const MAPS_DIR = path.join(DATA_DIR, 'maps');
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const LEGACY_FILE = path.join(__dirname, 'data.json'); // ancien format, migré automatiquement
 const PASSWORD_FILE = path.join(DATA_DIR, 'admin-password.txt');
+const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // une session reste valable 30 jours
 
 const LIMITS = {
     minSize: 2,
@@ -33,6 +35,8 @@ const LOGIN_BLOCK_MS = 60 * 1000;
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const MAP_ID = /^[a-z0-9-]{1,64}$/;
+const ARROW_DIRECTIONS = 6; // une flèche = numéro de 0 à 5, soit un pas de 60°
+const EDIT_ACTIONS = new Set(['paint', 'remove', 'restore', 'arrow-add', 'arrow-remove']);
 
 const DEFAULT_TERRAINS = [
     { color: '#2ecc71', label: 'Plaine' },
@@ -51,7 +55,7 @@ const DEFAULT_TERRAINS = [
 fs.mkdirSync(MAPS_DIR, { recursive: true });
 
 /* ------------------------------------------------------------------ */
-/* Utilitaires                                                         */
+/* Utilitaires */
 /* ------------------------------------------------------------------ */
 
 const isHex = (value) => typeof value === 'string' && HEX_COLOR.test(value);
@@ -77,7 +81,7 @@ function writeJsonAtomic(file, data) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Validation / nettoyage des données                                  */
+/* Validation / nettoyage des données */
 /* ------------------------------------------------------------------ */
 
 function sanitizeConfig(config) {
@@ -101,19 +105,53 @@ function isValidKey(key, config) {
     return Boolean(match) && Number(match[1]) < config.cols && Number(match[2]) < config.rows;
 }
 
+const isValidArrow = (value) => Number.isInteger(value) && value >= 0 && value < ARROW_DIRECTIONS;
+
+// Une case peut être : peinte { color, author }, avec flèche { arrow }, ou supprimée { removed: true }.
+function sanitizeTile(tile) {
+    if (!tile || typeof tile !== 'object') return null;
+    const author = typeof tile.author === 'string' ? tile.author.slice(0, LIMITS.maxName) : '';
+    if (tile.removed === true) return { removed: true, author };
+
+    const clean = { author };
+    if (isHex(tile.color)) clean.color = tile.color.toLowerCase();
+    if (isValidArrow(tile.arrow)) clean.arrow = tile.arrow;
+    return clean.color || clean.arrow !== undefined ? clean : null;
+}
+
 function sanitizeGrid(grid, config) {
     const clean = {};
     if (!grid || typeof grid !== 'object') return clean;
     for (const [key, tile] of Object.entries(grid)) {
-        if (!isValidKey(key, config) || !tile) continue;
-        const author = typeof tile.author === 'string' ? tile.author.slice(0, LIMITS.maxName) : '';
-        if (tile.removed === true) {
-            clean[key] = { removed: true, author }; // case supprimée du plateau
-        } else if (isHex(tile.color)) {
-            clean[key] = { color: tile.color.toLowerCase(), author };
-        }
+        if (!isValidKey(key, config)) continue;
+        const safe = sanitizeTile(tile);
+        if (safe) clean[key] = safe;
     }
     return clean;
+}
+
+// Retourne la nouvelle case, null pour la ramener à l'état vierge, ou undefined si rien ne change.
+function editTile(tile, action, color, admin) {
+    const removed = Boolean(tile?.removed);
+    switch (action) {
+        case 'paint':
+            if (removed || tile?.color === color) return undefined;
+            return { ...tile, color, author: admin };
+        case 'remove':
+            return removed ? undefined : { removed: true, author: admin };
+        case 'restore':
+            return removed ? null : undefined;
+        case 'arrow-add':
+            if (removed || isValidArrow(tile?.arrow)) return undefined;
+            return { ...tile, author: tile?.author ?? '', arrow: 0 };
+        case 'arrow-remove': {
+            if (removed || !isValidArrow(tile?.arrow)) return undefined;
+            const { arrow, ...rest } = tile;
+            return rest.color ? rest : null;
+        }
+        default:
+            return undefined;
+    }
 }
 
 function normalizeState(raw) {
@@ -128,7 +166,7 @@ function normalizeState(raw) {
 }
 
 /* ------------------------------------------------------------------ */
-/* État courant du plateau (persisté dans data/state.json)             */
+/* État courant du plateau (persisté dans data/state.json) */
 /* ------------------------------------------------------------------ */
 
 function loadState() {
@@ -174,7 +212,7 @@ function scheduleSave() {
 flushSave();
 
 /* ------------------------------------------------------------------ */
-/* Cartes enregistrées (data/maps/<id>.json)                           */
+/* Cartes enregistrées (data/maps/<id>.json) */
 /* ------------------------------------------------------------------ */
 
 const mapsIndex = new Map(); // id -> métadonnées (sans la grille, pour rester léger)
@@ -202,7 +240,7 @@ function loadMapsIndex() {
         const map = readJson(path.join(MAPS_DIR, file));
         if (map && sanitizeConfig(map.config)) mapsIndex.set(id, metaOf({ ...map, id }));
     }
-    console.log(`🗺️  ${mapsIndex.size} carte(s) enregistrée(s).`);
+    console.log(`🗺️ ${mapsIndex.size} carte(s) enregistrée(s).`);
 }
 
 const listMaps = () => [...mapsIndex.values()].sort((a, b) => b.savedAt - a.savedAt);
@@ -248,7 +286,7 @@ function createAutoBackup(reason, author) {
 loadMapsIndex();
 
 /* ------------------------------------------------------------------ */
-/* Authentification admin                                              */
+/* Authentification admin */
 /* ------------------------------------------------------------------ */
 
 function loadAdminPassword() {
@@ -262,7 +300,7 @@ function loadAdminPassword() {
     const generated = crypto.randomBytes(9).toString('base64url');
     fs.writeFileSync(PASSWORD_FILE, `${generated}\n`, { mode: 0o600 });
     console.log('🔑 Mot de passe admin généré (pseudo « admin ») :', generated);
-    console.log(`   Il est enregistré dans ${PASSWORD_FILE}. Vous pouvez aussi définir ADMIN_PASSWORD.`);
+    console.log(` Il est enregistré dans ${PASSWORD_FILE}. Vous pouvez aussi définir ADMIN_PASSWORD.`);
     return generated;
 }
 
@@ -291,15 +329,58 @@ function registerFailure(ip) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Serveur HTTP + Socket.IO                                            */
+/* Serveur HTTP + Socket.IO */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* Sessions persistantes (reconnexion automatique après une veille) */
+/* ------------------------------------------------------------------ */
+
+const ADMIN_FINGERPRINT = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest('hex').slice(0, 16);
+const sessions = new Map(); // jeton -> { name, isAdmin, fp, lastSeen }
+let sessionsTimer = null;
+
+function loadSessions() {
+    const raw = readJson(SESSIONS_FILE);
+    if (!raw || typeof raw !== 'object') return;
+    const now = Date.now();
+    for (const [token, session] of Object.entries(raw)) {
+        if (session && typeof session.name === 'string' && now - session.lastSeen < SESSION_TTL_MS) {
+            sessions.set(token, session);
+        }
+    }
+}
+
+function flushSessions() {
+    if (sessionsTimer) clearTimeout(sessionsTimer);
+    sessionsTimer = null;
+    try {
+        writeJsonAtomic(SESSIONS_FILE, Object.fromEntries(sessions));
+    } catch (err) {
+        console.error('⚠️ Sauvegarde des sessions impossible :', err.message);
+    }
+}
+
+function saveSessions() {
+    if (!sessionsTimer) sessionsTimer = setTimeout(flushSessions, 1000);
+}
+
+function createSession(name, isAdmin) {
+    const token = crypto.randomBytes(24).toString('base64url');
+    sessions.set(token, { name, isAdmin, fp: isAdmin ? ADMIN_FINGERPRINT : '', lastSeen: Date.now() });
+    saveSessions();
+    return token;
+}
+
+loadSessions();
 
 const app = express();
 app.disable('x-powered-by');
 app.use(express.static(path.join(__dirname, 'public')));
 
 const server = http.createServer(app);
-const io = new Server(server);
+// Délais plus larges : un téléphone en veille ne doit pas être considéré comme déconnecté trop vite.
+const io = new Server(server, { pingInterval: 20000, pingTimeout: 60000 });
 
 function connectedUsers() {
     const names = [];
@@ -311,10 +392,13 @@ function connectedUsers() {
 
 const broadcastUsers = () => io.emit('update-users-list', connectedUsers());
 const broadcastMaps = () => io.to('admins').emit('maps-list', listMaps());
+// changes : { "col,ligne": case | null }
+const broadcastTiles = (changes) => io.emit('update-tiles', { changes });
 
 function releaseSession(s) {
     s.data.name = '';
     s.data.isAdmin = false;
+    s.data.token = '';
     s.leave('admins');
 }
 
@@ -325,7 +409,7 @@ function requireAdmin(socket, ack) {
 }
 
 io.on('connection', (socket) => {
-    socket.data = { name: '', clientId: '', isAdmin: false };
+    socket.data = { name: '', clientId: '', isAdmin: false, token: '' };
 
     socket.emit('init', {
         config: state.config,
@@ -338,22 +422,43 @@ io.on('connection', (socket) => {
     /* ---------- Connexion ---------- */
 
     socket.on('set-username', (payload, ack) => {
-        const name = cleanText(payload?.name, LIMITS.maxName);
-        const clientId = cleanText(payload?.clientId, 64);
-        if (!name) return reply(ack, { success: false, message: 'Pseudo invalide.' });
-
-        const wantsAdmin = name.toLowerCase() === 'admin';
         const ip = socket.handshake.address;
+        const clientId = cleanText(payload?.clientId, 64);
+        let name;
+        let wantsAdmin;
+        let token = '';
 
-        if (wantsAdmin) {
-            if (isBlocked(ip)) {
-                return reply(ack, { success: false, message: 'Trop de tentatives. Réessayez dans une minute.' });
+        if (payload?.token) {
+            // Reprise de session : pas besoin de ressaisir le mot de passe admin.
+            token = String(payload.token);
+            const session = sessions.get(token);
+            const invalid = !session
+                || Date.now() - session.lastSeen > SESSION_TTL_MS
+                || (session.isAdmin && session.fp !== ADMIN_FINGERPRINT);
+            if (invalid) {
+                if (session) {
+                    sessions.delete(token);
+                    saveSessions();
+                }
+                return reply(ack, { success: false, code: 'session-expired', message: 'Session expirée, reconnectez-vous.' });
             }
-            if (!passwordMatches(payload?.password)) {
-                registerFailure(ip);
-                return reply(ack, { success: false, message: 'Mot de passe administrateur incorrect.' });
+            name = session.name;
+            wantsAdmin = session.isAdmin;
+        } else {
+            name = cleanText(payload?.name, LIMITS.maxName);
+            if (!name) return reply(ack, { success: false, message: 'Pseudo invalide.' });
+
+            wantsAdmin = name.toLowerCase() === 'admin';
+            if (wantsAdmin) {
+                if (isBlocked(ip)) {
+                    return reply(ack, { success: false, message: 'Trop de tentatives. Réessayez dans une minute.' });
+                }
+                if (!passwordMatches(payload?.password)) {
+                    registerFailure(ip);
+                    return reply(ack, { success: false, message: 'Mot de passe administrateur incorrect.' });
+                }
+                loginFailures.delete(ip);
             }
-            loginFailures.delete(ip);
         }
 
         releaseSession(socket);
@@ -372,13 +477,28 @@ io.on('connection', (socket) => {
             }
         }
 
-        socket.data = { name, clientId, isAdmin: wantsAdmin };
+        if (token) {
+            sessions.get(token).lastSeen = Date.now();
+            saveSessions();
+        } else {
+            token = createSession(name, wantsAdmin);
+        }
+
+        socket.data = { name, clientId, isAdmin: wantsAdmin, token };
         if (wantsAdmin) {
             socket.join('admins');
             socket.emit('maps-list', listMaps());
         }
         broadcastUsers();
-        reply(ack, { success: true, name, isAdmin: wantsAdmin });
+        reply(ack, { success: true, name, isAdmin: wantsAdmin, token });
+    });
+
+    socket.on('logout', (payload, ack) => {
+        const { token } = socket.data;
+        if (token && sessions.delete(token)) saveSessions();
+        releaseSession(socket);
+        broadcastUsers();
+        reply(ack, { success: true });
     });
 
     /* ---------- Plateau ---------- */
@@ -391,34 +511,55 @@ io.on('connection', (socket) => {
         if (!isValidKey(key, state.config) || !isHex(color)) return;
 
         const lower = color.toLowerCase();
-        const author = socket.data.name;
         const existing = state.gridData[key];
-        if (existing?.removed || existing?.color === lower) return;
+        if (existing?.removed || existing?.color === lower) return; // case supprimée : non coloriable
 
-        state.gridData[key] = { color: lower, author };
+        const tile = { ...existing, color: lower, author: socket.data.name }; // la flèche éventuelle est conservée
+        state.gridData[key] = tile;
         scheduleSave();
-        io.emit('update-tile', { key, color: lower, author, removed: false });
+        broadcastTiles({ [key]: tile });
     });
 
-    // Suppression / rétablissement d'un hexagone (admin uniquement).
-    socket.on('set-tile-removed', (data) => {
-        if (!requireAdmin(socket) || state.isLocked) return;
+    // Double toucher d'un joueur sur une flèche : rotation d'un sixième de tour.
+    socket.on('rotate-arrow', (data) => {
+        if (state.isLocked || !socket.data.name) return;
 
         const key = data?.key;
         if (!isValidKey(key, state.config)) return;
 
-        const isRemoved = Boolean(state.gridData[key]?.removed);
-        if (data.removed === true) {
-            if (isRemoved) return;
-            const author = socket.data.name;
-            state.gridData[key] = { removed: true, author };
-            io.emit('update-tile', { key, color: null, author, removed: true });
-        } else {
-            if (!isRemoved) return;
-            delete state.gridData[key];
-            io.emit('update-tile', { key, color: null, author: null, removed: false });
-        }
+        const tile = state.gridData[key];
+        if (!tile || tile.removed || !isValidArrow(tile.arrow)) return;
+
+        tile.arrow = (tile.arrow + 1) % ARROW_DIRECTIONS;
         scheduleSave();
+        broadcastTiles({ [key]: tile });
+    });
+
+    // Actions admin sur une ou plusieurs cases (rectangle de sélection, gomme, flèches).
+    socket.on('edit-tiles', (data) => {
+        if (!requireAdmin(socket) || state.isLocked) return;
+
+        const action = data?.action;
+        if (!EDIT_ACTIONS.has(action)) return;
+        if (action === 'paint' && !isHex(data.color)) return;
+
+        const color = action === 'paint' ? data.color.toLowerCase() : null;
+        const keys = Array.isArray(data.keys) ? data.keys.slice(0, LIMITS.maxSize * LIMITS.maxSize) : [];
+        const changes = {};
+
+        for (const key of new Set(keys)) {
+            if (!isValidKey(key, state.config)) continue;
+            const next = editTile(state.gridData[key], action, color, socket.data.name);
+            if (next === undefined) continue;
+
+            if (next === null) delete state.gridData[key];
+            else state.gridData[key] = next;
+            changes[key] = next;
+        }
+
+        if (Object.keys(changes).length === 0) return;
+        scheduleSave();
+        broadcastTiles(changes);
     });
 
     socket.on('toggle-lock', (locked) => {
@@ -432,9 +573,30 @@ io.on('connection', (socket) => {
         if (!requireAdmin(socket)) return;
         const terrains = sanitizeTerrains(list);
         if (!terrains) return;
+
+        // Si l'admin change une couleur de la légende, les cases déjà peintes avec l'ancienne couleur suivent.
+        const changes = {};
+        const previous = state.terrainsList;
+        if (terrains.length === previous.length) {
+            const remap = new Map();
+            terrains.forEach((terrain, index) => {
+                if (terrain.color !== previous[index].color) remap.set(previous[index].color, terrain.color);
+            });
+            if (remap.size > 0) {
+                for (const [key, tile] of Object.entries(state.gridData)) {
+                    const next = remap.get(tile.color);
+                    if (next) {
+                        tile.color = next;
+                        changes[key] = tile;
+                    }
+                }
+            }
+        }
+
         state.terrainsList = terrains;
         scheduleSave();
         io.emit('update-terrains', state.terrainsList);
+        if (Object.keys(changes).length > 0) broadcastTiles(changes);
     });
 
     socket.on('change-config', (newConfig, ack) => {
@@ -564,11 +726,12 @@ io.on('connection', (socket) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Démarrage / arrêt propre                                            */
+/* Démarrage / arrêt propre */
 /* ------------------------------------------------------------------ */
 
 function shutdown() {
     flushSave();
+    flushSessions();
     process.exit(0);
 }
 process.on('SIGINT', shutdown);
