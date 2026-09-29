@@ -19,6 +19,7 @@
             --muted: #7f8c8d;
             --border: #ddd;
             --radius: 12px;
+            --hex: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; -webkit-user-select: none; }
@@ -40,7 +41,7 @@
         .btn-secondary { background: var(--grey); }
         .btn-small { padding: 6px 10px; font-size: 0.8rem; }
 
-        /* Page 1 : connexion */
+        /* Connexion */
         #pageLogin { background: var(--dark); justify-content: center; align-items: center; }
         .login-card { background: #fff; padding: 30px; border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.2); width: 90%; max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 15px; }
         .login-card h1 { font-size: 1.4rem; color: var(--dark); }
@@ -49,23 +50,21 @@
         .error { color: var(--red); font-size: 0.85rem; font-weight: 600; }
         .error.info { color: var(--muted); }
 
-        /* Page 2 : tableau de bord */
+        /* Tableau de bord (administrateur uniquement) */
         #pageDashboard { background: #e5e9f0; justify-content: center; align-items: center; padding: 16px; }
-        .dashboard-card { background: #fff; padding: 20px; border-radius: var(--radius); box-shadow: 0 4px 15px rgba(0,0,0,.1); width: 100%; max-width: 520px; max-height: 100%; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; touch-action: pan-y; }
+        .dashboard-card { background: #fff; padding: 20px; border-radius: var(--radius); box-shadow: 0 4px 15px rgba(0,0,0,.1); width: 100%; max-width: 560px; max-height: 100%; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; touch-action: pan-y; }
         .dashboard-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 2px solid var(--blue); padding-bottom: 8px; }
         .dashboard-header h2 { font-size: 1.2rem; color: var(--dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .header-actions { display: flex; flex-wrap: wrap; gap: 6px; }
         .section-title { font-weight: bold; font-size: 0.85rem; color: var(--muted); margin-top: 5px; }
-
-        .user-list { background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; max-height: 100px; overflow-y: auto; font-size: 0.85rem; }
-        .user-item { padding: 3px 0; display: flex; align-items: center; gap: 6px; color: var(--dark); font-weight: 500; }
-        .user-item::before { content: "•"; color: var(--green); font-weight: bold; }
+        .hint { font-size: 0.78rem; color: var(--muted); }
+        .add-row { display: flex; flex-wrap: wrap; gap: 6px; }
 
         .terrain-palette { display: flex; flex-direction: column; gap: 6px; }
-        .terrain-item { display: flex; align-items: center; gap: 8px; background: #f8f9fa; padding: 6px; border: 1px solid var(--border); border-radius: 6px; }
-        .terrain-color-preview { width: 28px; height: 28px; border-radius: 4px; border: 1px solid rgba(0,0,0,.2); flex-shrink: 0; }
-        .terrain-color-input { width: 32px; height: 32px; border: none; background: none; flex-shrink: 0; }
-        .terrain-label-text { font-size: 0.9rem; font-weight: 600; color: var(--slate); }
+        .terrain-item { display: flex; align-items: center; gap: 6px; background: #f8f9fa; padding: 6px; border: 1px solid var(--border); border-radius: 6px; }
+        .terrain-hex { position: relative; width: 30px; height: 30px; clip-path: var(--hex); flex-shrink: 0; }
+        .terrain-hex-inner { position: absolute; inset: 25%; clip-path: var(--hex); }
+        .terrain-color-input { width: 30px; height: 30px; border: none; background: none; flex-shrink: 0; }
         .terrain-label-input { flex: 1; min-width: 0; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
 
         .map-save { display: flex; gap: 6px; }
@@ -81,22 +80,24 @@
         .btn-go { position: sticky; bottom: 0; margin-top: auto; padding: 14px; border: none; border-radius: 8px; background: var(--green); color: #fff; font-weight: bold; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 10px rgba(46,204,113,.3); flex-shrink: 0; }
         .btn-go:hover { background: var(--green-dark); }
 
-        /* Page 3 : carte */
+        /* Carte */
         #pageMap { background: var(--dark); overflow: hidden; touch-action: none; }
         canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
-        .btn-exit { position: absolute; top: 15px; left: 15px; z-index: 50; width: 42px; height: 42px; background: var(--red); color: #fff; border: none; border-radius: 50%; font-size: 1.2rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,.3); display: flex; align-items: center; justify-content: center; }
+        .btn-exit { position: absolute; top: 15px; left: 15px; z-index: 50; width: 42px; height: 42px; background: var(--red); color: #fff; border: none; border-radius: 50%; font-size: 1.15rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,.3); display: flex; align-items: center; justify-content: center; }
         .mini-user-list { position: absolute; top: 65px; left: 15px; z-index: 50; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); padding: 6px 10px; border-radius: 6px; color: #fff; font-size: 0.7rem; max-width: 140px; max-height: 90px; overflow-y: auto; pointer-events: none; }
         .mini-user-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
         .mini-user-item::before { content: "•"; color: var(--green); }
 
         .fullscreen-palette { position: absolute; top: 165px; left: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,.9); padding: 10px; border-radius: var(--radius); backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,.2); max-height: calc(100% - 260px); overflow-y: auto; touch-action: pan-y; }
-        .hex-option { width: 34px; height: 34px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); border: none; flex-shrink: 0; transition: transform .2s; }
+        .hex-option { position: relative; width: 34px; height: 34px; clip-path: var(--hex); border: none; flex-shrink: 0; transition: transform .2s; }
+        .hex-option .terrain-hex-inner { pointer-events: none; }
         .hex-option.selected { transform: scale(1.25); filter: drop-shadow(0 0 5px #000); }
         .palette-tooltip { position: fixed; z-index: 60; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,.88); color: #fff; font-size: 0.85rem; white-space: nowrap; pointer-events: none; }
 
         .map-toolbar { position: absolute; top: 15px; right: 15px; z-index: 50; display: flex; justify-content: flex-end; gap: 8px; max-width: calc(100% - 80px); }
-        .admin-tools { position: absolute; top: 70px; right: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
+        .tools { position: absolute; top: 70px; right: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
+        .mark-palette { position: absolute; top: 70px; right: 68px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
         .btn-round { width: 42px; height: 42px; border: none; border-radius: 50%; background: #fff; font-size: 1.15rem; line-height: 1; box-shadow: 0 4px 10px rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-round.lock { background: var(--green); }
         .btn-round.lock.locked { background: var(--red); }
@@ -104,8 +105,9 @@
         .btn-round.mode.move { background: var(--blue); }
         .btn-round.mode.paint { background: var(--green); }
         .btn-round.active { outline: 3px solid var(--dark); background: #ffeaa7; }
+        .mark-palette .btn-round { font-size: 1.05rem; color: var(--dark); }
 
-        .selection-bar { position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,.94); border-radius: 26px; box-shadow: 0 4px 15px rgba(0,0,0,.3); max-width: 96%; }
+        .selection-bar { position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,.94); border-radius: 26px; box-shadow: 0 4px 15px rgba(0,0,0,.3); width: max-content; max-width: 96%; }
         .selection-bar .btn-round { width: 38px; height: 38px; font-size: 1rem; box-shadow: none; background: #f1f3f5; }
         .selection-count { font-size: 0.8rem; font-weight: 600; color: var(--dark); white-space: nowrap; }
 
@@ -128,7 +130,7 @@
 </head>
 <body>
 
-    <!-- PAGE 1 : connexion -->
+    <!-- Connexion -->
     <main id="pageLogin" class="page active">
         <div class="login-card">
             <h1>Plateau Hexagonal</h1>
@@ -139,26 +141,27 @@
         </div>
     </main>
 
-    <!-- PAGE 2 : tableau de bord -->
+    <!-- Tableau de bord : réservé à l'administrateur -->
     <main id="pageDashboard" class="page">
         <div class="dashboard-card">
             <div class="dashboard-header">
-                <h2 id="welcomeUser">Bienvenue !</h2>
+                <h2 id="welcomeUser">Administrateur</h2>
                 <div class="header-actions">
-                    <button id="btnOpenMaps" class="btn btn-primary admin-only" hidden>🗺️ Cartes</button>
-                    <button id="btnAdminConfig" class="btn btn-dark admin-only" hidden>⚙️ Plateau</button>
+                    <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
+                    <button id="btnAdminConfig" class="btn btn-dark">⚙️ Plateau</button>
                     <button id="btnLogout" class="btn btn-secondary">Déconnexion</button>
                 </div>
             </div>
 
-            <div class="section-title">Joueurs en ligne</div>
-            <div id="onlineUsers" class="user-list"></div>
-
-            <div class="section-title">Couleurs et légendes</div>
+            <div class="section-title">Couleurs et tuiles</div>
+            <p class="hint">La première couleur de la liste est la couleur par défaut du plateau (la plaine). Une tuile bicolore affiche un petit hexagone au centre du grand.</p>
             <div id="terrainContainer" class="terrain-palette"></div>
-            <button id="btnAddTerrain" class="btn btn-secondary admin-only" hidden>＋ Ajouter une couleur</button>
+            <div class="add-row">
+                <button id="btnAddTerrain" class="btn btn-secondary">＋ Couleur</button>
+                <button id="btnAddBicolor" class="btn btn-secondary">＋ Tuile bicolore</button>
+            </div>
 
-            <button id="btnGo" class="btn-go">🚀 GO !</button>
+            <button id="btnGo" class="btn-go">🚀 Ouvrir la carte</button>
         </div>
 
         <div id="configModal" class="modal-overlay" hidden>
@@ -172,7 +175,7 @@
                     <label for="rows">Lignes (longueur)</label>
                     <input type="number" id="rows" value="8" min="2" max="300">
                 </div>
-                <p>Changer la taille vide le plateau. Une sauvegarde automatique est créée avant.</p>
+                <p>Changer la taille vide le plateau (toutes les cases redeviennent des plaines). Une sauvegarde automatique est créée avant.</p>
                 <div class="modal-actions">
                     <button id="btnCloseModal" class="btn btn-secondary">Annuler</button>
                     <button id="btnApplyConfig" class="btn btn-danger">Appliquer</button>
@@ -181,9 +184,9 @@
         </div>
     </main>
 
-    <!-- PAGE 3 : carte -->
+    <!-- Carte -->
     <main id="pageMap" class="page">
-        <button id="btnExitMap" class="btn-exit" title="Quitter la carte" aria-label="Quitter la carte">✖</button>
+        <button id="btnExitMap" class="btn-exit" title="Se déconnecter" aria-label="Se déconnecter">🚪</button>
         <div id="miniOnlineUsers" class="mini-user-list"></div>
         <div id="fsPalette" class="fullscreen-palette"></div>
 
@@ -194,11 +197,20 @@
             <button id="btnModeToggle" class="btn-round mode move" title="Mode déplacer : toucher pour peindre" aria-label="Mode déplacer : toucher pour peindre">✋</button>
         </div>
 
-        <div id="adminTools" class="admin-tools" hidden>
-            <button id="btnSelect" class="btn-round" title="Sélectionner plusieurs hexagones avec un rectangle" aria-label="Sélection par rectangle">⛶</button>
-            <button id="btnErase" class="btn-round" title="Supprimer des hexagones" aria-label="Supprimer des hexagones">✂️</button>
-            <button id="btnRestore" class="btn-round" title="Rétablir des hexagones" aria-label="Rétablir des hexagones">↩️</button>
+        <div id="tools" class="tools">
             <button id="btnArrow" class="btn-round" title="Ajouter ou retirer une flèche" aria-label="Ajouter ou retirer une flèche">➡️</button>
+            <button id="btnSelect" class="btn-round admin-only" title="Sélectionner plusieurs hexagones avec un rectangle" aria-label="Sélection par rectangle" hidden>⛶</button>
+            <button id="btnErase" class="btn-round admin-only" title="Supprimer des hexagones" aria-label="Supprimer des hexagones" hidden>✂️</button>
+            <button id="btnRestore" class="btn-round admin-only" title="Rétablir des hexagones" aria-label="Rétablir des hexagones" hidden>↩️</button>
+            <button id="btnMark" class="btn-round admin-only" title="Marquer des hexagones" aria-label="Marquer des hexagones" hidden>📌</button>
+            <button id="btnUnmark" class="btn-round admin-only" title="Démarquer des hexagones" aria-label="Démarquer des hexagones" hidden>🧹</button>
+        </div>
+
+        <div id="markPalette" class="mark-palette" hidden>
+            <button class="btn-round" data-mark="square" title="Carré" aria-label="Marque carré">■</button>
+            <button class="btn-round" data-mark="triangle" title="Triangle" aria-label="Marque triangle">▲</button>
+            <button class="btn-round" data-mark="diamond" title="Losange" aria-label="Marque losange">◆</button>
+            <button class="btn-round" data-mark="cross" title="Croix" aria-label="Marque croix">✚</button>
         </div>
 
         <div id="selectionBar" class="selection-bar" hidden>
@@ -208,6 +220,8 @@
             <button id="btnSelRestore" class="btn-round" title="Rétablir les hexagones supprimés" aria-label="Rétablir la sélection">↩️</button>
             <button id="btnSelArrow" class="btn-round" title="Ajouter une flèche" aria-label="Ajouter une flèche à la sélection">➡️</button>
             <button id="btnSelNoArrow" class="btn-round" title="Retirer les flèches" aria-label="Retirer les flèches de la sélection">🚫</button>
+            <button id="btnSelMark" class="btn-round" title="Marquer avec la marque choisie" aria-label="Marquer la sélection">📌</button>
+            <button id="btnSelUnmark" class="btn-round" title="Retirer les marques" aria-label="Démarquer la sélection">🧹</button>
             <button id="btnSelClear" class="btn-round" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
         </div>
 
@@ -259,17 +273,19 @@
         const HEX_RADIUS = 35;
         const HEX_WIDTH = Math.sqrt(3) * HEX_RADIUS;
         const ROW_STEP = HEX_RADIUS * 1.5;
+        const INNER_FACTOR = 0.5; // taille du petit hexagone des tuiles bicolores
         const MIN_SCALE = 0.05;
         const MAX_SCALE = 5;
         const MIN_SIZE = 2;
         const MAX_SIZE = 300;
         const MAX_TERRAINS = 30;
-        const EMPTY_COLOR = '#ffffff';
+        const FALLBACK_COLOR = '#2ecc71';
         const BACKGROUND = '#ecf0f1';
         const REQUEST_TIMEOUT_MS = 8000;
         const DOUBLE_TAP_MS = 300;
         const SESSION_KEY = 'hexSession';
-        const ADMIN_MODES = new Set(['select', 'erase', 'restore', 'arrow']);
+        const ADMIN_MODES = new Set(['select', 'erase', 'restore', 'mark', 'unmark']);
+        const GHOST_MODES = new Set(['select', 'erase', 'restore']);
 
         const HEX_CORNERS = Array.from({ length: 6 }, (_, i) => {
             const angle = (Math.PI / 180) * (60 * i - 30);
@@ -278,6 +294,7 @@
 
         const $ = (id) => document.getElementById(id);
         const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+        const terrainKey = (item) => `${item.color}/${item.inner ?? ''}`;
 
         const socket = typeof io !== 'undefined' ? io() : null;
 
@@ -285,8 +302,9 @@
             username: '',
             isAdmin: false,
             isLocked: false,
-            mode: 'move', // move | paint | select | erase | restore | arrow
-            activeColor: null,
+            mode: 'move', // move | paint | arrow | select | erase | restore | mark | unmark
+            activeKey: null, // terrain choisi dans la palette
+            activeMark: 'square',
             cols: 10,
             rows: 8,
             gridData: {},
@@ -314,7 +332,6 @@
             loginError: $('loginError'),
             btnLogin: $('btnLogin'),
             welcome: $('welcomeUser'),
-            onlineUsers: $('onlineUsers'),
             miniUsers: $('miniOnlineUsers'),
             terrainContainer: $('terrainContainer'),
             fsPalette: $('fsPalette'),
@@ -324,13 +341,11 @@
             configModal: $('configModal'),
             overrideModal: $('overrideModal'),
             overrideMessage: $('overrideMessage'),
+            btnExit: $('btnExitMap'),
             btnLock: $('btnLockToggle'),
             btnMode: $('btnModeToggle'),
-            adminTools: $('adminTools'),
-            btnSelect: $('btnSelect'),
-            btnErase: $('btnErase'),
-            btnRestore: $('btnRestore'),
-            btnArrow: $('btnArrow'),
+            tools: $('tools'),
+            markPalette: $('markPalette'),
             selectionBar: $('selectionBar'),
             selectionCount: $('selectionCount'),
             tooltip: $('paletteTooltip'),
@@ -338,7 +353,14 @@
             toast: $('toast')
         };
         const ctx = el.canvas.getContext('2d');
-        const toolButtons = { select: el.btnSelect, erase: el.btnErase, restore: el.btnRestore, arrow: el.btnArrow };
+        const toolButtons = {
+            arrow: $('btnArrow'),
+            select: $('btnSelect'),
+            erase: $('btnErase'),
+            restore: $('btnRestore'),
+            mark: $('btnMark'),
+            unmark: $('btnUnmark')
+        };
 
         /* ============================================================ */
         /* Identité et session (conservée même après mise en veille)     */
@@ -411,6 +433,16 @@
             el.loginError.hidden = !message;
         }
 
+        function requestFullscreen() {
+            const root = document.documentElement;
+            const enter = root.requestFullscreen || root.webkitRequestFullscreen;
+            if (!enter) return;
+            try {
+                const result = enter.call(root);
+                if (result?.catch) result.catch(() => {});
+            } catch { /* plein écran indisponible : on continue sans */ }
+        }
+
         function leaveFullscreen() {
             const exit = document.exitFullscreen || document.webkitExitFullscreen;
             if ((document.fullscreenElement || document.webkitFullscreenElement) && exit) exit.call(document);
@@ -418,18 +450,17 @@
 
         function applyRole() {
             document.querySelectorAll('.admin-only').forEach((node) => { node.hidden = !state.isAdmin; });
+            // Bouton en haut à gauche de la carte : retour pour l'admin, déconnexion pour les joueurs.
+            el.btnExit.textContent = state.isAdmin ? '⬅' : '🚪';
+            const label = state.isAdmin ? 'Retour au tableau de bord' : 'Se déconnecter';
+            el.btnExit.title = label;
+            el.btnExit.setAttribute('aria-label', label);
             updateLockUI();
         }
 
         function updateUsers(users) {
-            el.onlineUsers.replaceChildren();
             el.miniUsers.replaceChildren();
             for (const name of users) {
-                const item = document.createElement('div');
-                item.className = 'user-item';
-                item.textContent = name;
-                el.onlineUsers.appendChild(item);
-
                 const mini = document.createElement('div');
                 mini.className = 'mini-user-item';
                 mini.textContent = name;
@@ -444,6 +475,13 @@
         el.username.addEventListener('input', () => {
             el.password.hidden = el.username.value.trim().toLowerCase() !== 'admin';
         });
+
+        function enterMap() {
+            showPage('map');
+            setMode('move');
+            resizeCanvas();
+            centerMap();
+        }
 
         // credentials : { name, password } pour une connexion, ou { token } pour reprendre une session.
         async function authenticate(credentials, isReconnect) {
@@ -467,17 +505,23 @@
             state.username = res.name;
             state.isAdmin = Boolean(res.isAdmin);
             saveSession(res.token, res.name);
-            el.welcome.textContent = `Joueur : ${res.name}`;
+            el.welcome.textContent = `Administrateur : ${res.name}`;
             showLoginError('');
             applyRole();
             renderTerrains();
-            if (!isReconnect) showPage('dashboard');
+
+            // Les joueurs arrivent directement sur la carte ; seul l'admin passe par le tableau de bord.
+            if (!isReconnect) {
+                if (state.isAdmin) showPage('dashboard');
+                else enterMap();
+            }
         }
 
         function handleLogin() {
             const name = el.username.value.trim();
             if (!name) return;
             if (!socket) return showLoginError('Connexion au serveur impossible.');
+            if (name.toLowerCase() !== 'admin') requestFullscreen(); // geste utilisateur : le plein écran est autorisé
             authenticate({ name, password: el.password.value }, false);
         }
 
@@ -505,41 +549,57 @@
         $('btnLogout').addEventListener('click', logout);
 
         /* ============================================================ */
-        /* Terrains (légende et palette)                                 */
+        /* Terrains : légende, palette et tuiles bicolores               */
         /* ============================================================ */
 
         const pushTerrains = () => socket?.emit('update-terrains', state.terrains);
+        const defaultColor = () => state.terrains[0]?.color ?? FALLBACK_COLOR;
+        const activeTerrain = () => state.terrains.find((t) => terrainKey(t) === state.activeKey) ?? null;
 
-        function buildReadonlyTerrain(terrain) {
-            const item = document.createElement('div');
-            item.className = 'terrain-item';
+        function buildHex(terrain, className) {
+            const hex = document.createElement('div');
+            hex.className = className;
+            hex.style.backgroundColor = terrain.color;
+            if (terrain.inner) {
+                const inner = document.createElement('span');
+                inner.className = 'terrain-hex-inner';
+                inner.style.backgroundColor = terrain.inner;
+                hex.appendChild(inner);
+            }
+            return hex;
+        }
 
-            const preview = document.createElement('div');
-            preview.className = 'terrain-color-preview';
-            preview.style.backgroundColor = terrain.color;
+        function colorInput(value, label, onChange) {
+            const input = document.createElement('input');
+            input.type = 'color';
+            input.className = 'terrain-color-input';
+            input.value = value;
+            input.setAttribute('aria-label', label);
+            input.addEventListener('change', () => onChange(input.value));
+            return input;
+        }
 
-            const label = document.createElement('span');
-            label.className = 'terrain-label-text';
-            label.textContent = terrain.label;
-
-            item.append(preview, label);
-            return item;
+        // Modifie un terrain en gardant sélectionné celui qui l'était.
+        function updateTerrain(terrain, change) {
+            const wasActive = terrainKey(terrain) === state.activeKey;
+            change(terrain);
+            if (wasActive) state.activeKey = terrainKey(terrain);
+            pushTerrains(); // le serveur recolorie aussi les cases déjà peintes avec l'ancien aspect
+            renderTerrains();
         }
 
         function buildEditableTerrain(terrain, index) {
             const item = document.createElement('div');
             item.className = 'terrain-item';
+            item.appendChild(buildHex(terrain, 'terrain-hex'));
 
-            const colorInput = document.createElement('input');
-            colorInput.type = 'color';
-            colorInput.className = 'terrain-color-input';
-            colorInput.value = terrain.color;
-            colorInput.setAttribute('aria-label', `Couleur de ${terrain.label}`);
-            colorInput.addEventListener('change', () => {
-                if (state.activeColor === terrain.color) state.activeColor = colorInput.value;
-                terrain.color = colorInput.value;
-                pushTerrains(); // le serveur recolorie aussi les cases déjà peintes avec l'ancienne couleur
-            });
+            item.appendChild(colorInput(terrain.color, `Couleur de ${terrain.label}`,
+                (value) => updateTerrain(terrain, (t) => { t.color = value; })));
+
+            if (terrain.inner) {
+                item.appendChild(colorInput(terrain.inner, `Petit hexagone de ${terrain.label}`,
+                    (value) => updateTerrain(terrain, (t) => { t.inner = value; })));
+            }
 
             const labelInput = document.createElement('input');
             labelInput.type = 'text';
@@ -550,6 +610,18 @@
                 terrain.label = labelInput.value.trim();
                 pushTerrains();
             });
+            item.appendChild(labelInput);
+
+            const toggle = document.createElement('button');
+            toggle.className = 'btn btn-dark btn-small';
+            toggle.textContent = terrain.inner ? '⬢' : '⬡';
+            toggle.title = terrain.inner ? 'Retirer le petit hexagone' : 'Ajouter un petit hexagone (tuile bicolore)';
+            toggle.setAttribute('aria-label', toggle.title);
+            toggle.addEventListener('click', () => updateTerrain(terrain, (t) => {
+                if (t.inner) delete t.inner;
+                else t.inner = '#ffffff';
+            }));
+            item.appendChild(toggle);
 
             const remove = document.createElement('button');
             remove.className = 'btn btn-danger btn-small';
@@ -561,8 +633,8 @@
                 pushTerrains();
                 renderTerrains();
             });
+            item.appendChild(remove);
 
-            item.append(colorInput, labelInput, remove);
             return item;
         }
 
@@ -580,34 +652,40 @@
         }
 
         function buildPaletteButton(terrain) {
-            const button = document.createElement('button');
-            button.className = 'hex-option';
-            button.style.backgroundColor = terrain.color;
-            button.dataset.color = terrain.color;
-            button.setAttribute('aria-label', terrain.label);
+            const real = document.createElement('button');
+            real.className = 'hex-option';
+            real.style.backgroundColor = terrain.color;
+            real.dataset.key = terrainKey(terrain);
+            real.setAttribute('aria-label', terrain.label);
+            if (terrain.inner) {
+                const inner = document.createElement('span');
+                inner.className = 'terrain-hex-inner';
+                inner.style.backgroundColor = terrain.inner;
+                real.appendChild(inner);
+            }
 
             // Souris : la légende apparaît au survol.
-            button.addEventListener('pointerenter', (e) => {
-                if (e.pointerType === 'mouse') showPaletteTooltip(button, terrain.label);
+            real.addEventListener('pointerenter', (e) => {
+                if (e.pointerType === 'mouse') showPaletteTooltip(real, terrain.label);
             });
-            button.addEventListener('pointerleave', hidePaletteTooltip);
+            real.addEventListener('pointerleave', hidePaletteTooltip);
 
-            button.addEventListener('click', (e) => {
-                state.activeColor = terrain.color;
-                markSelectedColor();
+            real.addEventListener('click', (e) => {
+                state.activeKey = terrainKey(terrain);
+                markSelectedTerrain();
                 // Tactile : pas de survol possible, la légende s'affiche brièvement.
                 if (e.pointerType !== 'mouse') {
-                    showPaletteTooltip(button, terrain.label);
+                    showPaletteTooltip(real, terrain.label);
                     clearTimeout(tooltipTimer);
                     tooltipTimer = setTimeout(hidePaletteTooltip, 1500);
                 }
             });
-            return button;
+            return real;
         }
 
-        function markSelectedColor() {
+        function markSelectedTerrain() {
             for (const button of el.fsPalette.children) {
-                button.classList.toggle('selected', button.dataset.color === state.activeColor);
+                button.classList.toggle('selected', button.dataset.key === state.activeKey);
             }
         }
 
@@ -616,25 +694,24 @@
             el.fsPalette.replaceChildren();
             hidePaletteTooltip();
 
-            if (!state.terrains.some((t) => t.color === state.activeColor)) {
-                state.activeColor = state.terrains[0]?.color ?? null;
-            }
+            if (!activeTerrain()) state.activeKey = state.terrains[0] ? terrainKey(state.terrains[0]) : null;
 
             state.terrains.forEach((terrain, index) => {
-                el.terrainContainer.appendChild(
-                    state.isAdmin ? buildEditableTerrain(terrain, index) : buildReadonlyTerrain(terrain)
-                );
+                if (state.isAdmin) el.terrainContainer.appendChild(buildEditableTerrain(terrain, index));
                 el.fsPalette.appendChild(buildPaletteButton(terrain));
             });
-            markSelectedColor();
+            markSelectedTerrain();
         }
 
-        $('btnAddTerrain').addEventListener('click', () => {
+        function addTerrain(terrain) {
             if (state.terrains.length >= MAX_TERRAINS) return toast(`Maximum ${MAX_TERRAINS} couleurs.`, true);
-            state.terrains.push({ color: '#cccccc', label: 'Nouveau terrain' });
+            state.terrains.push(terrain);
             pushTerrains();
             renderTerrains();
-        });
+        }
+
+        $('btnAddTerrain').addEventListener('click', () => addTerrain({ color: '#cccccc', label: 'Nouveau terrain' }));
+        $('btnAddBicolor').addEventListener('click', () => addTerrain({ color: '#3498db', inner: '#f1c40f', label: 'Tuile bicolore' }));
 
         /* ============================================================ */
         /* Cartes enregistrées (admin)                                   */
@@ -681,7 +758,7 @@
                 name.textContent = map.name;
                 const meta = document.createElement('span');
                 meta.className = 'map-meta';
-                meta.textContent = `${map.cols}×${map.rows}, ${map.tiles} cases, ${formatDate(map.savedAt)}${map.author ? `, par ${map.author}` : ''}`;
+                meta.textContent = `${map.cols}×${map.rows}, ${map.tiles} cases modifiées, ${formatDate(map.savedAt)}${map.author ? `, par ${map.author}` : ''}`;
                 info.append(name, meta);
 
                 const actions = document.createElement('div');
@@ -770,6 +847,13 @@
             el.selectionCount.textContent = `${count} case${count > 1 ? 's' : ''}`;
         }
 
+        function updateMarkPalette() {
+            el.markPalette.hidden = !(state.isAdmin && (state.mode === 'mark' || state.mode === 'select'));
+            for (const button of el.markPalette.children) {
+                button.classList.toggle('active', button.dataset.mark === state.activeMark);
+            }
+        }
+
         function setMode(mode) {
             const blocked = state.isLocked || (ADMIN_MODES.has(mode) && !state.isAdmin);
             state.mode = blocked ? 'move' : mode;
@@ -789,11 +873,11 @@
             clearPendingTap();
             dragRect = null;
             updateSelectionBar();
+            updateMarkPalette();
             requestDraw();
         }
 
         function updateLockUI() {
-            const canEdit = state.isAdmin && !state.isLocked;
             const label = state.isLocked ? 'Déverrouiller le plateau' : 'Verrouiller le plateau';
             el.btnLock.textContent = state.isLocked ? '🔒' : '🔓';
             el.btnLock.title = label;
@@ -801,7 +885,7 @@
             el.btnLock.classList.toggle('locked', state.isLocked);
             el.fsPalette.hidden = state.isLocked;
             el.btnMode.hidden = state.isLocked;
-            el.adminTools.hidden = !canEdit;
+            el.tools.hidden = state.isLocked;
 
             if (state.isLocked || (!state.isAdmin && ADMIN_MODES.has(state.mode))) setMode('move');
         }
@@ -812,19 +896,29 @@
         }
         el.btnLock.addEventListener('click', () => socket?.emit('toggle-lock', !state.isLocked));
 
+        for (const button of el.markPalette.children) {
+            button.addEventListener('click', () => {
+                state.activeMark = button.dataset.mark;
+                updateMarkPalette();
+            });
+        }
+
         function editSelection(action, extra = {}) {
             if (state.selection.size === 0) return;
             socket?.emit('edit-tiles', { keys: [...state.selection], action, ...extra });
         }
 
         $('btnSelPaint').addEventListener('click', () => {
-            if (!state.activeColor) return toast('Choisissez d’abord une couleur.', true);
-            editSelection('paint', { color: state.activeColor });
+            const terrain = activeTerrain();
+            if (!terrain) return toast('Choisissez d’abord une couleur.', true);
+            editSelection('paint', { color: terrain.color, inner: terrain.inner ?? '' });
         });
         $('btnSelRemove').addEventListener('click', () => editSelection('remove'));
         $('btnSelRestore').addEventListener('click', () => editSelection('restore'));
         $('btnSelArrow').addEventListener('click', () => editSelection('arrow-add'));
         $('btnSelNoArrow').addEventListener('click', () => editSelection('arrow-remove'));
+        $('btnSelMark').addEventListener('click', () => editSelection('mark', { mark: state.activeMark }));
+        $('btnSelUnmark').addEventListener('click', () => editSelection('unmark'));
         $('btnSelClear').addEventListener('click', () => {
             state.selection.clear();
             updateSelectionBar();
@@ -836,28 +930,21 @@
         /* ============================================================ */
 
         $('btnGo').addEventListener('click', () => {
-            const root = document.documentElement;
-            const enter = root.requestFullscreen || root.webkitRequestFullscreen;
-            if (enter) {
-                try {
-                    const result = enter.call(root);
-                    if (result?.catch) result.catch(() => {});
-                } catch { /* plein écran indisponible : on continue sans */ }
+            requestFullscreen();
+            enterMap();
+        });
+
+        el.btnExit.addEventListener('click', () => {
+            if (state.isAdmin) {
+                leaveFullscreen();
+                showPage('dashboard');
+            } else if (confirm('Se déconnecter ?')) {
+                logout();
             }
-
-            showPage('map');
-            setMode('move');
-            resizeCanvas();
-            centerMap();
         });
 
-        $('btnExitMap').addEventListener('click', () => {
-            leaveFullscreen();
-            showPage('dashboard');
-        });
-
-        // Retour au tableau de bord si l'utilisateur quitte le plein écran (Échap, geste système),
-        // sauf si c'est la mise en veille du téléphone qui l'a provoqué.
+        // L'admin revient au tableau de bord s'il quitte le plein écran (Échap, geste système),
+        // sauf si c'est la mise en veille du téléphone qui l'a provoqué. Les joueurs restent sur la carte.
         function onFullscreenChange() {
             const active = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
             if (active) {
@@ -865,7 +952,7 @@
                 return;
             }
             const justResumed = document.hidden || Date.now() - lastVisibilityChange < 2500;
-            if (wasFullscreen && isMapActive() && !justResumed) showPage('dashboard');
+            if (wasFullscreen && state.isAdmin && isMapActive() && !justResumed) showPage('dashboard');
             wasFullscreen = false;
         }
         document.addEventListener('fullscreenchange', onFullscreenChange);
@@ -973,9 +1060,9 @@
             });
         }
 
-        function addHexPath(path, x, y) {
-            path.moveTo(x + HEX_CORNERS[0][0], y + HEX_CORNERS[0][1]);
-            for (let i = 1; i < 6; i++) path.lineTo(x + HEX_CORNERS[i][0], y + HEX_CORNERS[i][1]);
+        function addHexPath(path, x, y, factor = 1) {
+            path.moveTo(x + HEX_CORNERS[0][0] * factor, y + HEX_CORNERS[0][1] * factor);
+            for (let i = 1; i < 6; i++) path.lineTo(x + HEX_CORNERS[i][0] * factor, y + HEX_CORNERS[i][1] * factor);
             path.closePath();
         }
 
@@ -983,6 +1070,8 @@
             const n = Number.parseInt(hex.slice(1), 16);
             return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
         }
+
+        const contrastOn = (hex) => (luminance(hex) > 0.55 ? '#111111' : '#ffffff');
 
         // Flèche passant par le milieu de deux côtés opposés : direction = numéro × 60°.
         function drawArrow(x, y, direction, color) {
@@ -1012,6 +1101,48 @@
             ctx.restore();
         }
 
+        // Marque (carré, triangle, losange, croix). Elle reste droite même quand la carte pivote.
+        function drawMark(x, y, mark, color) {
+            const s = HEX_RADIUS * 0.3;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(-view.rotation);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = HEX_RADIUS * 0.1;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            switch (mark) {
+                case 'square':
+                    ctx.rect(-s, -s, 2 * s, 2 * s);
+                    break;
+                case 'triangle':
+                    ctx.moveTo(0, -s * 1.15);
+                    ctx.lineTo(s * 1.1, s * 0.85);
+                    ctx.lineTo(-s * 1.1, s * 0.85);
+                    ctx.closePath();
+                    break;
+                case 'diamond':
+                    ctx.moveTo(0, -s * 1.3);
+                    ctx.lineTo(s * 1.3, 0);
+                    ctx.lineTo(0, s * 1.3);
+                    ctx.lineTo(-s * 1.3, 0);
+                    ctx.closePath();
+                    break;
+                case 'cross':
+                    ctx.moveTo(-s, -s);
+                    ctx.lineTo(s, s);
+                    ctx.moveTo(s, -s);
+                    ctx.lineTo(-s, s);
+                    break;
+                default:
+                    break;
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+
         function draw() {
             if (!isMapActive()) return;
 
@@ -1027,15 +1158,27 @@
 
             const { minCol, maxCol, minRow, maxRow } = visibleRange();
             const withOutline = HEX_RADIUS * view.scale >= 5;
-            const withArrows = HEX_RADIUS * view.scale >= 8;
-            const showGhosts = state.isAdmin && (state.mode === 'erase' || state.mode === 'restore' || state.mode === 'select');
+            const withSymbols = HEX_RADIUS * view.scale >= 8;
+            const showGhosts = state.isAdmin && GHOST_MODES.has(state.mode);
             const selected = state.selection;
+            const plain = defaultColor(); // une case absente est une plaine
 
             const fills = new Map(); // couleur -> Path2D (un seul tracé par couleur)
+            const innerFills = new Map(); // couleur du petit hexagone -> Path2D
             const outline = new Path2D();
+            const innerOutline = new Path2D();
             const ghosts = new Path2D();
             const selectionPath = new Path2D();
-            const arrows = [];
+            const symbols = [];
+
+            const pathFor = (map, color) => {
+                let path = map.get(color);
+                if (!path) {
+                    path = new Path2D();
+                    map.set(color, path);
+                }
+                return path;
+            };
 
             for (let row = minRow; row <= maxRow; row++) {
                 for (let col = minCol; col <= maxCol; col++) {
@@ -1051,17 +1194,17 @@
                         continue;
                     }
 
-                    const color = tile?.color ?? EMPTY_COLOR;
-                    let path = fills.get(color);
-                    if (!path) {
-                        path = new Path2D();
-                        fills.set(color, path);
-                    }
-                    addHexPath(path, x, y);
+                    const color = tile?.color ?? plain;
+                    addHexPath(pathFor(fills, color), x, y);
                     if (withOutline) addHexPath(outline, x, y);
 
-                    if (withArrows && Number.isInteger(tile?.arrow)) {
-                        arrows.push({ x, y, direction: tile.arrow, color: luminance(color) > 0.55 ? '#111111' : '#ffffff' });
+                    if (tile?.inner) {
+                        addHexPath(pathFor(innerFills, tile.inner), x, y, INNER_FACTOR);
+                        if (withOutline) addHexPath(innerOutline, x, y, INNER_FACTOR);
+                    }
+
+                    if (withSymbols && (tile?.mark || Number.isInteger(tile?.arrow))) {
+                        symbols.push({ x, y, mark: tile.mark, arrow: tile.arrow, ink: contrastOn(tile.inner ?? color) });
                     }
                 }
             }
@@ -1083,7 +1226,20 @@
                 ctx.stroke(outline);
             }
 
-            for (const arrow of arrows) drawArrow(arrow.x, arrow.y, arrow.direction, arrow.color);
+            for (const [color, path] of innerFills) {
+                ctx.fillStyle = color;
+                ctx.fill(path);
+            }
+            if (withOutline) {
+                ctx.strokeStyle = '#333333';
+                ctx.lineWidth = 1;
+                ctx.stroke(innerOutline);
+            }
+
+            for (const symbol of symbols) {
+                if (symbol.mark) drawMark(symbol.x, symbol.y, symbol.mark, symbol.ink);
+                if (Number.isInteger(symbol.arrow)) drawArrow(symbol.x, symbol.y, symbol.arrow, symbol.ink);
+            }
 
             if (showGhosts) {
                 ctx.setLineDash([6, 4]);
@@ -1155,11 +1311,13 @@
         /* Outils sur les cases                                          */
         /* ============================================================ */
 
-        function applyPaint(key) {
-            const existing = state.gridData[key];
-            state.gridData[key] = { ...existing, color: state.activeColor, author: state.username };
+        function applyPaint(key, terrain) {
+            const tile = { ...state.gridData[key], color: terrain.color, author: state.username };
+            if (terrain.inner) tile.inner = terrain.inner;
+            else delete tile.inner;
+            state.gridData[key] = tile;
             requestDraw();
-            socket?.emit('paint-tile', { key, color: state.activeColor });
+            socket?.emit('paint-tile', { key, color: terrain.color, inner: terrain.inner ?? '' });
         }
 
         function openOverrideModal(key, author) {
@@ -1178,17 +1336,22 @@
 
         function paintTile(key) {
             if (state.isLocked) return;
+            const terrain = activeTerrain();
             const existing = state.gridData[key];
 
             // Une case supprimée ne peut pas être coloriée.
-            if (!state.activeColor || existing?.removed || existing?.color === state.activeColor) return;
+            if (!terrain || existing?.removed) return;
+
+            const sameLook = (existing?.color ?? defaultColor()) === terrain.color
+                && (existing?.inner ?? '') === (terrain.inner ?? '');
+            if (sameLook) return;
 
             if (existing?.author && existing.author !== state.username) {
                 endGestures();
                 openOverrideModal(key, existing.author);
                 return;
             }
-            applyPaint(key);
+            applyPaint(key, terrain);
         }
 
         function clearPendingTap() {
@@ -1242,12 +1405,23 @@
             socket?.emit('edit-tiles', { keys: [key], action: 'restore' });
         }
 
-        // Toucher : ajoute la flèche ou la retire. Glisser : ajoute seulement.
+        // Ouvert à tous. Toucher : ajoute la flèche ou la retire. Glisser : ajoute seulement.
         function toggleArrow(key, existing, isDrag) {
-            if (!state.isAdmin || existing?.removed) return;
+            if (existing?.removed) return;
             const hasArrow = Number.isInteger(existing?.arrow);
             if (hasArrow && isDrag) return;
-            socket?.emit('edit-tiles', { keys: [key], action: hasArrow ? 'arrow-remove' : 'arrow-add' });
+            socket?.emit('arrow-tile', { key, remove: hasArrow });
+        }
+
+        // Admin uniquement : marquer / démarquer (glisser pour marquer plusieurs cases).
+        function markTile(key, existing) {
+            if (!state.isAdmin || existing?.removed || existing?.mark === state.activeMark) return;
+            socket?.emit('edit-tiles', { keys: [key], action: 'mark', mark: state.activeMark });
+        }
+
+        function unmarkTile(key, existing) {
+            if (!state.isAdmin || !existing?.mark) return;
+            socket?.emit('edit-tiles', { keys: [key], action: 'unmark' });
         }
 
         function useToolAt(clientX, clientY, isDrag) {
@@ -1257,14 +1431,19 @@
             if (!key) return;
             const existing = state.gridData[key];
 
-            if (state.mode === 'erase') return removeTile(key, existing);
-            if (state.mode === 'restore') return restoreTile(key, existing);
-            if (state.mode === 'arrow') return toggleArrow(key, existing, isDrag);
-            paintTile(key);
+            switch (state.mode) {
+                case 'erase': return removeTile(key, existing);
+                case 'restore': return restoreTile(key, existing);
+                case 'arrow': return toggleArrow(key, existing, isDrag);
+                case 'mark': return markTile(key, existing);
+                case 'unmark': return unmarkTile(key, existing);
+                default: return paintTile(key);
+            }
         }
 
         $('btnConfirmOverride').addEventListener('click', () => {
-            if (pendingTileKey && !state.isLocked) applyPaint(pendingTileKey);
+            const terrain = activeTerrain();
+            if (pendingTileKey && terrain && !state.isLocked) applyPaint(pendingTileKey, terrain);
             pendingTileKey = null;
             el.overrideModal.hidden = true;
         });
@@ -1483,10 +1662,10 @@
             socket.on('update-users-list', updateUsers);
 
             socket.on('update-terrains', (terrains) => {
-                // Les joueurs gardent la même couleur sélectionnée (même position dans la légende) si l'admin la modifie.
-                const activeIndex = state.terrains.findIndex((t) => t.color === state.activeColor);
+                // Les joueurs gardent le même terrain sélectionné (même position dans la légende) si l'admin le modifie.
+                const activeIndex = state.terrains.findIndex((t) => terrainKey(t) === state.activeKey);
                 state.terrains = terrains;
-                if (activeIndex >= 0 && terrains[activeIndex]) state.activeColor = terrains[activeIndex].color;
+                if (activeIndex >= 0 && terrains[activeIndex]) state.activeKey = terrainKey(terrains[activeIndex]);
                 renderTerrains();
                 requestDraw();
             });
@@ -1496,7 +1675,7 @@
                 updateLockUI();
             });
 
-            // Modifications de cases : { clé: case } ; null signifie que la case revient à l'état vierge.
+            // Modifications de cases : { clé: case } ; null signifie que la case revient à l'état vierge (plaine).
             socket.on('update-tiles', ({ changes }) => {
                 for (const [key, tile] of Object.entries(changes || {})) {
                     if (tile) state.gridData[key] = tile;
