@@ -47,12 +47,14 @@
         .login-card input { padding: 12px; border: 2px solid var(--border); border-radius: 6px; font-size: 1rem; text-align: center; width: 100%; }
         .login-card .btn { padding: 12px; font-size: 1rem; }
         .error { color: var(--red); font-size: 0.85rem; font-weight: 600; }
+        .error.info { color: var(--muted); }
 
         /* Page 2 : tableau de bord */
         #pageDashboard { background: #e5e9f0; justify-content: center; align-items: center; padding: 16px; }
         .dashboard-card { background: #fff; padding: 20px; border-radius: var(--radius); box-shadow: 0 4px 15px rgba(0,0,0,.1); width: 100%; max-width: 520px; max-height: 100%; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; touch-action: pan-y; }
         .dashboard-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 2px solid var(--blue); padding-bottom: 8px; }
         .dashboard-header h2 { font-size: 1.2rem; color: var(--dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .header-actions { display: flex; flex-wrap: wrap; gap: 6px; }
         .section-title { font-weight: bold; font-size: 0.85rem; color: var(--muted); margin-top: 5px; }
 
         .user-list { background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; max-height: 100px; overflow-y: auto; font-size: 0.85rem; }
@@ -68,7 +70,7 @@
 
         .map-save { display: flex; gap: 6px; }
         .map-save input { flex: 1; min-width: 0; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-        .map-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+        .map-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
         .map-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #f8f9fa; padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
         .map-info { min-width: 0; display: flex; flex-direction: column; }
         .map-name { font-size: 0.9rem; font-weight: 600; color: var(--dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -91,25 +93,29 @@
         .fullscreen-palette { position: absolute; top: 165px; left: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,.9); padding: 10px; border-radius: var(--radius); backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,.2); max-height: calc(100% - 260px); overflow-y: auto; touch-action: pan-y; }
         .hex-option { width: 34px; height: 34px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); border: none; flex-shrink: 0; transition: transform .2s; }
         .hex-option.selected { transform: scale(1.25); filter: drop-shadow(0 0 5px #000); }
+        .palette-tooltip { position: fixed; z-index: 60; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,.88); color: #fff; font-size: 0.85rem; white-space: nowrap; pointer-events: none; }
 
-        .map-toolbar { position: absolute; top: 15px; right: 15px; z-index: 50; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: calc(100% - 80px); }
-        .btn-pill { padding: 10px 16px; border: none; border-radius: 20px; font-weight: bold; font-size: 0.9rem; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,.2); }
-        .btn-pill.paint { background: var(--green); }
-        .btn-pill.move { background: var(--blue); }
-        .btn-pill.erase { background: var(--red); }
-        .btn-pill.restore { background: var(--orange); }
-        .btn-round { width: 42px; height: 42px; border: none; border-radius: 50%; background: #fff; font-size: 1.15rem; line-height: 1; box-shadow: 0 4px 10px rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; }
+        .map-toolbar { position: absolute; top: 15px; right: 15px; z-index: 50; display: flex; justify-content: flex-end; gap: 8px; max-width: calc(100% - 80px); }
+        .admin-tools { position: absolute; top: 70px; right: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
+        .btn-round { width: 42px; height: 42px; border: none; border-radius: 50%; background: #fff; font-size: 1.15rem; line-height: 1; box-shadow: 0 4px 10px rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-round.lock { background: var(--green); }
         .btn-round.lock.locked { background: var(--red); }
-        .btn-round.active { outline: 3px solid var(--dark); }
+        .btn-round.mode { color: #fff; }
+        .btn-round.mode.move { background: var(--blue); }
+        .btn-round.mode.paint { background: var(--green); }
+        .btn-round.active { outline: 3px solid var(--dark); background: #ffeaa7; }
+
+        .selection-bar { position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,.94); border-radius: 26px; box-shadow: 0 4px 15px rgba(0,0,0,.3); max-width: 96%; }
+        .selection-bar .btn-round { width: 38px; height: 38px; font-size: 1rem; box-shadow: none; background: #f1f3f5; }
+        .selection-count { font-size: 0.8rem; font-weight: 600; color: var(--dark); white-space: nowrap; }
+
         .rotate-controls { position: absolute; bottom: 20px; right: 20px; z-index: 50; display: flex; gap: 10px; }
         .rotate-controls .btn-round { width: 48px; height: 48px; font-size: 1.5rem; }
-        .header-actions { display: flex; gap: 6px; }
-        .modal-wide { width: min(420px, 94vw); max-height: 90%; }
 
         /* Fenêtres modales et notifications */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
         .modal-content { background: #fff; padding: 20px; border-radius: 8px; width: min(320px, 92vw); box-shadow: 0 4px 20px rgba(0,0,0,.3); display: flex; flex-direction: column; gap: 12px; }
+        .modal-wide { width: min(420px, 94vw); max-height: 90%; }
         .modal-content p { font-size: 0.85rem; color: var(--dark); }
         .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
         .control-group { display: flex; flex-direction: column; gap: 4px; }
@@ -138,9 +144,10 @@
         <div class="dashboard-card">
             <div class="dashboard-header">
                 <h2 id="welcomeUser">Bienvenue !</h2>
-                <div class="header-actions admin-only" hidden>
-                    <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
-                    <button id="btnAdminConfig" class="btn btn-dark">⚙️ Plateau</button>
+                <div class="header-actions">
+                    <button id="btnOpenMaps" class="btn btn-primary admin-only" hidden>🗺️ Cartes</button>
+                    <button id="btnAdminConfig" class="btn btn-dark admin-only" hidden>⚙️ Plateau</button>
+                    <button id="btnLogout" class="btn btn-secondary">Déconnexion</button>
                 </div>
             </div>
 
@@ -183,10 +190,25 @@
         <div class="map-toolbar">
             <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
             <button id="btnMapsToolbar" class="btn-round admin-only" title="Cartes enregistrées" aria-label="Cartes enregistrées" hidden>🗺️</button>
-            <button id="btnErase" class="btn-round" title="Supprimer des hexagones" aria-label="Supprimer des hexagones" hidden>✂️</button>
-            <button id="btnRestore" class="btn-round" title="Rétablir des hexagones" aria-label="Rétablir des hexagones" hidden>↩️</button>
             <button id="btnResetView" class="btn-round" title="Centrer la carte" aria-label="Centrer la carte">🎯</button>
-            <button id="btnModeToggle" class="btn-pill move">Mode : Déplacer ✋</button>
+            <button id="btnModeToggle" class="btn-round mode move" title="Mode déplacer : toucher pour peindre" aria-label="Mode déplacer : toucher pour peindre">✋</button>
+        </div>
+
+        <div id="adminTools" class="admin-tools" hidden>
+            <button id="btnSelect" class="btn-round" title="Sélectionner plusieurs hexagones avec un rectangle" aria-label="Sélection par rectangle">⛶</button>
+            <button id="btnErase" class="btn-round" title="Supprimer des hexagones" aria-label="Supprimer des hexagones">✂️</button>
+            <button id="btnRestore" class="btn-round" title="Rétablir des hexagones" aria-label="Rétablir des hexagones">↩️</button>
+            <button id="btnArrow" class="btn-round" title="Ajouter ou retirer une flèche" aria-label="Ajouter ou retirer une flèche">➡️</button>
+        </div>
+
+        <div id="selectionBar" class="selection-bar" hidden>
+            <span id="selectionCount" class="selection-count"></span>
+            <button id="btnSelPaint" class="btn-round" title="Colorier la sélection avec la couleur choisie" aria-label="Colorier la sélection">🎨</button>
+            <button id="btnSelRemove" class="btn-round" title="Supprimer les hexagones sélectionnés" aria-label="Supprimer la sélection">✂️</button>
+            <button id="btnSelRestore" class="btn-round" title="Rétablir les hexagones supprimés" aria-label="Rétablir la sélection">↩️</button>
+            <button id="btnSelArrow" class="btn-round" title="Ajouter une flèche" aria-label="Ajouter une flèche à la sélection">➡️</button>
+            <button id="btnSelNoArrow" class="btn-round" title="Retirer les flèches" aria-label="Retirer les flèches de la sélection">🚫</button>
+            <button id="btnSelClear" class="btn-round" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
         </div>
 
         <div class="rotate-controls">
@@ -206,6 +228,8 @@
                 </div>
             </div>
         </div>
+
+        <div id="paletteTooltip" class="palette-tooltip" hidden></div>
     </main>
 
     <div id="mapsModal" class="modal-overlay" hidden>
@@ -243,6 +267,9 @@
         const EMPTY_COLOR = '#ffffff';
         const BACKGROUND = '#ecf0f1';
         const REQUEST_TIMEOUT_MS = 8000;
+        const DOUBLE_TAP_MS = 300;
+        const SESSION_KEY = 'hexSession';
+        const ADMIN_MODES = new Set(['select', 'erase', 'restore', 'arrow']);
 
         const HEX_CORNERS = Array.from({ length: 6 }, (_, i) => {
             const angle = (Math.PI / 180) * (60 * i - 30);
@@ -256,23 +283,29 @@
 
         const state = {
             username: '',
-            password: '',
             isAdmin: false,
             isLocked: false,
-            mode: 'move', // move | paint | erase | restore
+            mode: 'move', // move | paint | select | erase | restore | arrow
             activeColor: null,
             cols: 10,
             rows: 8,
             gridData: {},
             terrains: [],
-            maps: []
+            maps: [],
+            selection: new Set()
         };
 
         const view = { scale: 1, panX: 0, panY: 0, rotation: 0 };
         let viewW = window.innerWidth;
         let viewH = window.innerHeight;
         let pendingTileKey = null;
+        let pendingTap = null;
+        let dragRect = null;
         let wasFullscreen = false;
+        let lastVisibilityChange = 0;
+        let tooltipTimer = null;
+        let toastTimer = null;
+        let drawQueued = false;
 
         const el = {
             pages: { login: $('pageLogin'), dashboard: $('pageDashboard'), map: $('pageMap') },
@@ -287,18 +320,29 @@
             fsPalette: $('fsPalette'),
             mapName: $('mapNameInput'),
             mapList: $('mapList'),
+            mapsModal: $('mapsModal'),
             configModal: $('configModal'),
             overrideModal: $('overrideModal'),
             overrideMessage: $('overrideMessage'),
             btnLock: $('btnLockToggle'),
             btnMode: $('btnModeToggle'),
+            adminTools: $('adminTools'),
+            btnSelect: $('btnSelect'),
             btnErase: $('btnErase'),
             btnRestore: $('btnRestore'),
-            mapsModal: $('mapsModal'),
+            btnArrow: $('btnArrow'),
+            selectionBar: $('selectionBar'),
+            selectionCount: $('selectionCount'),
+            tooltip: $('paletteTooltip'),
             canvas: $('hexCanvas'),
             toast: $('toast')
         };
         const ctx = el.canvas.getContext('2d');
+        const toolButtons = { select: el.btnSelect, erase: el.btnErase, restore: el.btnRestore, arrow: el.btnArrow };
+
+        /* ============================================================ */
+        /* Identité et session (conservée même après mise en veille)     */
+        /* ============================================================ */
 
         const clientId = (() => {
             const fresh = () => (window.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`);
@@ -314,6 +358,23 @@
             }
         })();
 
+        function loadSession() {
+            try {
+                const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+                return session?.token ? session : null;
+            } catch {
+                return null;
+            }
+        }
+
+        function saveSession(token, name) {
+            try { localStorage.setItem(SESSION_KEY, JSON.stringify({ token, name })); } catch { /* stockage indisponible */ }
+        }
+
+        function clearSession() {
+            try { localStorage.removeItem(SESSION_KEY); } catch { /* stockage indisponible */ }
+        }
+
         /* ============================================================ */
         /* Utilitaires d'interface                                       */
         /* ============================================================ */
@@ -326,7 +387,6 @@
 
         const isMapActive = () => el.pages.map.classList.contains('active');
 
-        let toastTimer = null;
         function toast(message, isError = false) {
             el.toast.textContent = message;
             el.toast.classList.toggle('error', isError);
@@ -337,16 +397,23 @@
 
         function request(event, payload) {
             return new Promise((resolve) => {
-                if (!socket) return resolve({ success: false, message: 'Serveur injoignable.' });
+                if (!socket) return resolve({ success: false, code: 'network', message: 'Serveur injoignable.' });
                 socket.timeout(REQUEST_TIMEOUT_MS).emit(event, payload, (err, res) => {
-                    resolve(err || !res ? { success: false, message: 'Le serveur ne répond pas.' } : res);
+                    if (err || !res) resolve({ success: false, code: 'network', message: 'Le serveur ne répond pas.' });
+                    else resolve(res);
                 });
             });
         }
 
-        function showLoginError(message) {
+        function showLoginError(message, isError = true) {
             el.loginError.textContent = message || '';
+            el.loginError.classList.toggle('info', !isError);
             el.loginError.hidden = !message;
+        }
+
+        function leaveFullscreen() {
+            const exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if ((document.fullscreenElement || document.webkitFullscreenElement) && exit) exit.call(document);
         }
 
         function applyRole() {
@@ -371,19 +438,27 @@
         }
 
         /* ============================================================ */
-        /* Connexion                                                     */
+        /* Connexion / déconnexion                                       */
         /* ============================================================ */
 
         el.username.addEventListener('input', () => {
             el.password.hidden = el.username.value.trim().toLowerCase() !== 'admin';
         });
 
-        async function authenticate(name, password, isReconnect) {
-            const res = await request('set-username', { name, password, clientId });
+        // credentials : { name, password } pour une connexion, ou { token } pour reprendre une session.
+        async function authenticate(credentials, isReconnect) {
+            const res = await request('set-username', { ...credentials, clientId });
 
             if (!res.success) {
+                if (res.code === 'network') {
+                    if (!isReconnect) showLoginError(res.message);
+                    return;
+                }
+                clearSession();
                 state.username = '';
-                state.password = '';
+                state.isAdmin = false;
+                leaveFullscreen();
+                applyRole();
                 showLoginError(res.message);
                 showPage('login');
                 return;
@@ -391,8 +466,8 @@
 
             state.username = res.name;
             state.isAdmin = Boolean(res.isAdmin);
-            state.password = state.isAdmin ? password : '';
-            el.welcome.textContent = `Joueur : ${state.username}`;
+            saveSession(res.token, res.name);
+            el.welcome.textContent = `Joueur : ${res.name}`;
             showLoginError('');
             applyRole();
             renderTerrains();
@@ -403,13 +478,31 @@
             const name = el.username.value.trim();
             if (!name) return;
             if (!socket) return showLoginError('Connexion au serveur impossible.');
-            authenticate(name, el.password.value, false);
+            authenticate({ name, password: el.password.value }, false);
+        }
+
+        async function logout() {
+            await request('logout', {});
+            clearSession();
+            state.username = '';
+            state.isAdmin = false;
+            leaveFullscreen();
+            endGestures();
+            el.mapsModal.hidden = true;
+            el.configModal.hidden = true;
+            el.password.value = '';
+            el.password.hidden = true;
+            showLoginError('');
+            setMode('move');
+            applyRole();
+            showPage('login');
         }
 
         el.btnLogin.addEventListener('click', handleLogin);
         [el.username, el.password].forEach((input) => {
             input.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLogin(); });
         });
+        $('btnLogout').addEventListener('click', logout);
 
         /* ============================================================ */
         /* Terrains (légende et palette)                                 */
@@ -445,7 +538,7 @@
             colorInput.addEventListener('change', () => {
                 if (state.activeColor === terrain.color) state.activeColor = colorInput.value;
                 terrain.color = colorInput.value;
-                pushTerrains();
+                pushTerrains(); // le serveur recolorie aussi les cases déjà peintes avec l'ancienne couleur
             });
 
             const labelInput = document.createElement('input');
@@ -473,16 +566,41 @@
             return item;
         }
 
+        function showPaletteTooltip(button, text) {
+            el.tooltip.textContent = text || '(sans légende)';
+            el.tooltip.hidden = false;
+            const rect = button.getBoundingClientRect();
+            el.tooltip.style.left = `${rect.right + 12}px`;
+            el.tooltip.style.top = `${rect.top + rect.height / 2 - el.tooltip.offsetHeight / 2}px`;
+        }
+
+        function hidePaletteTooltip() {
+            clearTimeout(tooltipTimer);
+            el.tooltip.hidden = true;
+        }
+
         function buildPaletteButton(terrain) {
             const button = document.createElement('button');
             button.className = 'hex-option';
             button.style.backgroundColor = terrain.color;
             button.dataset.color = terrain.color;
-            button.title = terrain.label;
             button.setAttribute('aria-label', terrain.label);
-            button.addEventListener('click', () => {
+
+            // Souris : la légende apparaît au survol.
+            button.addEventListener('pointerenter', (e) => {
+                if (e.pointerType === 'mouse') showPaletteTooltip(button, terrain.label);
+            });
+            button.addEventListener('pointerleave', hidePaletteTooltip);
+
+            button.addEventListener('click', (e) => {
                 state.activeColor = terrain.color;
                 markSelectedColor();
+                // Tactile : pas de survol possible, la légende s'affiche brièvement.
+                if (e.pointerType !== 'mouse') {
+                    showPaletteTooltip(button, terrain.label);
+                    clearTimeout(tooltipTimer);
+                    tooltipTimer = setTimeout(hidePaletteTooltip, 1500);
+                }
             });
             return button;
         }
@@ -496,6 +614,7 @@
         function renderTerrains() {
             el.terrainContainer.replaceChildren();
             el.fsPalette.replaceChildren();
+            hidePaletteTooltip();
 
             if (!state.terrains.some((t) => t.color === state.activeColor)) {
                 state.activeColor = state.terrains[0]?.color ?? null;
@@ -608,6 +727,7 @@
             socket?.emit('list-maps');
             el.mapsModal.hidden = false;
         }
+
         $('btnOpenMaps').addEventListener('click', openMapsModal);
         $('btnMapsToolbar').addEventListener('click', openMapsModal);
         $('btnCloseMaps').addEventListener('click', () => { el.mapsModal.hidden = true; });
@@ -641,23 +761,34 @@
         });
 
         /* ============================================================ */
-        /* Verrouillage et mode peinture                                 */
+        /* Modes, verrouillage et sélection                              */
         /* ============================================================ */
 
-        const MODE_LABELS = {
-            move: 'Mode : Déplacer ✋',
-            paint: 'Mode : Peindre 🎨',
-            erase: 'Mode : Supprimer ✂️',
-            restore: 'Mode : Rétablir ↩️'
-        };
+        function updateSelectionBar() {
+            const count = state.selection.size;
+            el.selectionBar.hidden = !(state.mode === 'select' && count > 0);
+            el.selectionCount.textContent = `${count} case${count > 1 ? 's' : ''}`;
+        }
 
         function setMode(mode) {
-            const adminOnly = mode === 'erase' || mode === 'restore';
-            state.mode = state.isLocked || (adminOnly && !state.isAdmin) ? 'move' : mode;
-            el.btnMode.textContent = MODE_LABELS[state.mode];
-            el.btnMode.className = `btn-pill ${state.mode}`;
-            el.btnErase.classList.toggle('active', state.mode === 'erase');
-            el.btnRestore.classList.toggle('active', state.mode === 'restore');
+            const blocked = state.isLocked || (ADMIN_MODES.has(mode) && !state.isAdmin);
+            state.mode = blocked ? 'move' : mode;
+
+            const painting = state.mode === 'paint';
+            const label = painting ? 'Mode peindre : toucher pour déplacer la carte' : 'Mode déplacer : toucher pour peindre';
+            el.btnMode.textContent = painting ? '🎨' : '✋';
+            el.btnMode.className = `btn-round mode ${painting ? 'paint' : 'move'}`;
+            el.btnMode.title = label;
+            el.btnMode.setAttribute('aria-label', label);
+
+            for (const [name, button] of Object.entries(toolButtons)) {
+                button.classList.toggle('active', state.mode === name);
+            }
+
+            if (state.mode !== 'select') state.selection.clear();
+            clearPendingTap();
+            dragRect = null;
+            updateSelectionBar();
             requestDraw();
         }
 
@@ -670,20 +801,38 @@
             el.btnLock.classList.toggle('locked', state.isLocked);
             el.fsPalette.hidden = state.isLocked;
             el.btnMode.hidden = state.isLocked;
-            el.btnErase.hidden = !canEdit;
-            el.btnRestore.hidden = !canEdit;
-            if (state.isLocked || (!state.isAdmin && (state.mode === 'erase' || state.mode === 'restore'))) {
-                setMode('move');
-            }
+            el.adminTools.hidden = !canEdit;
+
+            if (state.isLocked || (!state.isAdmin && ADMIN_MODES.has(state.mode))) setMode('move');
         }
 
         el.btnMode.addEventListener('click', () => setMode(state.mode === 'paint' ? 'move' : 'paint'));
-        el.btnErase.addEventListener('click', () => setMode(state.mode === 'erase' ? 'move' : 'erase'));
-        el.btnRestore.addEventListener('click', () => setMode(state.mode === 'restore' ? 'move' : 'restore'));
+        for (const [name, button] of Object.entries(toolButtons)) {
+            button.addEventListener('click', () => setMode(state.mode === name ? 'move' : name));
+        }
         el.btnLock.addEventListener('click', () => socket?.emit('toggle-lock', !state.isLocked));
 
+        function editSelection(action, extra = {}) {
+            if (state.selection.size === 0) return;
+            socket?.emit('edit-tiles', { keys: [...state.selection], action, ...extra });
+        }
+
+        $('btnSelPaint').addEventListener('click', () => {
+            if (!state.activeColor) return toast('Choisissez d’abord une couleur.', true);
+            editSelection('paint', { color: state.activeColor });
+        });
+        $('btnSelRemove').addEventListener('click', () => editSelection('remove'));
+        $('btnSelRestore').addEventListener('click', () => editSelection('restore'));
+        $('btnSelArrow').addEventListener('click', () => editSelection('arrow-add'));
+        $('btnSelNoArrow').addEventListener('click', () => editSelection('arrow-remove'));
+        $('btnSelClear').addEventListener('click', () => {
+            state.selection.clear();
+            updateSelectionBar();
+            requestDraw();
+        });
+
         /* ============================================================ */
-        /* Plein écran et navigation                                     */
+        /* Plein écran, veille et navigation                             */
         /* ============================================================ */
 
         $('btnGo').addEventListener('click', () => {
@@ -703,25 +852,35 @@
         });
 
         $('btnExitMap').addEventListener('click', () => {
-            const exit = document.exitFullscreen || document.webkitExitFullscreen;
-            if ((document.fullscreenElement || document.webkitFullscreenElement) && exit) {
-                exit.call(document);
-            }
+            leaveFullscreen();
             showPage('dashboard');
         });
 
-        // Retour automatique au tableau de bord si l'utilisateur quitte le plein écran (Échap, geste système).
+        // Retour au tableau de bord si l'utilisateur quitte le plein écran (Échap, geste système),
+        // sauf si c'est la mise en veille du téléphone qui l'a provoqué.
         function onFullscreenChange() {
             const active = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
             if (active) {
                 wasFullscreen = true;
-            } else {
-                if (wasFullscreen && isMapActive()) showPage('dashboard');
-                wasFullscreen = false;
+                return;
             }
+            const justResumed = document.hidden || Date.now() - lastVisibilityChange < 2500;
+            if (wasFullscreen && isMapActive() && !justResumed) showPage('dashboard');
+            wasFullscreen = false;
         }
         document.addEventListener('fullscreenchange', onFullscreenChange);
         document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+
+        // Au réveil du téléphone, on relance la connexion : la session enregistrée est reprise automatiquement.
+        function ensureConnected() {
+            if (socket && !socket.connected) socket.connect();
+        }
+        document.addEventListener('visibilitychange', () => {
+            lastVisibilityChange = Date.now();
+            if (!document.hidden) ensureConnected();
+        });
+        window.addEventListener('online', ensureConnected);
+        window.addEventListener('pageshow', ensureConnected);
 
         /* ============================================================ */
         /* Géométrie                                                     */
@@ -768,6 +927,13 @@
             return { col, row };
         }
 
+        function tileKeyAt(clientX, clientY) {
+            const rect = el.canvas.getBoundingClientRect();
+            const world = screenToWorld(clientX - rect.left, clientY - rect.top);
+            const hex = hexAtWorld(world.x, world.y);
+            return hex ? `${hex.col},${hex.row}` : null;
+        }
+
         function visibleRange() {
             const corners = [[0, 0], [viewW, 0], [0, viewH], [viewW, viewH]].map(([x, y]) => screenToWorld(x, y));
             const xs = corners.map((p) => p.x);
@@ -798,7 +964,6 @@
             requestDraw();
         }
 
-        let drawQueued = false;
         function requestDraw() {
             if (drawQueued) return;
             drawQueued = true;
@@ -812,6 +977,39 @@
             path.moveTo(x + HEX_CORNERS[0][0], y + HEX_CORNERS[0][1]);
             for (let i = 1; i < 6; i++) path.lineTo(x + HEX_CORNERS[i][0], y + HEX_CORNERS[i][1]);
             path.closePath();
+        }
+
+        function luminance(hex) {
+            const n = Number.parseInt(hex.slice(1), 16);
+            return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+        }
+
+        // Flèche passant par le milieu de deux côtés opposés : direction = numéro × 60°.
+        function drawArrow(x, y, direction, color) {
+            const half = HEX_RADIUS * 0.7;
+            const head = HEX_RADIUS * 0.38;
+            const wing = HEX_RADIUS * 0.26;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(direction * (Math.PI / 3));
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = HEX_RADIUS * 0.12;
+            ctx.lineCap = 'round';
+
+            ctx.beginPath();
+            ctx.moveTo(-half, 0);
+            ctx.lineTo(half - head * 0.5, 0);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(half, 0);
+            ctx.lineTo(half - head, -wing);
+            ctx.lineTo(half - head, wing);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
         }
 
         function draw() {
@@ -829,20 +1027,30 @@
 
             const { minCol, maxCol, minRow, maxRow } = visibleRange();
             const withOutline = HEX_RADIUS * view.scale >= 5;
+            const withArrows = HEX_RADIUS * view.scale >= 8;
+            const showGhosts = state.isAdmin && (state.mode === 'erase' || state.mode === 'restore' || state.mode === 'select');
+            const selected = state.selection;
+
             const fills = new Map(); // couleur -> Path2D (un seul tracé par couleur)
             const outline = new Path2D();
             const ghosts = new Path2D();
-            const showGhosts = state.isAdmin && (state.mode === 'erase' || state.mode === 'restore');
+            const selectionPath = new Path2D();
+            const arrows = [];
 
             for (let row = minRow; row <= maxRow; row++) {
                 for (let col = minCol; col <= maxCol; col++) {
+                    const key = `${col},${row}`;
                     const { x, y } = hexCenter(col, row);
-                    const tile = state.gridData[`${col},${row}`];
+                    const tile = state.gridData[key];
+
+                    if (selected.size > 0 && selected.has(key)) addHexPath(selectionPath, x, y);
+
                     if (tile?.removed) {
-                        // Case supprimée : invisible, sauf pour l'admin en mode supprimer / rétablir.
+                        // Case supprimée : invisible, sauf pour l'admin en mode suppression / sélection.
                         if (showGhosts) addHexPath(ghosts, x, y);
                         continue;
                     }
+
                     const color = tile?.color ?? EMPTY_COLOR;
                     let path = fills.get(color);
                     if (!path) {
@@ -851,6 +1059,10 @@
                     }
                     addHexPath(path, x, y);
                     if (withOutline) addHexPath(outline, x, y);
+
+                    if (withArrows && Number.isInteger(tile?.arrow)) {
+                        arrows.push({ x, y, direction: tile.arrow, color: luminance(color) > 0.55 ? '#111111' : '#ffffff' });
+                    }
                 }
             }
 
@@ -871,11 +1083,37 @@
                 ctx.stroke(outline);
             }
 
+            for (const arrow of arrows) drawArrow(arrow.x, arrow.y, arrow.direction, arrow.color);
+
             if (showGhosts) {
                 ctx.setLineDash([6, 4]);
                 ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
                 ctx.lineWidth = 1.5;
                 ctx.stroke(ghosts);
+                ctx.setLineDash([]);
+            }
+
+            if (selected.size > 0) {
+                ctx.fillStyle = 'rgba(52, 152, 219, 0.3)';
+                ctx.fill(selectionPath);
+                ctx.strokeStyle = '#1f78ff';
+                ctx.lineWidth = 3;
+                ctx.stroke(selectionPath);
+            }
+
+            if (dragRect) {
+                // Rectangle de sélection, tracé en coordonnées d'écran.
+                ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+                const left = Math.min(dragRect.x1, dragRect.x2);
+                const top = Math.min(dragRect.y1, dragRect.y2);
+                const width = Math.abs(dragRect.x2 - dragRect.x1);
+                const height = Math.abs(dragRect.y2 - dragRect.y1);
+                ctx.fillStyle = 'rgba(52, 152, 219, 0.2)';
+                ctx.fillRect(left, top, width, height);
+                ctx.setLineDash([6, 4]);
+                ctx.strokeStyle = '#1f78ff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(left, top, width, height);
                 ctx.setLineDash([]);
             }
         }
@@ -914,11 +1152,12 @@
         window.addEventListener('resize', () => { if (isMapActive()) resizeCanvas(); });
 
         /* ============================================================ */
-        /* Peinture                                                      */
+        /* Outils sur les cases                                          */
         /* ============================================================ */
 
         function applyPaint(key) {
-            state.gridData[key] = { color: state.activeColor, author: state.username };
+            const existing = state.gridData[key];
+            state.gridData[key] = { ...existing, color: state.activeColor, author: state.username };
             requestDraw();
             socket?.emit('paint-tile', { key, color: state.activeColor });
         }
@@ -937,35 +1176,11 @@
             el.overrideModal.hidden = false;
         }
 
-        function removeTile(key, existing) {
-            if (!state.isAdmin || existing?.removed) return;
-            state.gridData[key] = { removed: true, author: state.username };
-            requestDraw();
-            socket?.emit('set-tile-removed', { key, removed: true });
-        }
-
-        function restoreTile(key, existing) {
-            if (!state.isAdmin || !existing?.removed) return;
-            delete state.gridData[key];
-            requestDraw();
-            socket?.emit('set-tile-removed', { key, removed: false });
-        }
-
-        function useToolAt(clientX, clientY) {
-            if (state.isLocked || state.mode === 'move') return;
-
-            const rect = el.canvas.getBoundingClientRect();
-            const world = screenToWorld(clientX - rect.left, clientY - rect.top);
-            const hex = hexAtWorld(world.x, world.y);
-            if (!hex) return;
-
-            const key = `${hex.col},${hex.row}`;
+        function paintTile(key) {
+            if (state.isLocked) return;
             const existing = state.gridData[key];
 
-            if (state.mode === 'erase') return removeTile(key, existing);
-            if (state.mode === 'restore') return restoreTile(key, existing);
-
-            // Peinture : une case supprimée ne peut pas être coloriée.
+            // Une case supprimée ne peut pas être coloriée.
             if (!state.activeColor || existing?.removed || existing?.color === state.activeColor) return;
 
             if (existing?.author && existing.author !== state.username) {
@@ -974,6 +1189,78 @@
                 return;
             }
             applyPaint(key);
+        }
+
+        function clearPendingTap() {
+            if (pendingTap) clearTimeout(pendingTap.timer);
+            pendingTap = null;
+        }
+
+        // Mode peindre, toucher initial : un double toucher sur une flèche la fait tourner d'un sixième de tour.
+        // Sur une case à flèche, la peinture d'un simple toucher est retardée pour laisser le temps du second toucher.
+        function handlePaintDown(clientX, clientY) {
+            if (state.isLocked) return;
+            const key = tileKeyAt(clientX, clientY);
+            if (!key) return;
+
+            const tile = state.gridData[key];
+            const hasArrow = Number.isInteger(tile?.arrow) && !tile.removed;
+
+            if (!hasArrow) {
+                clearPendingTap();
+                paintTile(key);
+                return;
+            }
+
+            if (pendingTap?.key === key) {
+                clearPendingTap();
+                socket?.emit('rotate-arrow', { key });
+                return;
+            }
+
+            clearPendingTap();
+            pendingTap = {
+                key,
+                timer: setTimeout(() => {
+                    pendingTap = null;
+                    if (state.mode === 'paint') paintTile(key);
+                }, DOUBLE_TAP_MS)
+            };
+        }
+
+        function removeTile(key, existing) {
+            if (!state.isAdmin || existing?.removed) return;
+            state.gridData[key] = { removed: true, author: state.username };
+            requestDraw();
+            socket?.emit('edit-tiles', { keys: [key], action: 'remove' });
+        }
+
+        function restoreTile(key, existing) {
+            if (!state.isAdmin || !existing?.removed) return;
+            delete state.gridData[key];
+            requestDraw();
+            socket?.emit('edit-tiles', { keys: [key], action: 'restore' });
+        }
+
+        // Toucher : ajoute la flèche ou la retire. Glisser : ajoute seulement.
+        function toggleArrow(key, existing, isDrag) {
+            if (!state.isAdmin || existing?.removed) return;
+            const hasArrow = Number.isInteger(existing?.arrow);
+            if (hasArrow && isDrag) return;
+            socket?.emit('edit-tiles', { keys: [key], action: hasArrow ? 'arrow-remove' : 'arrow-add' });
+        }
+
+        function useToolAt(clientX, clientY, isDrag) {
+            if (state.isLocked || state.mode === 'move' || state.mode === 'select') return;
+
+            const key = tileKeyAt(clientX, clientY);
+            if (!key) return;
+            const existing = state.gridData[key];
+
+            if (state.mode === 'erase') return removeTile(key, existing);
+            if (state.mode === 'restore') return restoreTile(key, existing);
+            if (state.mode === 'arrow') return toggleArrow(key, existing, isDrag);
+            paintTile(key);
         }
 
         $('btnConfirmOverride').addEventListener('click', () => {
@@ -987,6 +1274,46 @@
             el.overrideModal.hidden = true;
         });
 
+        /* ---------- Sélection par rectangle (admin) ---------- */
+
+        function selectTilesInRect(rect) {
+            const left = Math.min(rect.x1, rect.x2);
+            const right = Math.max(rect.x1, rect.x2);
+            const top = Math.min(rect.y1, rect.y2);
+            const bottom = Math.max(rect.y1, rect.y2);
+            const cos = Math.cos(view.rotation);
+            const sin = Math.sin(view.rotation);
+            const { minCol, maxCol, minRow, maxRow } = visibleRange();
+            const keys = new Set();
+
+            for (let row = minRow; row <= maxRow; row++) {
+                for (let col = minCol; col <= maxCol; col++) {
+                    const { x, y } = hexCenter(col, row);
+                    const sx = view.panX + (x * cos - y * sin) * view.scale;
+                    const sy = view.panY + (x * sin + y * cos) * view.scale;
+                    if (sx >= left && sx <= right && sy >= top && sy <= bottom) keys.add(`${col},${row}`);
+                }
+            }
+            return keys;
+        }
+
+        function finishSelection() {
+            const rect = dragRect;
+            dragRect = null;
+
+            const tiny = Math.abs(rect.x2 - rect.x1) < 8 && Math.abs(rect.y2 - rect.y1) < 8;
+            if (tiny) {
+                // Simple toucher : sélectionne uniquement la case touchée.
+                const world = screenToWorld(rect.x2, rect.y2);
+                const hex = hexAtWorld(world.x, world.y);
+                state.selection = hex ? new Set([`${hex.col},${hex.row}`]) : new Set();
+            } else {
+                state.selection = selectTilesInRect(rect);
+            }
+            updateSelectionBar();
+            requestDraw();
+        }
+
         /* ============================================================ */
         /* Gestes (souris et tactile via Pointer Events)                 */
         /* ============================================================ */
@@ -997,6 +1324,7 @@
         function endGestures() {
             pointers.clear();
             gesture = null;
+            dragRect = null;
         }
 
         function beginGesture() {
@@ -1005,25 +1333,34 @@
 
             if (active.length === 1) {
                 const [p] = active;
+                const panOnly = previous?.type === 'pinch';
                 gesture = {
                     type: 'single',
                     startX: p.x - view.panX,
                     startY: p.y - view.panY,
                     // Après un pincement, le doigt restant déplace la carte au lieu de peindre.
-                    panOnly: previous?.type === 'pinch'
+                    panOnly,
+                    select: state.mode === 'select' && !panOnly
                 };
             } else if (active.length === 2) {
                 const [a, b] = active;
                 const rect = el.canvas.getBoundingClientRect();
+                dragRect = null;
                 gesture = {
                     type: 'pinch',
                     distance: Math.hypot(b.x - a.x, b.y - a.y) || 1,
                     scale: view.scale,
                     anchor: screenToWorld((a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top)
                 };
+                requestDraw();
             } else {
                 gesture = null;
             }
+        }
+
+        function toCanvas(e) {
+            const rect = el.canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
         }
 
         el.canvas.addEventListener('pointerdown', (e) => {
@@ -1031,7 +1368,16 @@
             el.canvas.setPointerCapture(e.pointerId);
             pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
             beginGesture();
-            if (gesture?.type === 'single') useToolAt(e.clientX, e.clientY);
+            if (gesture?.type !== 'single') return;
+
+            if (gesture.select) {
+                const p = toCanvas(e);
+                dragRect = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+            } else if (state.mode === 'paint') {
+                handlePaintDown(e.clientX, e.clientY);
+            } else {
+                useToolAt(e.clientX, e.clientY, false);
+            }
         });
 
         el.canvas.addEventListener('pointermove', (e) => {
@@ -1040,8 +1386,15 @@
             if (!gesture) return;
 
             if (gesture.type === 'single') {
-                if (state.mode !== 'move' && !state.isLocked && !gesture.panOnly) {
-                    useToolAt(e.clientX, e.clientY);
+                if (gesture.select) {
+                    if (dragRect) {
+                        const p = toCanvas(e);
+                        dragRect.x2 = p.x;
+                        dragRect.y2 = p.y;
+                        requestDraw();
+                    }
+                } else if (state.mode !== 'move' && !state.isLocked && !gesture.panOnly) {
+                    useToolAt(e.clientX, e.clientY, true);
                 } else {
                     view.panX = e.clientX - gesture.startX;
                     view.panY = e.clientY - gesture.startY;
@@ -1066,13 +1419,22 @@
             requestDraw();
         });
 
-        function releasePointer(e) {
+        function releasePointer(e, cancelled) {
             if (!pointers.delete(e.pointerId)) return;
             if (el.canvas.hasPointerCapture(e.pointerId)) el.canvas.releasePointerCapture(e.pointerId);
+
+            if (gesture?.type === 'single' && gesture.select && dragRect) {
+                if (cancelled) {
+                    dragRect = null;
+                    requestDraw();
+                } else {
+                    finishSelection();
+                }
+            }
             beginGesture();
         }
-        el.canvas.addEventListener('pointerup', releasePointer);
-        el.canvas.addEventListener('pointercancel', releasePointer);
+        el.canvas.addEventListener('pointerup', (e) => releasePointer(e, false));
+        el.canvas.addEventListener('pointercancel', (e) => releasePointer(e, true));
 
         el.canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
@@ -1094,8 +1456,9 @@
 
         if (socket) {
             socket.on('connect', () => {
-                // Après une coupure réseau, on se ré-identifie automatiquement.
-                if (state.username) authenticate(state.username, state.password, true);
+                // À chaque (re)connexion, on reprend la session enregistrée : plus besoin de se reconnecter à la main.
+                const saved = loadSession();
+                if (saved) authenticate({ token: saved.token }, Boolean(state.username));
             });
 
             socket.on('init', (data) => {
@@ -1120,8 +1483,12 @@
             socket.on('update-users-list', updateUsers);
 
             socket.on('update-terrains', (terrains) => {
+                // Les joueurs gardent la même couleur sélectionnée (même position dans la légende) si l'admin la modifie.
+                const activeIndex = state.terrains.findIndex((t) => t.color === state.activeColor);
                 state.terrains = terrains;
+                if (activeIndex >= 0 && terrains[activeIndex]) state.activeColor = terrains[activeIndex].color;
                 renderTerrains();
+                requestDraw();
             });
 
             socket.on('update-lock', (locked) => {
@@ -1129,10 +1496,12 @@
                 updateLockUI();
             });
 
-            socket.on('update-tile', ({ key, color, author, removed }) => {
-                if (removed) state.gridData[key] = { removed: true, author };
-                else if (color) state.gridData[key] = { color, author };
-                else delete state.gridData[key];
+            // Modifications de cases : { clé: case } ; null signifie que la case revient à l'état vierge.
+            socket.on('update-tiles', ({ changes }) => {
+                for (const [key, tile] of Object.entries(changes || {})) {
+                    if (tile) state.gridData[key] = tile;
+                    else delete state.gridData[key];
+                }
                 requestDraw();
             });
 
@@ -1140,6 +1509,8 @@
                 state.cols = config.cols;
                 state.rows = config.rows;
                 state.gridData = gridData || {};
+                state.selection.clear();
+                updateSelectionBar();
                 if (isMapActive()) centerMap();
             });
 
@@ -1149,12 +1520,11 @@
             });
 
             socket.on('kicked', (message) => {
+                clearSession();
                 state.username = '';
-                state.password = '';
                 state.isAdmin = false;
+                leaveFullscreen();
                 applyRole();
-                const exit = document.exitFullscreen || document.webkitExitFullscreen;
-                if ((document.fullscreenElement || document.webkitFullscreenElement) && exit) exit.call(document);
                 showLoginError(message);
                 showPage('login');
             });
@@ -1166,8 +1536,8 @@
 
         applyRole();
         renderMaps();
-        updateLockUI();
         if (!socket) showLoginError('Impossible de joindre le serveur.');
+        else if (loadSession()) showLoginError('Reconnexion en cours…', false);
     })();
     </script>
 </body>
