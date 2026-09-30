@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <title>Plateau Hexagonal</title>
     <meta name="theme-color" content="#2c3e50">
     <meta name="mobile-web-app-capable" content="yes">
@@ -20,14 +20,16 @@
             --slate: #34495e;
             --blue: #3498db;
             --green: #2ecc71;
-            --green-dark: #27ae60;
+            --green-dark: #1e8449;
             --red: #e74c3c;
-            --orange: #e67e22;
             --grey: #95a5a6;
             --muted: #7f8c8d;
             --border: #ddd;
             --radius: 12px;
             --hex: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --btn: 40px;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; -webkit-user-select: none; }
@@ -48,11 +50,12 @@
         .btn-danger { background: var(--red); }
         .btn-secondary { background: var(--grey); }
         .btn-small { padding: 6px 10px; font-size: 0.8rem; }
+        .btn:disabled { opacity: .45; }
 
-        /* Connexion */
-        #pageLogin { background: var(--dark); justify-content: center; align-items: center; }
-        .btn-close { position: absolute; top: calc(15px + env(safe-area-inset-top, 0px)); right: 15px; width: 42px; height: 42px; border: none; border-radius: 50%; background: rgba(255,255,255,.15); color: #fff; font-size: 1.3rem; font-weight: bold; display: flex; align-items: center; justify-content: center; }
-        .login-card { background: #fff; padding: 30px; border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.2); width: 90%; max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 15px; }
+        /* Connexion : la fenêtre suit la zone réellement visible et se décale vers le haut avec le clavier */
+        #pageLogin { inset: auto; left: 0; width: 100%; top: var(--vvtop, 0px); height: var(--vvh, 100%); background: var(--dark) center / cover no-repeat; justify-content: center; align-items: flex-start; overflow-y: auto; padding: calc(64px + var(--safe-top)) 0 16px; }
+        .btn-close { position: absolute; top: calc(15px + var(--safe-top)); right: 15px; width: 42px; height: 42px; border: none; border-radius: 50%; background: rgba(0,0,0,.45); color: #fff; font-size: 1.3rem; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .login-card { margin: auto; background: rgba(255,255,255,.96); padding: 26px; border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.3); width: 90%; max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 14px; }
         .login-card h1 { font-size: 1.4rem; color: var(--dark); }
         .login-card input { padding: 12px; border: 2px solid var(--border); border-radius: 6px; font-size: 1rem; text-align: center; width: 100%; }
         .login-card .btn { padding: 12px; font-size: 1rem; }
@@ -63,12 +66,12 @@
         #closedScreen { position: fixed; inset: 0; z-index: 300; background: var(--dark); color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; text-align: center; padding: 24px; }
         #closedScreen p { font-size: 1rem; }
 
-        /* Tableau de bord (administrateur uniquement) */
+        /* Tableau de bord (MJ uniquement) */
         #pageDashboard { background: #e5e9f0; justify-content: center; align-items: center; padding: 16px; }
         .dashboard-card { background: #fff; padding: 20px; border-radius: var(--radius); box-shadow: 0 4px 15px rgba(0,0,0,.1); width: 100%; max-width: 560px; max-height: 100%; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; touch-action: pan-y; }
         .dashboard-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 2px solid var(--blue); padding-bottom: 8px; }
         .dashboard-header h2 { font-size: 1.2rem; color: var(--dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .header-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+        .header-actions, .add-row { display: flex; flex-wrap: wrap; gap: 6px; }
         .section-title { font-weight: bold; font-size: 0.85rem; color: var(--muted); margin-top: 5px; }
         .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
 
@@ -89,58 +92,59 @@
         .empty { font-size: 0.85rem; color: var(--muted); }
 
         .btn-go { position: sticky; bottom: 0; margin-top: auto; padding: 14px; border: none; border-radius: 8px; background: var(--green); color: #fff; font-weight: bold; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 10px rgba(46,204,113,.3); flex-shrink: 0; }
-        .btn-go:hover { background: var(--green-dark); }
+        .btn-go:hover { background: #27ae60; }
 
         /* Carte */
         #pageMap { background: var(--dark); overflow: hidden; touch-action: none; }
         canvas.board { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
-        .btn-exit { position: absolute; top: calc(15px + env(safe-area-inset-top, 0px)); left: 15px; z-index: 50; width: 42px; height: 42px; background: var(--red); color: #fff; border: none; border-radius: 50%; font-size: 1.15rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,.3); display: flex; align-items: center; justify-content: center; }
-        .mini-user-list { position: absolute; top: calc(65px + env(safe-area-inset-top, 0px)); left: 15px; z-index: 50; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); padding: 6px 10px; border-radius: 6px; color: #fff; font-size: 0.7rem; max-width: 140px; max-height: 90px; overflow-y: auto; pointer-events: none; }
+        /* Sélecteurs : terrains à gauche (colonne), objets en haut, marqueurs en bas. Défilement si la liste est trop longue. */
+        .pal { position: absolute; z-index: 50; display: flex; gap: 6px; padding: 6px; background: rgba(255,255,255,.92); border-radius: var(--radius); box-shadow: 0 4px 15px rgba(0,0,0,.25); }
+        .pal-terrains { top: calc(8px + var(--safe-top)); left: 8px; flex-direction: column; max-height: calc(100% - 16px - var(--safe-top) - var(--safe-bottom)); overflow-y: auto; touch-action: pan-y; }
+        .pal-objects { top: calc(8px + var(--safe-top)); left: 68px; flex-direction: row; max-width: calc(100% - 136px); overflow-x: auto; touch-action: pan-x; }
+        .pal-marks { bottom: calc(8px + var(--safe-bottom)); left: 68px; flex-direction: row; max-width: calc(100% - 136px); overflow-x: auto; touch-action: pan-x; }
+
+        .hex-option { width: var(--btn); height: var(--btn); flex-shrink: 0; clip-path: var(--hex); border: none; transition: transform .15s; }
+        .obj-option { width: var(--btn); height: var(--btn); flex-shrink: 0; border: 2px solid transparent; border-radius: 8px; background: #e9ecef; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; transition: transform .15s; }
+        .obj-option canvas { width: 34px; height: 34px; display: block; pointer-events: none; }
+        .hex-option.selected { transform: scale(1.12); filter: drop-shadow(0 0 4px #000); }
+        .obj-option.selected { transform: scale(1.08); border-color: var(--dark); background: #ffeaa7; }
+        .palette-tooltip { position: fixed; z-index: 60; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,.88); color: #fff; font-size: 0.85rem; white-space: nowrap; pointer-events: none; }
+
+        .mini-user-list { position: absolute; top: calc(66px + var(--safe-top)); left: 68px; z-index: 40; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); padding: 6px 10px; border-radius: 6px; color: #fff; font-size: 0.7rem; max-width: 140px; max-height: 90px; overflow-y: auto; pointer-events: none; }
         .mini-user-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
         .mini-user-item::before { content: "•"; color: var(--green); }
 
-        .fullscreen-palette { position: absolute; top: calc(165px + env(safe-area-inset-top, 0px)); left: 15px; z-index: 50; display: grid; grid-template-columns: repeat(2, 40px); gap: 8px; background: rgba(255,255,255,.92); padding: 10px; border-radius: var(--radius); backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,.2); max-height: calc(100% - 260px); overflow-y: auto; touch-action: pan-y; align-content: start; }
-        .palette-title { grid-column: 1 / -1; font-size: 0.65rem; font-weight: bold; text-transform: uppercase; color: var(--muted); }
-        .hex-option { width: 38px; height: 38px; clip-path: var(--hex); border: none; transition: transform .2s; }
-        .obj-option { width: 38px; height: 38px; border: 2px solid transparent; border-radius: 8px; background: #e9ecef; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; transition: transform .2s; }
-        .obj-option canvas { width: 34px; height: 34px; display: block; pointer-events: none; }
-        .hex-option.selected, .obj-option.selected { transform: scale(1.12); filter: drop-shadow(0 0 4px #000); }
-        .obj-option.selected { border-color: var(--dark); background: #ffeaa7; }
-        .palette-tooltip { position: fixed; z-index: 60; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,.88); color: #fff; font-size: 0.85rem; white-space: nowrap; pointer-events: none; }
-
-        .map-toolbar { position: absolute; top: calc(15px + env(safe-area-inset-top, 0px)); right: 15px; z-index: 50; display: flex; justify-content: flex-end; gap: 8px; max-width: calc(100% - 80px); }
-        .tools { position: absolute; top: calc(70px + env(safe-area-inset-top, 0px)); right: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
-        .mark-palette { position: absolute; top: calc(70px + env(safe-area-inset-top, 0px)); right: 68px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
-        .btn-round { width: 42px; height: 42px; border: none; border-radius: 50%; background: #fff; font-size: 1.15rem; line-height: 1; box-shadow: 0 4px 10px rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        /* Colonne de droite : outils du MJ en haut à partir du coin, puis commandes générales */
+        .right-panel { position: absolute; z-index: 50; top: calc(8px + var(--safe-top)); right: 8px; width: 52px; max-height: calc(100% - 16px - var(--safe-top) - var(--safe-bottom)); overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 6px; background: rgba(0,0,0,.28); border-radius: var(--radius); touch-action: pan-y; }
+        .panel-group { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .btn-round { width: var(--btn); height: var(--btn); border: none; border-radius: 50%; background: #fff; font-size: 1.1rem; line-height: 1; box-shadow: 0 3px 8px rgba(0,0,0,.25); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-round.lock { background: var(--green); }
         .btn-round.lock.locked { background: var(--red); }
         .btn-round.mode { color: #fff; }
         .btn-round.mode.move { background: var(--blue); }
         .btn-round.mode.paint { background: var(--green); }
+        .btn-round.quit { background: var(--red); color: #fff; }
         .btn-round.active { outline: 3px solid var(--dark); background: #ffeaa7; }
-        .mark-palette .btn-round { font-size: 1.05rem; color: var(--dark); }
-
-        .selection-bar { position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,.94); border-radius: 26px; box-shadow: 0 4px 15px rgba(0,0,0,.3); width: max-content; max-width: 96%; }
-        .selection-bar .btn-round { width: 38px; height: 38px; font-size: 1rem; box-shadow: none; background: #f1f3f5; }
-        .selection-count { font-size: 0.8rem; font-weight: 600; color: var(--dark); white-space: nowrap; }
-
-        .rotate-controls { position: absolute; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: 20px; z-index: 50; display: flex; gap: 10px; }
-        .rotate-controls .btn-round { width: 48px; height: 48px; font-size: 1.5rem; }
+        .btn-round:disabled { opacity: .45; }
+        .btn-tile-add { width: 42px; height: 42px; flex-shrink: 0; border: none; clip-path: var(--hex); background: var(--green); color: #fff9c4; font-size: 1.3rem; line-height: 1; display: flex; align-items: center; justify-content: center; }
+        .btn-tile-add.active { background: var(--green-dark); color: #fff; }
+        .selection-info { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.7rem; font-weight: 700; color: #fff; text-align: center; }
+        .selection-info button { width: 30px; height: 30px; border: none; border-radius: 50%; background: #fff; font-size: .85rem; }
 
         /* Fenêtres modales et notifications */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
         .modal-content { background: #fff; padding: 20px; border-radius: 8px; width: min(320px, 92vw); box-shadow: 0 4px 20px rgba(0,0,0,.3); display: flex; flex-direction: column; gap: 12px; }
         .modal-wide { width: min(420px, 94vw); max-height: 90%; }
         .modal-content p { font-size: 0.85rem; color: var(--dark); }
-        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+        .stack { display: flex; flex-direction: column; gap: 8px; }
         .control-group { display: flex; flex-direction: column; gap: 4px; }
         .control-group label { font-size: 0.8rem; font-weight: 600; }
         .control-group input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
         #newMapModal { z-index: 110; }
-
-        .export-viewer img { width: 100%; max-height: 52vh; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 6px; -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
         #exportViewer { z-index: 120; }
+        .export-viewer img { width: 100%; max-height: 52vh; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 6px; -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
 
         .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; max-width: 90vw; padding: 10px 16px; border-radius: 8px; background: var(--dark); color: #fff; font-size: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,.3); pointer-events: none; text-align: center; }
         .toast.error { background: var(--red); }
@@ -174,8 +178,16 @@
             </div>
 
             <div class="section-title">Couleurs des terrains</div>
-            <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain, sur toutes les cartes affichées. Les objets se posent sur le terrain : forêt, forteresses, maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
+            <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain. Les objets se posent sur le terrain : forêt, tours fortes, murs de fortification, maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
             <div id="terrainContainer" class="terrain-palette"></div>
+
+            <div class="section-title">Image de fond de la page de connexion</div>
+            <p class="hint">Elle sera visible par tous les joueurs sur la première page.</p>
+            <div class="add-row">
+                <button id="btnPickBackground" class="btn btn-primary">🖼️ Choisir une image</button>
+                <button id="btnClearBackground" class="btn btn-secondary">Retirer</button>
+                <input type="file" id="backgroundInput" accept="image/*" hidden>
+            </div>
 
             <button id="btnGo" class="btn-go">🚀 Ouvrir la carte</button>
         </div>
@@ -183,46 +195,36 @@
 
     <!-- Carte -->
     <main id="pageMap" class="page">
-        <button id="btnExitMap" class="btn-exit" title="Se déconnecter" aria-label="Se déconnecter">🚪</button>
+        <div id="palTerrains" class="pal pal-terrains" role="toolbar" aria-label="Terrains"></div>
+        <div id="palObjects" class="pal pal-objects" role="toolbar" aria-label="Objets"></div>
+        <div id="palMarks" class="pal pal-marks admin-only" role="toolbar" aria-label="Marqueurs" hidden></div>
         <div id="miniOnlineUsers" class="mini-user-list"></div>
-        <div id="fsPalette" class="fullscreen-palette"></div>
 
-        <div class="map-toolbar">
-            <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
-            <button id="btnMapsToolbar" class="btn-round admin-only" title="Cartes enregistrées" aria-label="Cartes enregistrées" hidden>🗺️</button>
-            <button id="btnExport" class="btn-round" title="Exporter en JPEG (A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
-            <button id="btnResetView" class="btn-round" title="Centrer la carte" aria-label="Centrer la carte">🎯</button>
-            <button id="btnModeToggle" class="btn-round mode move" title="Mode déplacer : toucher pour peindre" aria-label="Mode déplacer : toucher pour peindre">✋</button>
-        </div>
+        <div id="rightPanel" class="right-panel">
+            <div id="adminTools" class="panel-group admin-only" hidden>
+                <button id="btnSelect" class="btn-round" title="Sélectionner une zone" aria-label="Sélectionner une zone avec un rectangle">⛶</button>
+                <button id="btnErase" class="btn-round" title="Supprimer des tuiles" aria-label="Supprimer des tuiles">✂️</button>
+                <button id="btnRestore" class="btn-tile-add" title="Ajouter des tuiles" aria-label="Ajouter des tuiles">★</button>
+                <div id="selectionInfo" class="selection-info" hidden>
+                    <span id="selectionCount"></span>
+                    <button id="btnSelClear" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
+                </div>
+            </div>
 
-        <div id="tools" class="tools admin-only" hidden>
-            <button id="btnSelect" class="btn-round" title="Sélectionner plusieurs hexagones avec un rectangle" aria-label="Sélection par rectangle">⛶</button>
-            <button id="btnErase" class="btn-round" title="Supprimer des hexagones" aria-label="Supprimer des hexagones">✂️</button>
-            <button id="btnRestore" class="btn-round" title="Rétablir des hexagones" aria-label="Rétablir des hexagones">↩️</button>
-            <button id="btnMark" class="btn-round" title="Marquer des hexagones" aria-label="Marquer des hexagones">📌</button>
-            <button id="btnUnmark" class="btn-round" title="Démarquer des hexagones" aria-label="Démarquer des hexagones">🧹</button>
-        </div>
+            <div class="panel-group">
+                <button id="btnModeToggle" class="btn-round mode move" title="Mode déplacer : toucher pour peindre" aria-label="Mode déplacer : toucher pour peindre">✋</button>
+                <button id="btnUndo" class="btn-round" title="Annuler" aria-label="Annuler ma dernière modification">↶</button>
+                <button id="btnRedo" class="btn-round" title="Rétablir" aria-label="Rétablir la modification annulée">↷</button>
+                <button id="btnExport" class="btn-round" title="Imprimer (JPEG A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
+                <button id="btnRotateLeft" class="btn-round" title="Pivoter de 90° vers la gauche" aria-label="Pivoter de 90 degrés vers la gauche">⟲</button>
+                <button id="btnRotateRight" class="btn-round" title="Pivoter de 90° vers la droite" aria-label="Pivoter de 90 degrés vers la droite">⟳</button>
+            </div>
 
-        <div id="markPalette" class="mark-palette" hidden>
-            <button class="btn-round" data-mark="square" title="Carré" aria-label="Marque carré">■</button>
-            <button class="btn-round" data-mark="triangle" title="Triangle" aria-label="Marque triangle">▲</button>
-            <button class="btn-round" data-mark="diamond" title="Losange" aria-label="Marque losange">◆</button>
-            <button class="btn-round" data-mark="cross" title="Croix" aria-label="Marque croix">✚</button>
-        </div>
-
-        <div id="selectionBar" class="selection-bar" hidden>
-            <span id="selectionCount" class="selection-count"></span>
-            <button id="btnSelBrush" class="btn-round" title="Appliquer le terrain ou l'objet choisi à la sélection" aria-label="Appliquer le pinceau à la sélection">🖌️</button>
-            <button id="btnSelRemove" class="btn-round" title="Supprimer les hexagones sélectionnés" aria-label="Supprimer la sélection">✂️</button>
-            <button id="btnSelRestore" class="btn-round" title="Rétablir les hexagones supprimés" aria-label="Rétablir la sélection">↩️</button>
-            <button id="btnSelMark" class="btn-round" title="Marquer avec la marque choisie" aria-label="Marquer la sélection">📌</button>
-            <button id="btnSelUnmark" class="btn-round" title="Retirer les marques" aria-label="Démarquer la sélection">🧹</button>
-            <button id="btnSelClear" class="btn-round" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
-        </div>
-
-        <div class="rotate-controls">
-            <button id="btnRotateLeft" class="btn-round" title="Pivoter de 90° vers la gauche" aria-label="Pivoter de 90 degrés vers la gauche">↺</button>
-            <button id="btnRotateRight" class="btn-round" title="Pivoter de 90° vers la droite" aria-label="Pivoter de 90 degrés vers la droite">↻</button>
+            <div class="panel-group">
+                <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
+                <button id="btnMapsToolbar" class="btn-round admin-only" title="Cartes" aria-label="Cartes enregistrées et nouvelle carte" hidden>🗺️</button>
+                <button id="btnExitMap" class="btn-round quit" title="Quitter" aria-label="Quitter">🚪</button>
+            </div>
         </div>
 
         <canvas id="hexCanvas" class="board"></canvas>
@@ -240,6 +242,33 @@
 
         <div id="paletteTooltip" class="palette-tooltip" hidden></div>
     </main>
+
+    <!-- Impression -->
+    <div id="printModal" class="modal-overlay" hidden>
+        <div class="modal-content">
+            <h3>Imprimer en JPEG (A4)</h3>
+            <p>Quelle partie de la carte voulez-vous exporter ?</p>
+            <div class="stack">
+                <button id="btnPrintAll" class="btn btn-primary">🗺️ Carte entière</button>
+                <button id="btnPrintMine" class="btn btn-dark">✏️ Ma zone modifiée</button>
+            </div>
+            <div class="modal-actions">
+                <button id="btnPrintCancel" class="btn btn-secondary">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="exportViewer" class="modal-overlay" hidden>
+        <div class="modal-content modal-wide export-viewer">
+            <h3>Image prête (A4, 300 dpi)</h3>
+            <img id="exportImage" alt="Aperçu de la carte à imprimer">
+            <p>Touchez « Enregistrer / Partager », ou maintenez le doigt sur l'image puis choisissez « Enregistrer l'image ».</p>
+            <div class="modal-actions">
+                <button id="btnExportClose" class="btn btn-secondary">Fermer</button>
+                <button id="btnExportShare" class="btn btn-primary">📤 Enregistrer / Partager</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Cartes enregistrées et nouvelle carte (MJ) -->
     <div id="mapsModal" class="modal-overlay" hidden>
@@ -283,18 +312,6 @@
         <button id="btnReopen" class="btn btn-primary">Rouvrir</button>
     </div>
 
-    <div id="exportViewer" class="modal-overlay" hidden>
-        <div class="modal-content modal-wide export-viewer">
-            <h3>Image prête (A4, 300 dpi)</h3>
-            <img id="exportImage" alt="Aperçu de la carte à imprimer">
-            <p>Touchez « Enregistrer / Partager », ou maintenez le doigt sur l'image puis choisissez « Enregistrer l'image ».</p>
-            <div class="modal-actions">
-                <button id="btnExportClose" class="btn btn-secondary">Fermer</button>
-                <button id="btnExportShare" class="btn btn-primary">📤 Enregistrer / Partager</button>
-            </div>
-        </div>
-    </div>
-
     <div id="toast" class="toast" role="status" hidden></div>
 
     <script>
@@ -302,7 +319,7 @@
         'use strict';
 
         /* ============================================================ */
-        /* Catalogue des terrains et des objets                          */
+        /* Catalogue des terrains, objets et marqueurs                   */
         /* ============================================================ */
 
         const GROUND = ['plain', 'hill'];
@@ -321,12 +338,23 @@
         const OBJECTS = [
             { id: 'forest', label: 'Forêt', hint: 'plaine ou colline', turns: 1, on: GROUND },
             { id: 'bridge', label: 'Pont', hint: 'eau uniquement · double toucher pour pivoter', turns: 3, on: ['water'] },
-            { id: 'fortress', label: 'Forteresse crénelée', hint: 'plaine ou colline', turns: 1, on: GROUND },
-            { id: 'fortress-half', label: 'Forteresse crénelée sur 2 faces', hint: 'plaine ou colline · double toucher pour pivoter', turns: 6, on: GROUND },
+            { id: 'fortress', label: 'Tour forte', hint: 'plaine ou colline', turns: 1, on: GROUND },
+            { id: 'fortress-half', label: 'Mur de fortification', hint: 'plaine ou colline · double toucher pour pivoter', turns: 6, on: GROUND },
             { id: 'village', label: 'Maison de village', hint: 'plaine ou colline', turns: 1, on: GROUND },
             { id: 'village-flat', label: 'Maison à toit plat', hint: 'plaine ou colline', turns: 1, on: GROUND },
             { id: 'wall', label: 'Muret', hint: 'plaine ou colline · double toucher pour pivoter', turns: 3, on: GROUND }
         ];
+
+        // Marqueurs du MJ : toujours rouges et pleins.
+        const MARKS = [
+            { id: 'square', label: 'Carré' },
+            { id: 'triangle', label: 'Triangle' },
+            { id: 'diamond', label: 'Losange' },
+            { id: 'cross', label: 'Croix' },
+            { id: 'disc', label: 'Disque' },
+            { id: 'x', label: 'Croix en X' }
+        ];
+        const MARK_COLOR = '#e01b1b';
 
         const OBJECT_BY_ID = new Map(OBJECTS.map((o) => [o.id, o]));
         const TERRAIN_BY_ID = new Map(TERRAINS.map((t) => [t.id, t]));
@@ -345,12 +373,14 @@
         const MAX_SIZE = 300;
         const BACKGROUND = '#ecf0f1';
         const REQUEST_TIMEOUT_MS = 8000;
+        const UPLOAD_TIMEOUT_MS = 30000;
         const DOUBLE_TAP_MS = 300;
         const IDLE_MODE_MS = 10000; // sans usage du pinceau, retour automatique au mode déplacer
         const SESSION_KEY = 'hexSession';
         const ADMIN_NAME = 'mj';
+        const BACKGROUND_MAX_SIDE = 1600;
         const A4 = { width: 2480, height: 3508, margin: 59, dpi: 300 }; // A4 à 300 dpi, marge de 5 mm
-        const ADMIN_MODES = new Set(['select', 'erase', 'restore', 'mark', 'unmark']);
+        const ADMIN_MODES = new Set(['select', 'erase', 'restore']);
         const GHOST_MODES = new Set(['select', 'erase', 'restore']);
 
         const HEX_CORNERS = Array.from({ length: 6 }, (_, i) => {
@@ -369,9 +399,8 @@
             username: '',
             isAdmin: false,
             isLocked: false,
-            mode: 'move', // move | paint | select | erase | restore | mark | unmark
-            brush: { kind: 'terrain', id: 'plain' }, // terrain | object | clear-object
-            activeMark: 'square',
+            mode: 'move', // move | paint | select | erase | restore
+            brush: { kind: 'terrain', id: 'plain' }, // terrain | object | mark | unmark
             cols: 10,
             rows: 8,
             gridData: {},
@@ -404,33 +433,32 @@
             welcome: $('welcomeUser'),
             miniUsers: $('miniOnlineUsers'),
             terrainContainer: $('terrainContainer'),
-            fsPalette: $('fsPalette'),
+            palTerrains: $('palTerrains'),
+            palObjects: $('palObjects'),
+            palMarks: $('palMarks'),
+            adminTools: $('adminTools'),
+            selectionInfo: $('selectionInfo'),
+            selectionCount: $('selectionCount'),
             mapName: $('mapNameInput'),
             mapList: $('mapList'),
             mapsModal: $('mapsModal'),
             newMapModal: $('newMapModal'),
+            printModal: $('printModal'),
+            exportViewer: $('exportViewer'),
             overrideModal: $('overrideModal'),
             overrideMessage: $('overrideMessage'),
             closedScreen: $('closedScreen'),
             btnExit: $('btnExitMap'),
             btnLock: $('btnLockToggle'),
             btnMode: $('btnModeToggle'),
-            tools: $('tools'),
-            markPalette: $('markPalette'),
-            selectionBar: $('selectionBar'),
-            selectionCount: $('selectionCount'),
+            btnUndo: $('btnUndo'),
+            btnRedo: $('btnRedo'),
             tooltip: $('paletteTooltip'),
             canvas: $('hexCanvas'),
             toast: $('toast')
         };
         const ctx = el.canvas.getContext('2d');
-        const toolButtons = {
-            select: $('btnSelect'),
-            erase: $('btnErase'),
-            restore: $('btnRestore'),
-            mark: $('btnMark'),
-            unmark: $('btnUnmark')
-        };
+        const toolButtons = { select: $('btnSelect'), erase: $('btnErase'), restore: $('btnRestore') };
 
         /* ============================================================ */
         /* Identité et session (conservée même après mise en veille)     */
@@ -487,10 +515,10 @@
             toastTimer = setTimeout(() => { el.toast.hidden = true; }, 3400);
         }
 
-        function request(event, payload) {
+        function request(event, payload, timeout = REQUEST_TIMEOUT_MS) {
             return new Promise((resolve) => {
                 if (!socket) return resolve({ success: false, code: 'network', message: 'Serveur injoignable.' });
-                socket.timeout(REQUEST_TIMEOUT_MS).emit(event, payload, (err, res) => {
+                socket.timeout(timeout).emit(event, payload, (err, res) => {
                     if (err || !res) resolve({ success: false, code: 'network', message: 'Le serveur ne répond pas.' });
                     else resolve(res);
                 });
@@ -505,7 +533,7 @@
 
         function applyRole() {
             document.querySelectorAll('.admin-only').forEach((node) => { node.hidden = !state.isAdmin; });
-            // Bouton en haut à gauche de la carte : retour pour le MJ, déconnexion pour les joueurs.
+            // Bouton « quitter » : retour au tableau de bord pour le MJ, déconnexion pour les joueurs.
             el.btnExit.textContent = state.isAdmin ? '⬅' : '🚪';
             const label = state.isAdmin ? 'Retour au tableau de bord' : 'Se déconnecter';
             el.btnExit.title = label;
@@ -522,6 +550,29 @@
                 el.miniUsers.appendChild(mini);
             }
         }
+
+        /* ============================================================ */
+        /* Fenêtre de connexion : toujours visible avec le clavier       */
+        /* ============================================================ */
+
+        // La page de connexion suit la zone réellement visible : quand le clavier s'ouvre, elle se réduit
+        // et la fenêtre remonte (ou défile si elle est trop haute).
+        function syncViewport() {
+            const vv = window.visualViewport;
+            const root = document.documentElement.style;
+            root.setProperty('--vvh', `${vv ? vv.height : window.innerHeight}px`);
+            root.setProperty('--vvtop', `${vv ? vv.offsetTop : 0}px`);
+        }
+        window.visualViewport?.addEventListener('resize', syncViewport);
+        window.visualViewport?.addEventListener('scroll', syncViewport);
+        window.addEventListener('resize', syncViewport);
+        syncViewport();
+
+        [el.username, el.password].forEach((input) => {
+            input.addEventListener('focus', () => {
+                setTimeout(() => input.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+            });
+        });
 
         /* ============================================================ */
         /* Plein écran et installation                                   */
@@ -661,7 +712,62 @@
         $('btnLogout').addEventListener('click', logout);
 
         /* ============================================================ */
-        /* Terrains, objets et pinceau                                   */
+        /* Image de fond de la page de connexion                         */
+        /* ============================================================ */
+
+        function applyBackground(version) {
+            el.pages.login.style.backgroundImage = version ? `url("/background.jpg?v=${version}")` : '';
+        }
+
+        async function loadBitmap(file) {
+            if (window.createImageBitmap) {
+                try {
+                    return await createImageBitmap(file, { imageOrientation: 'from-image' });
+                } catch { /* on essaie la méthode classique */ }
+            }
+            return new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
+                const image = new Image();
+                image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+                image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image illisible')); };
+                image.src = url;
+            });
+        }
+
+        // L'image est réduite (1600 px maximum) puis envoyée en JPEG : légère pour tous les téléphones.
+        async function uploadBackground(file) {
+            try {
+                const bitmap = await loadBitmap(file);
+                const ratio = Math.min(1, BACKGROUND_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(bitmap.width * ratio);
+                canvas.height = Math.round(bitmap.height * ratio);
+                const c = canvas.getContext('2d');
+                c.fillStyle = '#ffffff';
+                c.fillRect(0, 0, canvas.width, canvas.height);
+                c.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+                toast('Envoi de l’image…');
+                const res = await request('set-background', { dataUrl: canvas.toDataURL('image/jpeg', 0.82) }, UPLOAD_TIMEOUT_MS);
+                toast(res.message, !res.success);
+            } catch {
+                toast('Impossible de lire cette image.', true);
+            }
+        }
+
+        $('btnPickBackground').addEventListener('click', () => $('backgroundInput').click());
+        $('backgroundInput').addEventListener('change', (e) => {
+            const [file] = e.target.files;
+            e.target.value = '';
+            if (file) uploadBackground(file);
+        });
+        $('btnClearBackground').addEventListener('click', async () => {
+            const res = await request('clear-background', {});
+            toast(res.message, !res.success);
+        });
+
+        /* ============================================================ */
+        /* Terrains, objets et marqueurs                                 */
         /* ============================================================ */
 
         const terrainColor = (id) => state.terrains.find((t) => t.id === id)?.color ?? TERRAIN_BY_ID.get(id)?.color ?? '#8fd16b';
@@ -728,7 +834,8 @@
             }
         }
 
-        // Forteresse hexagonale ; crenelEdges = numéros des côtés portant des créneaux (côté i : milieu à i × 60°).
+        // Tour forte (créneaux sur les 6 côtés) ou mur de fortification (créneaux sur 2 côtés adjacents).
+        // crenelEdges = numéros des côtés crénelés (côté i : milieu à i × 60°).
         function drawFortress(c, u, crenelEdges) {
             const radius = u * 1.1;
             c.lineJoin = 'round';
@@ -874,73 +981,92 @@
             c.restore();
         }
 
-        function luminance(hex) {
-            const n = Number.parseInt(hex.slice(1), 16);
-            return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+        // Croix pleine : a = demi-longueur des bras, t = demi-épaisseur.
+        function plusPath(c, a, t) {
+            c.moveTo(-t, -a);
+            c.lineTo(t, -a);
+            c.lineTo(t, -t);
+            c.lineTo(a, -t);
+            c.lineTo(a, t);
+            c.lineTo(t, t);
+            c.lineTo(t, a);
+            c.lineTo(-t, a);
+            c.lineTo(-t, t);
+            c.lineTo(-a, t);
+            c.lineTo(-a, -t);
+            c.lineTo(-t, -t);
+            c.closePath();
         }
 
-        const contrastOn = (hex) => (luminance(hex) > 0.55 ? '#111111' : '#ffffff');
-
-        // Marque (carré, triangle, losange, croix), toujours droite. Plus petite dans un coin si la case porte un objet.
-        function drawMark(c, x, y, mark, ink, rotation, small) {
+        // Marqueur rouge plein, toujours droit. Plus petit dans un coin si la case porte un objet.
+        function drawMark(c, x, y, mark, rotation, small) {
             const s = HEX_RADIUS * (small ? 0.17 : 0.3);
-            const halo = ink === '#111111' ? '#ffffff' : '#000000';
 
             c.save();
             c.translate(x + (small ? HEX_RADIUS * 0.4 : 0), y - (small ? HEX_RADIUS * 0.32 : 0));
             c.rotate(-rotation);
             c.lineJoin = 'round';
-            c.lineCap = 'round';
-
-            const shape = () => {
-                c.beginPath();
-                switch (mark) {
-                    case 'square':
-                        c.rect(-s, -s, 2 * s, 2 * s);
-                        break;
-                    case 'triangle':
-                        c.moveTo(0, -s * 1.15);
-                        c.lineTo(s * 1.1, s * 0.85);
-                        c.lineTo(-s * 1.1, s * 0.85);
-                        c.closePath();
-                        break;
-                    case 'diamond':
-                        c.moveTo(0, -s * 1.3);
-                        c.lineTo(s * 1.3, 0);
-                        c.lineTo(0, s * 1.3);
-                        c.lineTo(-s * 1.3, 0);
-                        c.closePath();
-                        break;
-                    case 'cross':
-                        c.moveTo(-s, -s);
-                        c.lineTo(s, s);
-                        c.moveTo(s, -s);
-                        c.lineTo(-s, s);
-                        break;
-                    default:
-                        break;
-                }
-            };
-
-            c.strokeStyle = halo;
-            c.lineWidth = HEX_RADIUS * 0.19;
-            shape();
-            c.stroke();
-            c.strokeStyle = ink;
-            c.lineWidth = HEX_RADIUS * 0.1;
-            shape();
+            c.beginPath();
+            switch (mark) {
+                case 'square':
+                    c.rect(-s, -s, 2 * s, 2 * s);
+                    break;
+                case 'triangle':
+                    c.moveTo(0, -s * 1.2);
+                    c.lineTo(s * 1.15, s * 0.9);
+                    c.lineTo(-s * 1.15, s * 0.9);
+                    c.closePath();
+                    break;
+                case 'diamond':
+                    c.moveTo(0, -s * 1.35);
+                    c.lineTo(s * 1.35, 0);
+                    c.lineTo(0, s * 1.35);
+                    c.lineTo(-s * 1.35, 0);
+                    c.closePath();
+                    break;
+                case 'disc':
+                    c.arc(0, 0, s * 1.15, 0, Math.PI * 2);
+                    break;
+                case 'cross':
+                    plusPath(c, s * 1.35, s * 0.5);
+                    break;
+                case 'x':
+                    c.rotate(Math.PI / 4);
+                    plusPath(c, s * 1.35, s * 0.5);
+                    break;
+                default:
+                    break;
+            }
+            c.fillStyle = MARK_COLOR;
+            c.fill();
+            c.strokeStyle = '#ffffff';
+            c.lineWidth = HEX_RADIUS * 0.05;
             c.stroke();
             c.restore();
         }
 
-        /* ---------- Palette (terrains, objets, gomme d'objet) ---------- */
+        /* ---------- Sélecteurs (terrains à gauche, objets en haut, marqueurs en bas) ---------- */
 
-        function showPaletteTooltip(button, text) {
+        function showPaletteTooltip(button, text, placement) {
             el.tooltip.textContent = text;
             el.tooltip.hidden = false;
             const rect = button.getBoundingClientRect();
-            el.tooltip.style.left = `${rect.right + 12}px`;
-            el.tooltip.style.top = `${rect.top + rect.height / 2 - el.tooltip.offsetHeight / 2}px`;
+            const width = el.tooltip.offsetWidth;
+            const height = el.tooltip.offsetHeight;
+            let left;
+            let top;
+            if (placement === 'below') {
+                left = rect.left + rect.width / 2 - width / 2;
+                top = rect.bottom + 8;
+            } else if (placement === 'above') {
+                left = rect.left + rect.width / 2 - width / 2;
+                top = rect.top - height - 8;
+            } else {
+                left = rect.right + 10;
+                top = rect.top + rect.height / 2 - height / 2;
+            }
+            el.tooltip.style.left = `${clamp(left, 4, window.innerWidth - width - 4)}px`;
+            el.tooltip.style.top = `${clamp(top, 4, window.innerHeight - height - 4)}px`;
         }
 
         function hidePaletteTooltip() {
@@ -950,21 +1076,28 @@
 
         function markSelectedBrush() {
             const key = brushKey(state.brush);
-            for (const button of el.fsPalette.querySelectorAll('[data-brush]')) {
+            for (const button of document.querySelectorAll('[data-brush]')) {
                 button.classList.toggle('selected', button.dataset.brush === key);
             }
         }
 
         function selectBrush(brush) {
+            if ((brush.kind === 'mark' || brush.kind === 'unmark') && !state.isAdmin) return;
             state.brush = brush;
             markSelectedBrush();
-            // Choisir un terrain ou un objet passe automatiquement en mode peindre
-            // (sauf pendant une sélection au rectangle, où le pinceau s'applique à la sélection).
-            if (state.mode !== 'select') setMode('paint');
+
+            // Avec une zone sélectionnée, le choix s'applique à toutes ses cases.
+            if (state.mode === 'select') {
+                if (state.selection.size > 0) applyBrushToSelection(brush);
+                else toast('Tracez d’abord une zone avec le rectangle.');
+                return;
+            }
+            // Sinon, choisir un terrain, un objet ou un marqueur passe automatiquement en mode peindre.
+            setMode('paint');
             resetIdleTimer();
         }
 
-        function paletteButton(brush, className, label, hint) {
+        function paletteButton(brush, className, label, hint, placement) {
             const button = document.createElement('button');
             button.className = className;
             button.dataset.brush = brushKey(brush);
@@ -973,13 +1106,13 @@
 
             // Souris : la légende apparaît au survol. Tactile : elle s'affiche brièvement au toucher.
             button.addEventListener('pointerenter', (e) => {
-                if (e.pointerType === 'mouse') showPaletteTooltip(button, tip);
+                if (e.pointerType === 'mouse') showPaletteTooltip(button, tip, placement);
             });
             button.addEventListener('pointerleave', hidePaletteTooltip);
             button.addEventListener('click', (e) => {
                 selectBrush(brush);
                 if (e.pointerType !== 'mouse') {
-                    showPaletteTooltip(button, tip);
+                    showPaletteTooltip(button, tip, placement);
                     clearTimeout(tooltipTimer);
                     tooltipTimer = setTimeout(hidePaletteTooltip, 1800);
                 }
@@ -987,7 +1120,7 @@
             return button;
         }
 
-        function objectPreview(object) {
+        function previewCanvas(draw) {
             const size = 34;
             const ratio = window.devicePixelRatio || 1;
             const canvas = document.createElement('canvas');
@@ -995,38 +1128,38 @@
             canvas.height = size * ratio;
             const c = canvas.getContext('2d');
             c.scale(ratio, ratio);
-            drawObject(c, object.id, 0, size / 2, size / 2, 15.5, 0);
+            draw(c, size / 2);
             return canvas;
         }
 
-        function paletteTitle(text) {
-            const title = document.createElement('div');
-            title.className = 'palette-title';
-            title.textContent = text;
-            return title;
-        }
-
         function renderPalette() {
-            el.fsPalette.replaceChildren();
             hidePaletteTooltip();
+            el.palTerrains.replaceChildren();
+            el.palObjects.replaceChildren();
+            el.palMarks.replaceChildren();
 
-            el.fsPalette.appendChild(paletteTitle('Terrains'));
             for (const terrain of TERRAINS) {
-                const button = paletteButton({ kind: 'terrain', id: terrain.id }, 'hex-option', terrain.label, '');
+                const button = paletteButton({ kind: 'terrain', id: terrain.id }, 'hex-option', terrain.label, '', 'right');
                 button.style.backgroundColor = terrainColor(terrain.id);
-                el.fsPalette.appendChild(button);
+                el.palTerrains.appendChild(button);
             }
 
-            el.fsPalette.appendChild(paletteTitle('Objets'));
             for (const object of OBJECTS) {
-                const button = paletteButton({ kind: 'object', id: object.id }, 'obj-option', object.label, object.hint);
-                button.appendChild(objectPreview(object));
-                el.fsPalette.appendChild(button);
+                const button = paletteButton({ kind: 'object', id: object.id }, 'obj-option', object.label, object.hint, 'below');
+                button.appendChild(previewCanvas((c, mid) => drawObject(c, object.id, 0, mid, mid, 15.5, 0)));
+                el.palObjects.appendChild(button);
             }
 
-            const eraser = paletteButton({ kind: 'clear-object' }, 'obj-option', 'Retirer l’objet', 'garde le terrain');
-            eraser.textContent = '🧽';
-            el.fsPalette.appendChild(eraser);
+            if (state.isAdmin) {
+                for (const mark of MARKS) {
+                    const button = paletteButton({ kind: 'mark', id: mark.id }, 'obj-option', mark.label, '', 'above');
+                    button.appendChild(previewCanvas((c, mid) => drawMark(c, mid, mid, mark.id, 0, false)));
+                    el.palMarks.appendChild(button);
+                }
+                const eraser = paletteButton({ kind: 'unmark' }, 'obj-option', 'Retirer le marqueur', '', 'above');
+                eraser.textContent = '🧹';
+                el.palMarks.appendChild(eraser);
+            }
 
             markSelectedBrush();
         }
@@ -1156,20 +1289,13 @@
         });
 
         /* ============================================================ */
-        /* Modes, verrouillage et sélection                              */
+        /* Modes, verrouillage, sélection et historique                  */
         /* ============================================================ */
 
-        function updateSelectionBar() {
+        function updateSelectionInfo() {
             const count = state.selection.size;
-            el.selectionBar.hidden = !(state.mode === 'select' && count > 0);
+            el.selectionInfo.hidden = !(state.mode === 'select' && count > 0);
             el.selectionCount.textContent = `${count} case${count > 1 ? 's' : ''}`;
-        }
-
-        function updateMarkPalette() {
-            el.markPalette.hidden = !(state.isAdmin && (state.mode === 'mark' || state.mode === 'select'));
-            for (const button of el.markPalette.children) {
-                button.classList.toggle('active', button.dataset.mark === state.activeMark);
-            }
         }
 
         // Sans usage du pinceau pendant 10 secondes, on repasse en mode déplacer.
@@ -1200,8 +1326,7 @@
             if (state.mode !== 'select') state.selection.clear();
             clearPendingTap();
             dragRect = null;
-            updateSelectionBar();
-            updateMarkPalette();
+            updateSelectionInfo();
             resetIdleTimer();
             requestDraw();
         }
@@ -1212,47 +1337,58 @@
             el.btnLock.title = label;
             el.btnLock.setAttribute('aria-label', label);
             el.btnLock.classList.toggle('locked', state.isLocked);
-            el.fsPalette.hidden = state.isLocked;
+
+            // Plateau verrouillé : plus de pinceau, d'outils ni d'historique (impression et rotation restent disponibles).
+            el.palTerrains.hidden = state.isLocked;
+            el.palObjects.hidden = state.isLocked;
+            el.palMarks.hidden = state.isLocked || !state.isAdmin;
+            el.adminTools.hidden = state.isLocked || !state.isAdmin;
             el.btnMode.hidden = state.isLocked;
-            if (state.isLocked) el.tools.hidden = true;
-            else el.tools.hidden = !state.isAdmin;
+            el.btnUndo.hidden = state.isLocked;
+            el.btnRedo.hidden = state.isLocked;
 
             if (state.isLocked || (!state.isAdmin && ADMIN_MODES.has(state.mode))) setMode('move');
         }
 
         el.btnMode.addEventListener('click', () => setMode(state.mode === 'paint' ? 'move' : 'paint'));
-        for (const [name, button] of Object.entries(toolButtons)) {
-            button.addEventListener('click', () => setMode(state.mode === name ? 'move' : name));
-        }
         el.btnLock.addEventListener('click', () => socket?.emit('toggle-lock', !state.isLocked));
-
-        for (const button of el.markPalette.children) {
-            button.addEventListener('click', () => {
-                state.activeMark = button.dataset.mark;
-                updateMarkPalette();
-            });
-        }
 
         function editSelection(action, extra = {}) {
             if (state.selection.size === 0) return;
             socket?.emit('edit-tiles', { keys: [...state.selection], action, ...extra });
         }
 
-        $('btnSelBrush').addEventListener('click', () => {
-            const brush = state.brush;
+        function applyBrushToSelection(brush) {
             if (brush.kind === 'terrain') editSelection('terrain', { terrain: brush.id });
             else if (brush.kind === 'object') editSelection('object', { object: brush.id });
-            else editSelection('clear-object');
-        });
-        $('btnSelRemove').addEventListener('click', () => editSelection('remove'));
-        $('btnSelRestore').addEventListener('click', () => editSelection('restore'));
-        $('btnSelMark').addEventListener('click', () => editSelection('mark', { mark: state.activeMark }));
-        $('btnSelUnmark').addEventListener('click', () => editSelection('unmark'));
+            else if (brush.kind === 'mark') editSelection('mark', { mark: brush.id });
+            else editSelection('unmark');
+        }
+
+        // Outils du MJ : avec une zone sélectionnée, « supprimer » et « ajouter » agissent tout de suite sur la zone.
+        for (const [name, button] of Object.entries(toolButtons)) {
+            button.addEventListener('click', () => {
+                if (state.mode === 'select' && state.selection.size > 0 && name !== 'select') {
+                    editSelection(name === 'erase' ? 'remove' : 'restore');
+                    return;
+                }
+                setMode(state.mode === name ? 'move' : name);
+            });
+        }
+
         $('btnSelClear').addEventListener('click', () => {
             state.selection.clear();
-            updateSelectionBar();
+            updateSelectionInfo();
             requestDraw();
         });
+
+        // Annuler / rétablir : chacun revient sur ses propres modifications.
+        async function runHistory(event) {
+            const res = await request(event, {});
+            toast(res.message, !res.success);
+        }
+        el.btnUndo.addEventListener('click', () => runHistory('undo'));
+        el.btnRedo.addEventListener('click', () => runHistory('redo'));
 
         /* ============================================================ */
         /* Navigation, veille et reconnexion                             */
@@ -1407,7 +1543,7 @@
                     addHexPath(path, x, y);
                     if (withOutline) addHexPath(outline, x, y);
 
-                    if (withSymbols && (tile?.object || tile?.mark)) symbols.push({ x, y, tile, color });
+                    if (withSymbols && (tile?.object || tile?.mark)) symbols.push({ x, y, tile });
                 }
             }
 
@@ -1428,9 +1564,9 @@
                 c.stroke(outline);
             }
 
-            for (const { x, y, tile, color } of symbols) {
+            for (const { x, y, tile } of symbols) {
                 if (tile.object) drawObject(c, tile.object, tile.dir ?? 0, x, y, HEX_RADIUS, rotation);
-                if (tile.mark) drawMark(c, x, y, tile.mark, contrastOn(color), rotation, Boolean(tile.object));
+                if (tile.mark) drawMark(c, x, y, tile.mark, rotation, Boolean(tile.object));
             }
 
             if (showGhosts) {
@@ -1488,6 +1624,7 @@
             }
         }
 
+        // Cadrage automatique à l'ouverture de la carte (il n'y a plus de bouton de recentrage).
         function centerMap() {
             view.rotation = 0;
             const gridWidth = state.cols * HEX_WIDTH + (state.rows > 1 ? HEX_WIDTH / 2 : 0);
@@ -1499,8 +1636,6 @@
             view.panY = (viewH - gridHeight * view.scale) / 2;
             requestDraw();
         }
-
-        $('btnResetView').addEventListener('click', centerMap);
 
         // Rotation de 90° autour du centre exact de l'écran.
         function rotateBy(degrees) {
@@ -1522,12 +1657,12 @@
         window.addEventListener('resize', () => { if (isMapActive()) resizeCanvas(); });
 
         /* ============================================================ */
-        /* Export JPEG (A4, marges minimales)                            */
+        /* Impression : export JPEG A4, marges minimales                 */
         /* ============================================================ */
 
-        // Le MJ exporte toute la carte ; un joueur, la zone où il est intervenu.
-        function exportRegion() {
-            if (state.isAdmin) return { minCol: 0, maxCol: state.cols - 1, minRow: 0, maxRow: state.rows - 1 };
+        // 'all' : carte entière. 'mine' : zone où l'utilisateur est intervenu (null s'il n'a rien modifié).
+        function exportRegion(kind) {
+            if (kind === 'all') return { minCol: 0, maxCol: state.cols - 1, minRow: 0, maxRow: state.rows - 1 };
 
             let region = null;
             for (const [key, tile] of Object.entries(state.gridData)) {
@@ -1597,8 +1732,23 @@
             setTimeout(() => URL.revokeObjectURL(url), 15000);
         }
 
-        async function exportJpeg() {
-            const region = exportRegion();
+        let exportBlob = null;
+        let exportName = '';
+        let exportUrl = null;
+
+        // L'image est affichée : le partage se lance depuis un toucher de l'utilisateur, ce que les téléphones exigent.
+        function showExportViewer(blob, filename) {
+            if (exportUrl) URL.revokeObjectURL(exportUrl);
+            exportBlob = blob;
+            exportName = filename;
+            exportUrl = URL.createObjectURL(blob);
+            $('exportImage').src = exportUrl;
+            el.toast.hidden = true;
+            el.exportViewer.hidden = false;
+        }
+
+        async function exportJpeg(kind) {
+            const region = exportRegion(kind);
             if (!region) return toast('Vous n’êtes encore intervenu sur aucune case : rien à exporter.', true);
 
             toast('Création de l’image…');
@@ -1629,36 +1779,34 @@
             if (!blob) return toast('Impossible de créer l’image sur cet appareil.', true);
 
             const stamp = new Date().toISOString().slice(0, 10);
-            showExportViewer(await withDpi(blob, A4.dpi), `plateau-${stamp}.jpg`);
+            showExportViewer(await withDpi(blob, A4.dpi), `plateau-${stamp}-${kind === 'all' ? 'carte' : 'zone'}.jpg`);
         }
 
-        // L'image est affichée : le partage se lance depuis un toucher de l'utilisateur, ce que les téléphones exigent.
-        let exportBlob = null;
-        let exportName = '';
-        let exportUrl = null;
-
-        function showExportViewer(blob, filename) {
-            if (exportUrl) URL.revokeObjectURL(exportUrl);
-            exportBlob = blob;
-            exportName = filename;
-            exportUrl = URL.createObjectURL(blob);
-            $('exportImage').src = exportUrl;
-            el.toast.hidden = true;
-            $('exportViewer').hidden = false;
-        }
+        // Le bouton d'impression propose : carte entière, ou zone modifiée par l'utilisateur.
+        $('btnExport').addEventListener('click', () => {
+            $('btnPrintMine').disabled = exportRegion('mine') === null;
+            el.printModal.hidden = false;
+        });
+        $('btnPrintCancel').addEventListener('click', () => { el.printModal.hidden = true; });
+        $('btnPrintAll').addEventListener('click', () => {
+            el.printModal.hidden = true;
+            exportJpeg('all');
+        });
+        $('btnPrintMine').addEventListener('click', () => {
+            el.printModal.hidden = true;
+            exportJpeg('mine');
+        });
 
         $('btnExportShare').addEventListener('click', () => {
             if (exportBlob) deliverImage(exportBlob, exportName);
         });
         $('btnExportClose').addEventListener('click', () => {
-            $('exportViewer').hidden = true;
+            el.exportViewer.hidden = true;
             $('exportImage').removeAttribute('src');
             if (exportUrl) URL.revokeObjectURL(exportUrl);
             exportUrl = null;
             exportBlob = null;
         });
-
-        $('btnExport').addEventListener('click', exportJpeg);
 
         /* ============================================================ */
         /* Pinceau sur les cases                                         */
@@ -1668,52 +1816,51 @@
         function predict(existing, brush) {
             const next = { ...existing };
             if (brush.kind === 'terrain') {
+                // Poser une tuile de terrain remplace la tuile : l'objet éventuel disparaît.
                 next.terrain = brush.id;
                 next.author = state.username;
-                if (next.object && !objectAllowed(next.object, brush.id)) {
-                    delete next.object;
-                    delete next.dir;
-                    delete next.objectAuthor;
-                }
-            } else if (brush.kind === 'object') {
+                delete next.object;
+                delete next.dir;
+                delete next.objectAuthor;
+            } else {
                 next.author = existing?.author ?? '';
                 next.object = brush.id;
                 next.objectAuthor = state.username;
                 if (OBJECT_BY_ID.get(brush.id).turns > 1) next.dir = 0;
                 else delete next.dir;
-            } else {
-                delete next.object;
-                delete next.dir;
-                delete next.objectAuthor;
             }
             return next;
         }
 
         function applyBrush(key, brush) {
+            if (brush.kind === 'mark') {
+                socket?.emit('edit-tiles', { keys: [key], action: 'mark', mark: brush.id });
+                return;
+            }
+            if (brush.kind === 'unmark') {
+                socket?.emit('edit-tiles', { keys: [key], action: 'unmark' });
+                return;
+            }
             const next = predict(state.gridData[key], brush);
-            if (next.terrain || next.object || next.mark) state.gridData[key] = next;
-            else delete state.gridData[key];
+            state.gridData[key] = next;
             requestDraw();
-            socket?.emit('paint-tile', { key, kind: brush.kind, id: brush.id ?? '' });
-        }
-
-        function openOverrideModal(message, key, brush) {
-            pendingOverride = { key, brush };
-            el.overrideMessage.replaceChildren(document.createTextNode(message));
-            el.overrideModal.hidden = false;
+            socket?.emit('paint-tile', { key, kind: brush.kind, id: brush.id });
         }
 
         function askOverride(key, brush, author, what) {
             endGestures();
-            openOverrideModal(`${author} a déjà posé ${what} sur cette case. Voulez-vous le remplacer ?`, key, brush);
+            pendingOverride = { key, brush };
+            el.overrideMessage.replaceChildren(
+                document.createTextNode(`${author} a déjà posé ${what} sur cette case. Voulez-vous le remplacer ?`)
+            );
+            el.overrideModal.hidden = false;
         }
 
         function rejectObject(objectId) {
             const now = Date.now();
             if (now - lastRejectAt < 2500) return; // évite de répéter le message pendant un glissé
             lastRejectAt = now;
-            const object = OBJECT_BY_ID.get(objectId);
-            toast(object.on.includes('water')
+            toast(OBJECT_BY_ID.get(objectId).on.includes('water')
                 ? 'Le pont ne se pose que sur l’eau.'
                 : 'Cet objet se pose seulement sur une plaine ou une colline.', true);
         }
@@ -1725,22 +1872,35 @@
             resetIdleTimer();
 
             const me = state.username;
-            if (brush.kind === 'terrain') {
-                if (terrainOf(existing) === brush.id) return;
-                if (existing?.terrain && existing.author && existing.author !== me) {
-                    return askOverride(key, brush, existing.author, 'un terrain');
-                }
-            } else if (brush.kind === 'object') {
-                if (!objectAllowed(brush.id, terrainOf(existing))) return rejectObject(brush.id);
-                if (existing?.object === brush.id) return;
-                if (existing?.object && existing.objectAuthor && existing.objectAuthor !== me) {
-                    return askOverride(key, brush, existing.objectAuthor, 'un objet');
-                }
-            } else {
-                if (!existing?.object) return;
-                if (existing.objectAuthor && existing.objectAuthor !== me) {
-                    return askOverride(key, brush, existing.objectAuthor, 'un objet');
-                }
+            const confirmNeeded = !state.isAdmin; // seul le MJ modifie sans confirmation le travail des autres
+
+            switch (brush.kind) {
+                case 'terrain':
+                    if (terrainOf(existing) === brush.id && !existing?.object) return;
+                    if (confirmNeeded) {
+                        if (existing?.object && existing.objectAuthor && existing.objectAuthor !== me) {
+                            return askOverride(key, brush, existing.objectAuthor, 'un objet');
+                        }
+                        if (terrainOf(existing) !== brush.id && existing?.terrain && existing.author && existing.author !== me) {
+                            return askOverride(key, brush, existing.author, 'un terrain');
+                        }
+                    }
+                    break;
+                case 'object':
+                    if (!objectAllowed(brush.id, terrainOf(existing))) return rejectObject(brush.id);
+                    if (existing?.object === brush.id) return;
+                    if (confirmNeeded && existing?.object && existing.objectAuthor && existing.objectAuthor !== me) {
+                        return askOverride(key, brush, existing.objectAuthor, 'un objet');
+                    }
+                    break;
+                case 'mark':
+                    if (!state.isAdmin || existing?.mark === brush.id) return;
+                    break;
+                case 'unmark':
+                    if (!state.isAdmin || !existing?.mark) return;
+                    break;
+                default:
+                    return;
             }
             applyBrush(key, brush);
         }
@@ -1795,16 +1955,6 @@
             socket?.emit('edit-tiles', { keys: [key], action: 'restore' });
         }
 
-        function markTile(key, existing) {
-            if (!state.isAdmin || existing?.removed || existing?.mark === state.activeMark) return;
-            socket?.emit('edit-tiles', { keys: [key], action: 'mark', mark: state.activeMark });
-        }
-
-        function unmarkTile(key, existing) {
-            if (!state.isAdmin || !existing?.mark) return;
-            socket?.emit('edit-tiles', { keys: [key], action: 'unmark' });
-        }
-
         function useToolAt(clientX, clientY) {
             if (state.isLocked || state.mode === 'move' || state.mode === 'select') return;
 
@@ -1815,8 +1965,6 @@
             switch (state.mode) {
                 case 'erase': return removeTile(key, existing);
                 case 'restore': return restoreTile(key, existing);
-                case 'mark': return markTile(key, existing);
-                case 'unmark': return unmarkTile(key, existing);
                 default: return paintTile(key);
             }
         }
@@ -1868,7 +2016,7 @@
             } else {
                 state.selection = selectTilesInRect(rect);
             }
-            updateSelectionBar();
+            updateSelectionInfo();
             requestDraw();
         }
 
@@ -1996,107 +2144,4 @@
 
         el.canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
-            const rect = el.canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            const newScale = clamp(view.scale * (e.deltaY < 0 ? 1.1 : 0.9), MIN_SCALE, MAX_SCALE);
-            const ratio = newScale / view.scale;
-            view.panX = mouseX - (mouseX - view.panX) * ratio;
-            view.panY = mouseY - (mouseY - view.panY) * ratio;
-            view.scale = newScale;
-            requestDraw();
-        }, { passive: false });
-
-        /* ============================================================ */
-        /* Événements serveur                                            */
-        /* ============================================================ */
-
-        if (socket) {
-            socket.on('connect', () => {
-                // À chaque (re)connexion, on reprend la session enregistrée : plus besoin de se reconnecter à la main.
-                const saved = loadSession();
-                if (saved) authenticate({ token: saved.token }, Boolean(state.username));
-            });
-
-            socket.on('init', (data) => {
-                const sizeChanged = data.config && (data.config.cols !== state.cols || data.config.rows !== state.rows);
-
-                state.gridData = data.gridData || {};
-                state.cols = data.config?.cols ?? 10;
-                state.rows = data.config?.rows ?? 8;
-                state.isLocked = Boolean(data.isLocked);
-                state.terrains = mergeTerrains(data.terrains);
-                updateUsers(data.users || []);
-
-                updateLockUI();
-                renderPalette();
-                renderTerrainEditor();
-
-                if (isMapActive()) {
-                    if (sizeChanged) centerMap();
-                    else requestDraw();
-                }
-            });
-
-            socket.on('update-users-list', updateUsers);
-
-            // Les cases référencent leur terrain par son nom : elles prennent la nouvelle couleur sans autre mise à jour.
-            socket.on('update-terrains', (terrains) => {
-                state.terrains = mergeTerrains(terrains);
-                renderPalette();
-                renderTerrainEditor();
-                requestDraw();
-            });
-
-            socket.on('update-lock', (locked) => {
-                state.isLocked = Boolean(locked);
-                updateLockUI();
-            });
-
-            // Modifications de cases : { clé: case } ; null signifie que la case revient à l'état vierge (plaine).
-            socket.on('update-tiles', ({ changes }) => {
-                for (const [key, tile] of Object.entries(changes || {})) {
-                    if (tile) state.gridData[key] = tile;
-                    else delete state.gridData[key];
-                }
-                requestDraw();
-            });
-
-            socket.on('update-config', ({ config, gridData }) => {
-                state.cols = config.cols;
-                state.rows = config.rows;
-                state.gridData = gridData || {};
-                state.selection.clear();
-                updateSelectionBar();
-                if (isMapActive()) centerMap();
-            });
-
-            socket.on('maps-list', (maps) => {
-                state.maps = maps;
-                renderMaps();
-            });
-
-            socket.on('kicked', (message) => {
-                clearSession();
-                state.username = '';
-                state.isAdmin = false;
-                applyRole();
-                showLoginError(message);
-                showPage('login');
-            });
-        }
-
-        /* ============================================================ */
-        /* Démarrage                                                     */
-        /* ============================================================ */
-
-        applyRole();
-        renderMaps();
-        renderPalette();
-        if (!socket) showLoginError('Impossible de joindre le serveur.');
-        else if (loadSession()) showLoginError('Reconnexion en cours…', false);
-    })();
-    </script>
-</body>
-</html>
+            const
