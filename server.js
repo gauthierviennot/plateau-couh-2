@@ -20,7 +20,6 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const MAPS_DIR = path.join(DATA_DIR, 'maps');
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const LEGACY_FILE = path.join(__dirname, 'data.json');
-const PASSWORD_FILE = path.join(DATA_DIR, 'admin-password.txt');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 
 const LIMITS = {
@@ -41,24 +40,37 @@ const LOGIN_BLOCK_MS = 60 * 1000;
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const MAP_ID = /^[a-z0-9-]{1,64}$/;
-const ARROW_DIRECTIONS = 6; // une flèche = numéro de 0 à 5, soit un pas de 60°
 const MARKS = new Set(['square', 'triangle', 'diamond', 'cross']);
-const EDIT_ACTIONS = new Set(['paint', 'remove', 'restore', 'arrow-add', 'arrow-remove', 'mark', 'unmark']);
+const EDIT_ACTIONS = new Set(['terrain', 'object', 'clear-object', 'remove', 'restore', 'mark', 'unmark']);
+const ADMIN_NAME = 'mj';
 
-// La première couleur de la légende est la couleur par défaut du plateau (la « plaine »).
+// Terrains : liste fixe, seules les couleurs sont modifiables par l'admin. La plaine est le terrain par défaut.
 const DEFAULT_TERRAINS = [
-    { color: '#2ecc71', label: 'Plaine' },
-    { color: '#38761d', label: 'Forêt' },
-    { color: '#3498db', label: 'Eau' },
-    { color: '#f1c40f', label: 'Colline' },
-    { color: '#783f04', label: 'Montagne' },
-    { color: '#999999', label: 'Village' },
-    { color: '#000000', label: 'Forteresse' },
-    { color: '#8e44ad', label: 'Forêt sur colline' },
-    { color: '#e67e22', label: 'Village sur colline' },
-    { color: '#ff0000', label: 'Pont, muet,' },
-    { color: '#ffffff', label: 'Hors plateau' }
+    { id: 'plain', color: '#8fd16b' },
+    { id: 'hill', color: '#d9b44a' },
+    { id: 'mountain', color: '#8a6d54' },
+    { id: 'path', color: '#e2cfa3' },
+    { id: 'water', color: '#4aa3df' },
+    { id: 'swamp', color: '#6f9070' }
 ];
+const TERRAIN_IDS = DEFAULT_TERRAINS.map((t) => t.id);
+// Anciennes couleurs des versions précédentes, rattachées au terrain le plus proche.
+const LEGACY_TERRAINS = { '#2ecc71': 'plain', '#f1c40f': 'hill', '#783f04': 'mountain', '#3498db': 'water' };
+
+// Objets posés à la place du petit hexagone central.
+// turns = nombre d'orientations : 1 = aucune, 3 = bidirectionnel (pont, muret), 6 = une seule direction.
+const GROUND = ['plain', 'hill'];
+const OBJECT_RULES = {
+    forest: { turns: 1, on: GROUND },
+    bridge: { turns: 3, on: ['water'] },
+    fortress: { turns: 1, on: GROUND },
+    'fortress-half': { turns: 6, on: GROUND },
+    village: { turns: 1, on: GROUND },
+    'village-flat': { turns: 1, on: GROUND },
+    wall: { turns: 3, on: GROUND }
+};
+const isObjectId = (id) => typeof id === 'string' && Object.prototype.hasOwnProperty.call(OBJECT_RULES, id);
+const objectAllowed = (object, terrain) => isObjectId(object) && OBJECT_RULES[object].on.includes(terrain);
 
 try {
     fs.mkdirSync(MAPS_DIR, { recursive: true });
@@ -74,7 +86,6 @@ const isHex = (value) => typeof value === 'string' && HEX_COLOR.test(value);
 const reply = (ack, payload) => { if (typeof ack === 'function') ack(payload); };
 const cleanText = (value, max) =>
     String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
-const terrainKey = (item) => `${item.color}/${item.inner ?? ''}`;
 const logError = (context) => (err) => console.error(`⚠️ ${context} :`, err.message);
 
 function readJson(file) {
@@ -104,18 +115,18 @@ function sanitizeConfig(config) {
     return valid(cols) && valid(rows) ? { cols, rows } : null;
 }
 
-// Un terrain = couleur du grand hexagone, éventuellement une couleur "inner" (petit hexagone au centre).
+// Terrains : liste fixe ; seules les couleurs sont conservées.
 function sanitizeTerrains(list) {
-    if (!Array.isArray(list)) return null;
-    const terrains = list
-        .slice(0, LIMITS.maxTerrains)
-        .filter((t) => t && isHex(t.color))
-        .map((t) => {
-            const terrain = { color: t.color.toLowerCase(), label: cleanText(t.label, LIMITS.maxLabel) };
-            if (isHex(t.inner)) terrain.inner = t.inner.toLowerCase();
-            return terrain;
-        });
-    return terrains.length ? terrains : null;
+    const byId = new Map();
+    if (Array.isArray(list)) {
+        for (const t of list) {
+            if (t && typeof t.id === 'string') byId.set(t.id, t);
+        }
+    }
+    return DEFAULT_TERRAINS.map((d) => {
+        const color = byId.get(d.id)?.color;
+        return { id: d.id, color: isHex(color) ? color.toLowerCase() : d.color };
+    });
 }
 
 function isValidKey(key, config) {
@@ -123,22 +134,27 @@ function isValidKey(key, config) {
     return Boolean(match) && Number(match[1]) < config.cols && Number(match[2]) < config.rows;
 }
 
-const isValidArrow = (value) => Number.isInteger(value) && value >= 0 && value < ARROW_DIRECTIONS;
-const hasContent = (tile) => Boolean(tile.color) || isValidArrow(tile.arrow) || Boolean(tile.mark);
+const hasContent = (tile) => Boolean(tile.terrain) || Boolean(tile.object) || Boolean(tile.mark);
 const keepOrNull = (tile) => (hasContent(tile) ? tile : null);
 
-// Une case absente = plaine. Sinon : { color, inner?, arrow?, mark?, author } ou { removed: true }.
+// Une case absente = plaine. Sinon : { terrain?, object?, dir?, mark?, author, objectAuthor? } ou { removed: true }.
 function sanitizeTile(tile) {
     if (!tile || typeof tile !== 'object') return null;
     const author = typeof tile.author === 'string' ? tile.author.slice(0, LIMITS.maxName) : '';
     if (tile.removed === true) return { removed: true, author };
 
     const clean = { author };
-    if (isHex(tile.color)) {
-        clean.color = tile.color.toLowerCase();
-        if (isHex(tile.inner)) clean.inner = tile.inner.toLowerCase();
+    const terrain = TERRAIN_IDS.includes(tile.terrain)
+        ? tile.terrain
+        : LEGACY_TERRAINS[String(tile.color ?? '').toLowerCase()];
+    if (terrain) clean.terrain = terrain;
+
+    if (objectAllowed(tile.object, clean.terrain ?? 'plain')) {
+        clean.object = tile.object;
+        const { turns } = OBJECT_RULES[tile.object];
+        if (turns > 1) clean.dir = Number.isInteger(tile.dir) && tile.dir >= 0 && tile.dir < turns ? tile.dir : 0;
+        if (typeof tile.objectAuthor === 'string') clean.objectAuthor = tile.objectAuthor.slice(0, LIMITS.maxName);
     }
-    if (isValidArrow(tile.arrow)) clean.arrow = tile.arrow;
     if (MARKS.has(tile.mark)) clean.mark = tile.mark;
     return keepOrNull(clean);
 }
@@ -158,27 +174,40 @@ function sanitizeGrid(grid, config) {
 function editTile(tile, action, options, author) {
     const removed = Boolean(tile?.removed);
     switch (action) {
-        case 'paint': {
-            const { color, inner } = options;
-            if (removed) return undefined; // une case supprimée ne peut pas être coloriée
-            if (tile?.color === color && (tile?.inner ?? '') === (inner ?? '')) return undefined;
-            const next = { ...tile, color, author };
-            if (inner) next.inner = inner;
-            else delete next.inner;
+        case 'terrain': {
+            const { terrain } = options;
+            if (removed || (tile?.terrain ?? 'plain') === terrain) return undefined; // case supprimée : non coloriable
+            const next = { ...tile, terrain, author };
+            // Un objet qui n'a plus de sens sur le nouveau terrain disparaît (ex. un pont hors de l'eau).
+            if (next.object && !objectAllowed(next.object, terrain)) {
+                delete next.object;
+                delete next.dir;
+                delete next.objectAuthor;
+            }
             return next;
+        }
+        case 'object': {
+            const { object } = options;
+            if (removed || !objectAllowed(object, tile?.terrain ?? 'plain') || tile?.object === object) return undefined;
+            const next = { ...tile, author: tile?.author ?? '', object, objectAuthor: author };
+            if (OBJECT_RULES[object].turns > 1) next.dir = 0;
+            else delete next.dir;
+            return next;
+        }
+        case 'clear-object': {
+            if (removed || !tile?.object) return undefined;
+            const { object, dir, objectAuthor, ...rest } = tile;
+            return keepOrNull(rest);
+        }
+        case 'rotate': {
+            const turns = isObjectId(tile?.object) ? OBJECT_RULES[tile.object].turns : 1;
+            if (removed || turns <= 1) return undefined;
+            return { ...tile, dir: ((tile.dir ?? 0) + 1) % turns };
         }
         case 'remove':
             return removed ? undefined : { removed: true, author };
         case 'restore':
             return removed ? null : undefined;
-        case 'arrow-add':
-            if (removed || isValidArrow(tile?.arrow)) return undefined;
-            return { ...tile, author: tile?.author ?? '', arrow: 0 };
-        case 'arrow-remove': {
-            if (removed || !isValidArrow(tile?.arrow)) return undefined;
-            const { arrow, ...rest } = tile;
-            return keepOrNull(rest);
-        }
         case 'mark':
             if (removed || tile?.mark === options.mark) return undefined;
             return { ...tile, author: tile?.author ?? '', mark: options.mark };
@@ -197,8 +226,7 @@ function normalizeState(raw) {
     return {
         config,
         gridData: sanitizeGrid(raw?.gridData, config),
-        terrainsList: sanitizeTerrains(raw?.terrainsList ?? raw?.terrains)
-            || DEFAULT_TERRAINS.map((t) => ({ ...t })),
+        terrainsList: sanitizeTerrains(raw?.terrainsList ?? raw?.terrains),
         isLocked: Boolean(raw?.isLocked)
     };
 }
@@ -462,21 +490,9 @@ async function createAutoBackup(reason, author) {
 /* Authentification admin et sessions                                  */
 /* ------------------------------------------------------------------ */
 
+// Code secret de l'administrateur (pseudo MJ) : « mj » par défaut, ou la variable ADMIN_PASSWORD si elle est définie.
 function loadAdminPassword() {
-    if (process.env.ADMIN_PASSWORD) return process.env.ADMIN_PASSWORD;
-
-    try {
-        const saved = fs.readFileSync(PASSWORD_FILE, 'utf8').trim();
-        if (saved) return saved;
-    } catch { /* fichier absent : on en génère un */ }
-
-    const generated = crypto.randomBytes(9).toString('base64url');
-    try {
-        fs.writeFileSync(PASSWORD_FILE, `${generated}\n`, { mode: 0o600 });
-    } catch { /* disque en lecture seule : le mot de passe ne survivra pas au redémarrage */ }
-    console.log('🔑 Mot de passe admin généré (pseudo « admin ») :', generated);
-    console.log('   Définissez la variable ADMIN_PASSWORD pour le fixer durablement.');
-    return generated;
+    return process.env.ADMIN_PASSWORD || 'mj';
 }
 
 const ADMIN_PASSWORD = loadAdminPassword();
@@ -621,7 +637,7 @@ io.on('connection', (socket) => {
             name = cleanText(payload?.name, LIMITS.maxName);
             if (!name) return reply(ack, { success: false, message: 'Pseudo invalide.' });
 
-            wantsAdmin = name.toLowerCase() === 'admin';
+            wantsAdmin = name.toLowerCase() === ADMIN_NAME;
             if (wantsAdmin) {
                 if (isBlocked(ip)) {
                     return reply(ack, { success: false, message: 'Trop de tentatives. Réessayez dans une minute.' });
@@ -631,6 +647,7 @@ io.on('connection', (socket) => {
                     return reply(ack, { success: false, message: 'Mot de passe administrateur incorrect.' });
                 }
                 loginFailures.delete(ip);
+                name = 'MJ';
             }
         }
 
@@ -678,37 +695,32 @@ io.on('connection', (socket) => {
 
     /* ---------- Cases (tous les joueurs connectés, plateau déverrouillé) ---------- */
 
+    // Pinceau : terrain, objet, ou retrait de l'objet.
     socket.on('paint-tile', (data) => {
-        if (state.isLocked || !socket.data.name) return;
-
-        const color = data?.color;
-        if (!isValidKey(data?.key, state.config) || !isHex(color)) return;
-
-        const inner = isHex(data.inner) ? data.inner.toLowerCase() : '';
-        applyEdits([data.key], 'paint', { color: color.toLowerCase(), inner }, socket.data.name);
-    });
-
-    // Ajout ou retrait d'une flèche : ouvert à tous les joueurs.
-    socket.on('arrow-tile', (data) => {
         if (state.isLocked || !socket.data.name) return;
         if (!isValidKey(data?.key, state.config)) return;
 
-        applyEdits([data.key], data.remove === true ? 'arrow-remove' : 'arrow-add', {}, socket.data.name);
+        const options = {};
+        let action;
+        if (data.kind === 'terrain' && TERRAIN_IDS.includes(data.id)) {
+            action = 'terrain';
+            options.terrain = data.id;
+        } else if (data.kind === 'object' && isObjectId(data.id)) {
+            action = 'object';
+            options.object = data.id;
+        } else if (data.kind === 'clear-object') {
+            action = 'clear-object';
+        } else {
+            return;
+        }
+        applyEdits([data.key], action, options, socket.data.name);
     });
 
-    // Double toucher sur une flèche : rotation d'un sixième de tour.
-    socket.on('rotate-arrow', (data) => {
+    // Double toucher : fait pivoter un objet orienté (pont, muret, forteresse à deux faces crénelées).
+    socket.on('rotate-object', (data) => {
         if (state.isLocked || !socket.data.name) return;
-
-        const key = data?.key;
-        if (!isValidKey(key, state.config)) return;
-
-        const tile = state.gridData[key];
-        if (!tile || tile.removed || !isValidArrow(tile.arrow)) return;
-
-        tile.arrow = (tile.arrow + 1) % ARROW_DIRECTIONS;
-        scheduleSave();
-        broadcastTiles({ [key]: tile });
+        if (!isValidKey(data?.key, state.config)) return;
+        applyEdits([data.key], 'rotate', {}, socket.data.name);
     });
 
     /* ---------- Actions admin ---------- */
@@ -721,10 +733,13 @@ io.on('connection', (socket) => {
         if (!EDIT_ACTIONS.has(action)) return;
 
         const options = {};
-        if (action === 'paint') {
-            if (!isHex(data.color)) return;
-            options.color = data.color.toLowerCase();
-            options.inner = isHex(data.inner) ? data.inner.toLowerCase() : '';
+        if (action === 'terrain') {
+            if (!TERRAIN_IDS.includes(data.terrain)) return;
+            options.terrain = data.terrain;
+        }
+        if (action === 'object') {
+            if (!isObjectId(data.object)) return;
+            options.object = data.object;
         }
         if (action === 'mark') {
             if (!MARKS.has(data.mark)) return;
@@ -742,42 +757,16 @@ io.on('connection', (socket) => {
         io.emit('update-lock', state.isLocked);
     });
 
+    // Les cases référencent leur terrain par son nom : elles suivent automatiquement la nouvelle couleur.
     socket.on('update-terrains', (list) => {
         if (!requireAdmin(socket)) return;
-        const terrains = sanitizeTerrains(list);
-        if (!terrains) return;
-
-        // Si l'admin modifie une couleur (ou l'hexagone intérieur) de la légende,
-        // les cases déjà peintes avec l'ancien aspect suivent automatiquement.
-        const changes = {};
-        const previous = state.terrainsList;
-        if (terrains.length === previous.length) {
-            const remap = new Map();
-            terrains.forEach((next, index) => {
-                if (terrainKey(next) !== terrainKey(previous[index])) remap.set(terrainKey(previous[index]), next);
-            });
-
-            if (remap.size > 0) {
-                for (const [key, tile] of Object.entries(state.gridData)) {
-                    if (tile.removed || !tile.color) continue;
-                    const target = remap.get(terrainKey(tile));
-                    if (!target) continue;
-
-                    tile.color = target.color;
-                    if (target.inner) tile.inner = target.inner;
-                    else delete tile.inner;
-                    changes[key] = tile;
-                }
-            }
-        }
-
-        state.terrainsList = terrains;
+        state.terrainsList = sanitizeTerrains(list);
         scheduleSave();
         io.emit('update-terrains', state.terrainsList);
-        if (Object.keys(changes).length > 0) broadcastTiles(changes);
     });
 
-    socket.on('change-config', guarded(async (newConfig, ack) => {
+    // La taille du plateau ne se règle qu'à la création d'une nouvelle carte.
+    socket.on('new-map', guarded(async (newConfig, ack) => {
         if (!requireAdmin(socket, ack)) return;
         const config = sanitizeConfig(newConfig);
         if (!config) {
@@ -787,13 +776,13 @@ io.on('connection', (socket) => {
             });
         }
 
-        await createAutoBackup('changement de taille', socket.data.name);
+        await createAutoBackup('nouvelle carte', socket.data.name);
         state.config = config;
         state.gridData = {}; // toutes les cases redeviennent des plaines
         await saveNow();
         io.emit('update-config', { config: state.config, gridData: state.gridData });
         broadcastMaps();
-        reply(ack, { success: true, message: 'Taille modifiée. Une sauvegarde automatique a été créée.' });
+        reply(ack, { success: true, message: 'Nouvelle carte créée. L’ancienne a été sauvegardée automatiquement.' });
     }));
 
     /* ---------- Cartes enregistrées ---------- */
