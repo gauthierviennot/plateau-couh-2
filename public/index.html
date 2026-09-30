@@ -139,6 +139,9 @@
         .control-group input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
         #newMapModal { z-index: 110; }
 
+        .export-viewer img { width: 100%; max-height: 52vh; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 6px; -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
+        #exportViewer { z-index: 120; }
+
         .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; max-width: 90vw; padding: 10px 16px; border-radius: 8px; background: var(--dark); color: #fff; font-size: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,.3); pointer-events: none; text-align: center; }
         .toast.error { background: var(--red); }
     </style>
@@ -278,6 +281,18 @@
     <div id="closedScreen" hidden>
         <p>L'application est fermée.<br>Vous pouvez quitter cet onglet ou revenir à l'écran d'accueil.</p>
         <button id="btnReopen" class="btn btn-primary">Rouvrir</button>
+    </div>
+
+    <div id="exportViewer" class="modal-overlay" hidden>
+        <div class="modal-content modal-wide export-viewer">
+            <h3>Image prête (A4, 300 dpi)</h3>
+            <img id="exportImage" alt="Aperçu de la carte à imprimer">
+            <p>Touchez « Enregistrer / Partager », ou maintenez le doigt sur l'image puis choisissez « Enregistrer l'image ».</p>
+            <div class="modal-actions">
+                <button id="btnExportClose" class="btn btn-secondary">Fermer</button>
+                <button id="btnExportShare" class="btn btn-primary">📤 Enregistrer / Partager</button>
+            </div>
+        </div>
     </div>
 
     <div id="toast" class="toast" role="status" hidden></div>
@@ -1614,9 +1629,34 @@
             if (!blob) return toast('Impossible de créer l’image sur cet appareil.', true);
 
             const stamp = new Date().toISOString().slice(0, 10);
-            await deliverImage(await withDpi(blob, A4.dpi), `plateau-${stamp}.jpg`);
-            toast('Image JPEG A4 prête (300 dpi).');
+            showExportViewer(await withDpi(blob, A4.dpi), `plateau-${stamp}.jpg`);
         }
+
+        // L'image est affichée : le partage se lance depuis un toucher de l'utilisateur, ce que les téléphones exigent.
+        let exportBlob = null;
+        let exportName = '';
+        let exportUrl = null;
+
+        function showExportViewer(blob, filename) {
+            if (exportUrl) URL.revokeObjectURL(exportUrl);
+            exportBlob = blob;
+            exportName = filename;
+            exportUrl = URL.createObjectURL(blob);
+            $('exportImage').src = exportUrl;
+            el.toast.hidden = true;
+            $('exportViewer').hidden = false;
+        }
+
+        $('btnExportShare').addEventListener('click', () => {
+            if (exportBlob) deliverImage(exportBlob, exportName);
+        });
+        $('btnExportClose').addEventListener('click', () => {
+            $('exportViewer').hidden = true;
+            $('exportImage').removeAttribute('src');
+            if (exportUrl) URL.revokeObjectURL(exportUrl);
+            exportUrl = null;
+            exportBlob = null;
+        });
 
         $('btnExport').addEventListener('click', exportJpeg);
 
