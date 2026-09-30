@@ -2,8 +2,16 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Plateau Hexagonal Collaboratif</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Plateau Hexagonal</title>
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Plateau">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/png" href="/icon-192.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root {
@@ -26,7 +34,7 @@
         input { user-select: text; -webkit-user-select: text; }
         [hidden] { display: none !important; }
 
-        html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: #333; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: var(--dark); color: #333; }
         button { cursor: pointer; }
         button:focus-visible, input:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 
@@ -43,12 +51,17 @@
 
         /* Connexion */
         #pageLogin { background: var(--dark); justify-content: center; align-items: center; }
+        .btn-close { position: absolute; top: calc(15px + env(safe-area-inset-top, 0px)); right: 15px; width: 42px; height: 42px; border: none; border-radius: 50%; background: rgba(255,255,255,.15); color: #fff; font-size: 1.3rem; font-weight: bold; display: flex; align-items: center; justify-content: center; }
         .login-card { background: #fff; padding: 30px; border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.2); width: 90%; max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 15px; }
         .login-card h1 { font-size: 1.4rem; color: var(--dark); }
         .login-card input { padding: 12px; border: 2px solid var(--border); border-radius: 6px; font-size: 1rem; text-align: center; width: 100%; }
         .login-card .btn { padding: 12px; font-size: 1rem; }
         .error { color: var(--red); font-size: 0.85rem; font-weight: 600; }
         .error.info { color: var(--muted); }
+        .install-hint { font-size: 0.78rem; color: var(--muted); }
+
+        #closedScreen { position: fixed; inset: 0; z-index: 300; background: var(--dark); color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; text-align: center; padding: 24px; }
+        #closedScreen p { font-size: 1rem; }
 
         /* Tableau de bord (administrateur uniquement) */
         #pageDashboard { background: #e5e9f0; justify-content: center; align-items: center; padding: 16px; }
@@ -57,16 +70,14 @@
         .dashboard-header h2 { font-size: 1.2rem; color: var(--dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .header-actions { display: flex; flex-wrap: wrap; gap: 6px; }
         .section-title { font-weight: bold; font-size: 0.85rem; color: var(--muted); margin-top: 5px; }
-        .hint { font-size: 0.78rem; color: var(--muted); }
-        .add-row { display: flex; flex-wrap: wrap; gap: 6px; }
+        .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
 
         .terrain-palette { display: flex; flex-direction: column; gap: 6px; }
-        .terrain-item { display: flex; align-items: center; gap: 6px; background: #f8f9fa; padding: 6px; border: 1px solid var(--border); border-radius: 6px; }
-        .terrain-hex { position: relative; width: 30px; height: 30px; clip-path: var(--hex); flex-shrink: 0; }
-        .terrain-hex-inner { position: absolute; inset: 25%; clip-path: var(--hex); }
-        .terrain-color-input { width: 30px; height: 30px; border: none; background: none; flex-shrink: 0; }
-        .terrain-label-input { flex: 1; min-width: 0; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
+        .terrain-item { display: flex; align-items: center; gap: 10px; background: #f8f9fa; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; }
+        .terrain-color-input { width: 34px; height: 34px; border: none; background: none; flex-shrink: 0; }
+        .terrain-label-text { font-size: 0.9rem; font-weight: 600; color: var(--slate); }
 
+        .map-actions-top { display: flex; }
         .map-save { display: flex; gap: 6px; }
         .map-save input { flex: 1; min-width: 0; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         .map-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
@@ -82,22 +93,25 @@
 
         /* Carte */
         #pageMap { background: var(--dark); overflow: hidden; touch-action: none; }
-        canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+        canvas.board { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
-        .btn-exit { position: absolute; top: 15px; left: 15px; z-index: 50; width: 42px; height: 42px; background: var(--red); color: #fff; border: none; border-radius: 50%; font-size: 1.15rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,.3); display: flex; align-items: center; justify-content: center; }
-        .mini-user-list { position: absolute; top: 65px; left: 15px; z-index: 50; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); padding: 6px 10px; border-radius: 6px; color: #fff; font-size: 0.7rem; max-width: 140px; max-height: 90px; overflow-y: auto; pointer-events: none; }
+        .btn-exit { position: absolute; top: calc(15px + env(safe-area-inset-top, 0px)); left: 15px; z-index: 50; width: 42px; height: 42px; background: var(--red); color: #fff; border: none; border-radius: 50%; font-size: 1.15rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,.3); display: flex; align-items: center; justify-content: center; }
+        .mini-user-list { position: absolute; top: calc(65px + env(safe-area-inset-top, 0px)); left: 15px; z-index: 50; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); padding: 6px 10px; border-radius: 6px; color: #fff; font-size: 0.7rem; max-width: 140px; max-height: 90px; overflow-y: auto; pointer-events: none; }
         .mini-user-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
         .mini-user-item::before { content: "•"; color: var(--green); }
 
-        .fullscreen-palette { position: absolute; top: 165px; left: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,.9); padding: 10px; border-radius: var(--radius); backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,.2); max-height: calc(100% - 260px); overflow-y: auto; touch-action: pan-y; }
-        .hex-option { position: relative; width: 34px; height: 34px; clip-path: var(--hex); border: none; flex-shrink: 0; transition: transform .2s; }
-        .hex-option .terrain-hex-inner { pointer-events: none; }
-        .hex-option.selected { transform: scale(1.25); filter: drop-shadow(0 0 5px #000); }
+        .fullscreen-palette { position: absolute; top: calc(165px + env(safe-area-inset-top, 0px)); left: 15px; z-index: 50; display: grid; grid-template-columns: repeat(2, 40px); gap: 8px; background: rgba(255,255,255,.92); padding: 10px; border-radius: var(--radius); backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,.2); max-height: calc(100% - 260px); overflow-y: auto; touch-action: pan-y; align-content: start; }
+        .palette-title { grid-column: 1 / -1; font-size: 0.65rem; font-weight: bold; text-transform: uppercase; color: var(--muted); }
+        .hex-option { width: 38px; height: 38px; clip-path: var(--hex); border: none; transition: transform .2s; }
+        .obj-option { width: 38px; height: 38px; border: 2px solid transparent; border-radius: 8px; background: #e9ecef; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; transition: transform .2s; }
+        .obj-option canvas { width: 34px; height: 34px; display: block; pointer-events: none; }
+        .hex-option.selected, .obj-option.selected { transform: scale(1.12); filter: drop-shadow(0 0 4px #000); }
+        .obj-option.selected { border-color: var(--dark); background: #ffeaa7; }
         .palette-tooltip { position: fixed; z-index: 60; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,.88); color: #fff; font-size: 0.85rem; white-space: nowrap; pointer-events: none; }
 
-        .map-toolbar { position: absolute; top: 15px; right: 15px; z-index: 50; display: flex; justify-content: flex-end; gap: 8px; max-width: calc(100% - 80px); }
-        .tools { position: absolute; top: 70px; right: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
-        .mark-palette { position: absolute; top: 70px; right: 68px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
+        .map-toolbar { position: absolute; top: calc(15px + env(safe-area-inset-top, 0px)); right: 15px; z-index: 50; display: flex; justify-content: flex-end; gap: 8px; max-width: calc(100% - 80px); }
+        .tools { position: absolute; top: calc(70px + env(safe-area-inset-top, 0px)); right: 15px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
+        .mark-palette { position: absolute; top: calc(70px + env(safe-area-inset-top, 0px)); right: 68px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
         .btn-round { width: 42px; height: 42px; border: none; border-radius: 50%; background: #fff; font-size: 1.15rem; line-height: 1; box-shadow: 0 4px 10px rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-round.lock { background: var(--green); }
         .btn-round.lock.locked { background: var(--red); }
@@ -111,7 +125,7 @@
         .selection-bar .btn-round { width: 38px; height: 38px; font-size: 1rem; box-shadow: none; background: #f1f3f5; }
         .selection-count { font-size: 0.8rem; font-weight: 600; color: var(--dark); white-space: nowrap; }
 
-        .rotate-controls { position: absolute; bottom: 20px; right: 20px; z-index: 50; display: flex; gap: 10px; }
+        .rotate-controls { position: absolute; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: 20px; z-index: 50; display: flex; gap: 10px; }
         .rotate-controls .btn-round { width: 48px; height: 48px; font-size: 1.5rem; }
 
         /* Fenêtres modales et notifications */
@@ -123,8 +137,9 @@
         .control-group { display: flex; flex-direction: column; gap: 4px; }
         .control-group label { font-size: 0.8rem; font-weight: 600; }
         .control-group input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
+        #newMapModal { z-index: 110; }
 
-        .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; max-width: 90vw; padding: 10px 16px; border-radius: 8px; background: var(--dark); color: #fff; font-size: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,.3); pointer-events: none; }
+        .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; max-width: 90vw; padding: 10px 16px; border-radius: 8px; background: var(--dark); color: #fff; font-size: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,.3); pointer-events: none; text-align: center; }
         .toast.error { background: var(--red); }
     </style>
 </head>
@@ -132,55 +147,34 @@
 
     <!-- Connexion -->
     <main id="pageLogin" class="page active">
+        <button id="btnClose" class="btn-close" title="Fermer" aria-label="Fermer l'application">✖</button>
         <div class="login-card">
             <h1>Plateau Hexagonal</h1>
             <input type="text" id="usernameInput" placeholder="Entrez votre pseudo" maxlength="15" autocomplete="off" autofocus>
-            <input type="password" id="passwordInput" placeholder="Mot de passe administrateur" autocomplete="current-password" hidden>
+            <input type="password" id="passwordInput" placeholder="Code secret" autocomplete="current-password" hidden>
             <p id="loginError" class="error" role="alert" hidden></p>
             <button id="btnLogin" class="btn btn-primary">Rejoindre</button>
+            <button id="btnInstall" class="btn btn-dark" hidden>📲 Installer sur l'écran d'accueil</button>
+            <p id="iosHint" class="install-hint" hidden>Sur iPhone : touchez « Partager » puis « Sur l'écran d'accueil » pour installer l'application en plein écran.</p>
         </div>
     </main>
 
-    <!-- Tableau de bord : réservé à l'administrateur -->
+    <!-- Tableau de bord : réservé au MJ -->
     <main id="pageDashboard" class="page">
         <div class="dashboard-card">
             <div class="dashboard-header">
-                <h2 id="welcomeUser">Administrateur</h2>
+                <h2 id="welcomeUser">MJ</h2>
                 <div class="header-actions">
                     <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
-                    <button id="btnAdminConfig" class="btn btn-dark">⚙️ Plateau</button>
                     <button id="btnLogout" class="btn btn-secondary">Déconnexion</button>
                 </div>
             </div>
 
-            <div class="section-title">Couleurs et tuiles</div>
-            <p class="hint">La première couleur de la liste est la couleur par défaut du plateau (la plaine). Une tuile bicolore affiche un petit hexagone au centre du grand.</p>
+            <div class="section-title">Couleurs des terrains</div>
+            <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain, sur toutes les cartes affichées. Les objets se posent sur le terrain : forêt, forteresses, maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
             <div id="terrainContainer" class="terrain-palette"></div>
-            <div class="add-row">
-                <button id="btnAddTerrain" class="btn btn-secondary">＋ Couleur</button>
-                <button id="btnAddBicolor" class="btn btn-secondary">＋ Tuile bicolore</button>
-            </div>
 
             <button id="btnGo" class="btn-go">🚀 Ouvrir la carte</button>
-        </div>
-
-        <div id="configModal" class="modal-overlay" hidden>
-            <div class="modal-content">
-                <h3>Taille du plateau</h3>
-                <div class="control-group">
-                    <label for="cols">Colonnes (largeur)</label>
-                    <input type="number" id="cols" value="10" min="2" max="300">
-                </div>
-                <div class="control-group">
-                    <label for="rows">Lignes (longueur)</label>
-                    <input type="number" id="rows" value="8" min="2" max="300">
-                </div>
-                <p>Changer la taille vide le plateau (toutes les cases redeviennent des plaines). Une sauvegarde automatique est créée avant.</p>
-                <div class="modal-actions">
-                    <button id="btnCloseModal" class="btn btn-secondary">Annuler</button>
-                    <button id="btnApplyConfig" class="btn btn-danger">Appliquer</button>
-                </div>
-            </div>
         </div>
     </main>
 
@@ -193,17 +187,17 @@
         <div class="map-toolbar">
             <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
             <button id="btnMapsToolbar" class="btn-round admin-only" title="Cartes enregistrées" aria-label="Cartes enregistrées" hidden>🗺️</button>
+            <button id="btnExport" class="btn-round" title="Exporter en JPEG (A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
             <button id="btnResetView" class="btn-round" title="Centrer la carte" aria-label="Centrer la carte">🎯</button>
             <button id="btnModeToggle" class="btn-round mode move" title="Mode déplacer : toucher pour peindre" aria-label="Mode déplacer : toucher pour peindre">✋</button>
         </div>
 
-        <div id="tools" class="tools">
-            <button id="btnArrow" class="btn-round" title="Ajouter ou retirer une flèche" aria-label="Ajouter ou retirer une flèche">➡️</button>
-            <button id="btnSelect" class="btn-round admin-only" title="Sélectionner plusieurs hexagones avec un rectangle" aria-label="Sélection par rectangle" hidden>⛶</button>
-            <button id="btnErase" class="btn-round admin-only" title="Supprimer des hexagones" aria-label="Supprimer des hexagones" hidden>✂️</button>
-            <button id="btnRestore" class="btn-round admin-only" title="Rétablir des hexagones" aria-label="Rétablir des hexagones" hidden>↩️</button>
-            <button id="btnMark" class="btn-round admin-only" title="Marquer des hexagones" aria-label="Marquer des hexagones" hidden>📌</button>
-            <button id="btnUnmark" class="btn-round admin-only" title="Démarquer des hexagones" aria-label="Démarquer des hexagones" hidden>🧹</button>
+        <div id="tools" class="tools admin-only" hidden>
+            <button id="btnSelect" class="btn-round" title="Sélectionner plusieurs hexagones avec un rectangle" aria-label="Sélection par rectangle">⛶</button>
+            <button id="btnErase" class="btn-round" title="Supprimer des hexagones" aria-label="Supprimer des hexagones">✂️</button>
+            <button id="btnRestore" class="btn-round" title="Rétablir des hexagones" aria-label="Rétablir des hexagones">↩️</button>
+            <button id="btnMark" class="btn-round" title="Marquer des hexagones" aria-label="Marquer des hexagones">📌</button>
+            <button id="btnUnmark" class="btn-round" title="Démarquer des hexagones" aria-label="Démarquer des hexagones">🧹</button>
         </div>
 
         <div id="markPalette" class="mark-palette" hidden>
@@ -215,11 +209,9 @@
 
         <div id="selectionBar" class="selection-bar" hidden>
             <span id="selectionCount" class="selection-count"></span>
-            <button id="btnSelPaint" class="btn-round" title="Colorier la sélection avec la couleur choisie" aria-label="Colorier la sélection">🎨</button>
+            <button id="btnSelBrush" class="btn-round" title="Appliquer le terrain ou l'objet choisi à la sélection" aria-label="Appliquer le pinceau à la sélection">🖌️</button>
             <button id="btnSelRemove" class="btn-round" title="Supprimer les hexagones sélectionnés" aria-label="Supprimer la sélection">✂️</button>
             <button id="btnSelRestore" class="btn-round" title="Rétablir les hexagones supprimés" aria-label="Rétablir la sélection">↩️</button>
-            <button id="btnSelArrow" class="btn-round" title="Ajouter une flèche" aria-label="Ajouter une flèche à la sélection">➡️</button>
-            <button id="btnSelNoArrow" class="btn-round" title="Retirer les flèches" aria-label="Retirer les flèches de la sélection">🚫</button>
             <button id="btnSelMark" class="btn-round" title="Marquer avec la marque choisie" aria-label="Marquer la sélection">📌</button>
             <button id="btnSelUnmark" class="btn-round" title="Retirer les marques" aria-label="Démarquer la sélection">🧹</button>
             <button id="btnSelClear" class="btn-round" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
@@ -230,11 +222,11 @@
             <button id="btnRotateRight" class="btn-round" title="Pivoter de 90° vers la droite" aria-label="Pivoter de 90 degrés vers la droite">↻</button>
         </div>
 
-        <canvas id="hexCanvas"></canvas>
+        <canvas id="hexCanvas" class="board"></canvas>
 
         <div id="overrideModal" class="modal-overlay" hidden>
             <div class="modal-content">
-                <h3>Remplacer la case ?</h3>
+                <h3>Remplacer ?</h3>
                 <p id="overrideMessage"></p>
                 <div class="modal-actions">
                     <button id="btnCancelOverride" class="btn btn-secondary">Annuler</button>
@@ -246,11 +238,15 @@
         <div id="paletteTooltip" class="palette-tooltip" hidden></div>
     </main>
 
+    <!-- Cartes enregistrées et nouvelle carte (MJ) -->
     <div id="mapsModal" class="modal-overlay" hidden>
         <div class="modal-content modal-wide">
-            <h3>Cartes enregistrées</h3>
+            <h3>Cartes</h3>
+            <div class="map-actions-top">
+                <button id="btnNewMap" class="btn btn-danger">＋ Nouvelle carte</button>
+            </div>
             <div class="map-save">
-                <input type="text" id="mapNameInput" placeholder="Nom de la carte à enregistrer" maxlength="60" autocomplete="off">
+                <input type="text" id="mapNameInput" placeholder="Nom pour enregistrer la carte en cours" maxlength="60" autocomplete="off">
                 <button id="btnSaveMap" class="btn btn-primary">💾 Enregistrer</button>
             </div>
             <div id="mapList" class="map-list"></div>
@@ -260,11 +256,66 @@
         </div>
     </div>
 
+    <div id="newMapModal" class="modal-overlay" hidden>
+        <div class="modal-content">
+            <h3>Nouvelle carte</h3>
+            <div class="control-group">
+                <label for="cols">Colonnes (largeur)</label>
+                <input type="number" id="cols" value="150" min="2" max="300">
+            </div>
+            <div class="control-group">
+                <label for="rows">Lignes (longueur)</label>
+                <input type="number" id="rows" value="100" min="2" max="300">
+            </div>
+            <p>La carte en cours est sauvegardée automatiquement, puis remplacée par une carte vierge : toutes les cases sont des plaines.</p>
+            <div class="modal-actions">
+                <button id="btnCancelNewMap" class="btn btn-secondary">Annuler</button>
+                <button id="btnCreateMap" class="btn btn-danger">Créer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="closedScreen" hidden>
+        <p>L'application est fermée.<br>Vous pouvez quitter cet onglet ou revenir à l'écran d'accueil.</p>
+        <button id="btnReopen" class="btn btn-primary">Rouvrir</button>
+    </div>
+
     <div id="toast" class="toast" role="status" hidden></div>
 
     <script>
     (() => {
         'use strict';
+
+        /* ============================================================ */
+        /* Catalogue des terrains et des objets                          */
+        /* ============================================================ */
+
+        const GROUND = ['plain', 'hill'];
+
+        // Les noms et les règles sont fixes ; seule la couleur d'un terrain est modifiable par le MJ.
+        const TERRAINS = [
+            { id: 'plain', label: 'Plaine', color: '#8fd16b' },
+            { id: 'hill', label: 'Colline', color: '#d9b44a' },
+            { id: 'mountain', label: 'Montagne', color: '#8a6d54' },
+            { id: 'path', label: 'Chemin', color: '#e2cfa3' },
+            { id: 'water', label: 'Eau', color: '#4aa3df' },
+            { id: 'swamp', label: 'Marécage', color: '#6f9070' }
+        ];
+
+        // turns : 1 = aucune orientation, 3 = bidirectionnel (pont, muret), 6 = une seule direction.
+        const OBJECTS = [
+            { id: 'forest', label: 'Forêt', hint: 'plaine ou colline', turns: 1, on: GROUND },
+            { id: 'bridge', label: 'Pont', hint: 'eau uniquement · double toucher pour pivoter', turns: 3, on: ['water'] },
+            { id: 'fortress', label: 'Forteresse crénelée', hint: 'plaine ou colline', turns: 1, on: GROUND },
+            { id: 'fortress-half', label: 'Forteresse crénelée sur 2 faces', hint: 'plaine ou colline · double toucher pour pivoter', turns: 6, on: GROUND },
+            { id: 'village', label: 'Maison de village', hint: 'plaine ou colline', turns: 1, on: GROUND },
+            { id: 'village-flat', label: 'Maison à toit plat', hint: 'plaine ou colline', turns: 1, on: GROUND },
+            { id: 'wall', label: 'Muret', hint: 'plaine ou colline · double toucher pour pivoter', turns: 3, on: GROUND }
+        ];
+
+        const OBJECT_BY_ID = new Map(OBJECTS.map((o) => [o.id, o]));
+        const TERRAIN_BY_ID = new Map(TERRAINS.map((t) => [t.id, t]));
+        const objectAllowed = (objectId, terrainId) => Boolean(OBJECT_BY_ID.get(objectId)?.on.includes(terrainId));
 
         /* ============================================================ */
         /* Constantes et état                                            */
@@ -273,17 +324,17 @@
         const HEX_RADIUS = 35;
         const HEX_WIDTH = Math.sqrt(3) * HEX_RADIUS;
         const ROW_STEP = HEX_RADIUS * 1.5;
-        const INNER_FACTOR = 0.5; // taille du petit hexagone des tuiles bicolores
         const MIN_SCALE = 0.05;
         const MAX_SCALE = 5;
         const MIN_SIZE = 2;
         const MAX_SIZE = 300;
-        const MAX_TERRAINS = 30;
-        const FALLBACK_COLOR = '#2ecc71';
         const BACKGROUND = '#ecf0f1';
         const REQUEST_TIMEOUT_MS = 8000;
         const DOUBLE_TAP_MS = 300;
+        const IDLE_MODE_MS = 10000; // sans usage du pinceau, retour automatique au mode déplacer
         const SESSION_KEY = 'hexSession';
+        const ADMIN_NAME = 'mj';
+        const A4 = { width: 2480, height: 3508, margin: 59, dpi: 300 }; // A4 à 300 dpi, marge de 5 mm
         const ADMIN_MODES = new Set(['select', 'erase', 'restore', 'mark', 'unmark']);
         const GHOST_MODES = new Set(['select', 'erase', 'restore']);
 
@@ -294,7 +345,8 @@
 
         const $ = (id) => document.getElementById(id);
         const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-        const terrainKey = (item) => `${item.color}/${item.inner ?? ''}`;
+        const rad = (degrees) => (degrees * Math.PI) / 180;
+        const brushKey = (brush) => `${brush.kind}:${brush.id ?? ''}`;
 
         const socket = typeof io !== 'undefined' ? io() : null;
 
@@ -302,13 +354,13 @@
             username: '',
             isAdmin: false,
             isLocked: false,
-            mode: 'move', // move | paint | arrow | select | erase | restore | mark | unmark
-            activeKey: null, // terrain choisi dans la palette
+            mode: 'move', // move | paint | select | erase | restore | mark | unmark
+            brush: { kind: 'terrain', id: 'plain' }, // terrain | object | clear-object
             activeMark: 'square',
             cols: 10,
             rows: 8,
             gridData: {},
-            terrains: [],
+            terrains: TERRAINS.map((t) => ({ id: t.id, color: t.color })),
             maps: [],
             selection: new Set()
         };
@@ -316,14 +368,15 @@
         const view = { scale: 1, panX: 0, panY: 0, rotation: 0 };
         let viewW = window.innerWidth;
         let viewH = window.innerHeight;
-        let pendingTileKey = null;
+        let pendingOverride = null;
         let pendingTap = null;
         let dragRect = null;
-        let wasFullscreen = false;
-        let lastVisibilityChange = 0;
+        let idleTimer = null;
         let tooltipTimer = null;
         let toastTimer = null;
         let drawQueued = false;
+        let closing = false;
+        let lastRejectAt = 0;
 
         const el = {
             pages: { login: $('pageLogin'), dashboard: $('pageDashboard'), map: $('pageMap') },
@@ -331,6 +384,8 @@
             password: $('passwordInput'),
             loginError: $('loginError'),
             btnLogin: $('btnLogin'),
+            btnInstall: $('btnInstall'),
+            iosHint: $('iosHint'),
             welcome: $('welcomeUser'),
             miniUsers: $('miniOnlineUsers'),
             terrainContainer: $('terrainContainer'),
@@ -338,9 +393,10 @@
             mapName: $('mapNameInput'),
             mapList: $('mapList'),
             mapsModal: $('mapsModal'),
-            configModal: $('configModal'),
+            newMapModal: $('newMapModal'),
             overrideModal: $('overrideModal'),
             overrideMessage: $('overrideMessage'),
+            closedScreen: $('closedScreen'),
             btnExit: $('btnExitMap'),
             btnLock: $('btnLockToggle'),
             btnMode: $('btnModeToggle'),
@@ -354,7 +410,6 @@
         };
         const ctx = el.canvas.getContext('2d');
         const toolButtons = {
-            arrow: $('btnArrow'),
             select: $('btnSelect'),
             erase: $('btnErase'),
             restore: $('btnRestore'),
@@ -414,7 +469,7 @@
             el.toast.classList.toggle('error', isError);
             el.toast.hidden = false;
             clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => { el.toast.hidden = true; }, 3200);
+            toastTimer = setTimeout(() => { el.toast.hidden = true; }, 3400);
         }
 
         function request(event, payload) {
@@ -433,24 +488,9 @@
             el.loginError.hidden = !message;
         }
 
-        function requestFullscreen() {
-            const root = document.documentElement;
-            const enter = root.requestFullscreen || root.webkitRequestFullscreen;
-            if (!enter) return;
-            try {
-                const result = enter.call(root);
-                if (result?.catch) result.catch(() => {});
-            } catch { /* plein écran indisponible : on continue sans */ }
-        }
-
-        function leaveFullscreen() {
-            const exit = document.exitFullscreen || document.webkitExitFullscreen;
-            if ((document.fullscreenElement || document.webkitFullscreenElement) && exit) exit.call(document);
-        }
-
         function applyRole() {
             document.querySelectorAll('.admin-only').forEach((node) => { node.hidden = !state.isAdmin; });
-            // Bouton en haut à gauche de la carte : retour pour l'admin, déconnexion pour les joueurs.
+            // Bouton en haut à gauche de la carte : retour pour le MJ, déconnexion pour les joueurs.
             el.btnExit.textContent = state.isAdmin ? '⬅' : '🚪';
             const label = state.isAdmin ? 'Retour au tableau de bord' : 'Se déconnecter';
             el.btnExit.title = label;
@@ -469,11 +509,70 @@
         }
 
         /* ============================================================ */
+        /* Plein écran et installation                                   */
+        /* ============================================================ */
+
+        const isStandalone = () => window.matchMedia('(display-mode: fullscreen)').matches
+            || window.matchMedia('(display-mode: standalone)').matches
+            || Boolean(navigator.standalone);
+        const isFullscreen = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone();
+
+        function requestFullscreen() {
+            if (closing || isFullscreen()) return;
+            const root = document.documentElement;
+            const enter = root.requestFullscreen || root.webkitRequestFullscreen;
+            if (!enter) return;
+            try {
+                const result = enter.call(root);
+                if (result?.catch) result.catch(() => {});
+            } catch { /* plein écran indisponible */ }
+        }
+
+        function leaveFullscreen() {
+            const exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if ((document.fullscreenElement || document.webkitFullscreenElement) && exit) exit.call(document);
+        }
+
+        // Le navigateur n'autorise le plein écran qu'après un geste de l'utilisateur :
+        // le premier toucher sur n'importe quelle page (et chaque toucher après une sortie) le déclenche.
+        document.addEventListener('click', requestFullscreen, true);
+        document.addEventListener('pointerup', requestFullscreen, true);
+
+        $('btnClose').addEventListener('click', (e) => {
+            e.stopPropagation();
+            closing = true;
+            leaveFullscreen();
+            window.close(); // ne fonctionne que si le navigateur l'autorise
+            setTimeout(() => { el.closedScreen.hidden = false; }, 250);
+        });
+        $('btnReopen').addEventListener('click', () => window.location.reload());
+
+        let installPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            installPrompt = e;
+            el.btnInstall.hidden = false;
+        });
+        window.addEventListener('appinstalled', () => { el.btnInstall.hidden = true; });
+        el.btnInstall.addEventListener('click', async () => {
+            if (!installPrompt) return;
+            installPrompt.prompt();
+            await installPrompt.userChoice;
+            installPrompt = null;
+            el.btnInstall.hidden = true;
+        });
+        if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone()) el.iosHint.hidden = false;
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+
+        /* ============================================================ */
         /* Connexion / déconnexion                                       */
         /* ============================================================ */
 
         el.username.addEventListener('input', () => {
-            el.password.hidden = el.username.value.trim().toLowerCase() !== 'admin';
+            el.password.hidden = el.username.value.trim().toLowerCase() !== ADMIN_NAME;
         });
 
         function enterMap() {
@@ -495,7 +594,6 @@
                 clearSession();
                 state.username = '';
                 state.isAdmin = false;
-                leaveFullscreen();
                 applyRole();
                 showLoginError(res.message);
                 showPage('login');
@@ -505,12 +603,13 @@
             state.username = res.name;
             state.isAdmin = Boolean(res.isAdmin);
             saveSession(res.token, res.name);
-            el.welcome.textContent = `Administrateur : ${res.name}`;
+            el.welcome.textContent = `MJ : ${res.name}`;
             showLoginError('');
             applyRole();
-            renderTerrains();
+            renderPalette();
+            renderTerrainEditor();
 
-            // Les joueurs arrivent directement sur la carte ; seul l'admin passe par le tableau de bord.
+            // Les joueurs arrivent directement sur la carte ; seul le MJ passe par le tableau de bord.
             if (!isReconnect) {
                 if (state.isAdmin) showPage('dashboard');
                 else enterMap();
@@ -521,7 +620,6 @@
             const name = el.username.value.trim();
             if (!name) return;
             if (!socket) return showLoginError('Connexion au serveur impossible.');
-            if (name.toLowerCase() !== 'admin') requestFullscreen(); // geste utilisateur : le plein écran est autorisé
             authenticate({ name, password: el.password.value }, false);
         }
 
@@ -530,10 +628,9 @@
             clearSession();
             state.username = '';
             state.isAdmin = false;
-            leaveFullscreen();
             endGestures();
             el.mapsModal.hidden = true;
-            el.configModal.hidden = true;
+            el.newMapModal.hidden = true;
             el.password.value = '';
             el.password.hidden = true;
             showLoginError('');
@@ -549,97 +646,282 @@
         $('btnLogout').addEventListener('click', logout);
 
         /* ============================================================ */
-        /* Terrains : légende, palette et tuiles bicolores               */
+        /* Terrains, objets et pinceau                                   */
         /* ============================================================ */
 
-        const pushTerrains = () => socket?.emit('update-terrains', state.terrains);
-        const defaultColor = () => state.terrains[0]?.color ?? FALLBACK_COLOR;
-        const activeTerrain = () => state.terrains.find((t) => terrainKey(t) === state.activeKey) ?? null;
+        const terrainColor = (id) => state.terrains.find((t) => t.id === id)?.color ?? TERRAIN_BY_ID.get(id)?.color ?? '#8fd16b';
+        const terrainOf = (tile) => tile?.terrain ?? 'plain';
+        const objectTurns = (tile) => (tile?.object && !tile.removed ? OBJECT_BY_ID.get(tile.object)?.turns ?? 1 : 1);
 
-        function buildHex(terrain, className) {
-            const hex = document.createElement('div');
-            hex.className = className;
-            hex.style.backgroundColor = terrain.color;
-            if (terrain.inner) {
-                const inner = document.createElement('span');
-                inner.className = 'terrain-hex-inner';
-                inner.style.backgroundColor = terrain.inner;
-                hex.appendChild(inner);
+        function mergeTerrains(list) {
+            const byId = new Map((list || []).map((t) => [t.id, t.color]));
+            return TERRAINS.map((t) => ({ id: t.id, color: byId.get(t.id) ?? t.color }));
+        }
+
+        // Édition des couleurs (MJ)
+        function renderTerrainEditor() {
+            el.terrainContainer.replaceChildren();
+            if (!state.isAdmin) return;
+
+            for (const terrain of TERRAINS) {
+                const item = document.createElement('div');
+                item.className = 'terrain-item';
+
+                const input = document.createElement('input');
+                input.type = 'color';
+                input.className = 'terrain-color-input';
+                input.value = terrainColor(terrain.id);
+                input.setAttribute('aria-label', `Couleur : ${terrain.label}`);
+                input.addEventListener('change', () => {
+                    const entry = state.terrains.find((t) => t.id === terrain.id);
+                    if (entry) entry.color = input.value;
+                    socket?.emit('update-terrains', state.terrains);
+                    renderPalette();
+                    requestDraw();
+                });
+
+                const label = document.createElement('span');
+                label.className = 'terrain-label-text';
+                label.textContent = terrain.label;
+
+                item.append(input, label);
+                el.terrainContainer.appendChild(item);
             }
-            return hex;
         }
 
-        function colorInput(value, label, onChange) {
-            const input = document.createElement('input');
-            input.type = 'color';
-            input.className = 'terrain-color-input';
-            input.value = value;
-            input.setAttribute('aria-label', label);
-            input.addEventListener('change', () => onChange(input.value));
-            return input;
+        /* ---------- Dessin des objets (dans le grand hexagone, à la place du petit) ---------- */
+
+        function hexPath(c, r) {
+            c.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const a = rad(60 * i - 30);
+                if (i === 0) c.moveTo(r * Math.cos(a), r * Math.sin(a));
+                else c.lineTo(r * Math.cos(a), r * Math.sin(a));
+            }
+            c.closePath();
         }
 
-        // Modifie un terrain en gardant sélectionné celui qui l'était.
-        function updateTerrain(terrain, change) {
-            const wasActive = terrainKey(terrain) === state.activeKey;
-            change(terrain);
-            if (wasActive) state.activeKey = terrainKey(terrain);
-            pushTerrains(); // le serveur recolorie aussi les cases déjà peintes avec l'ancien aspect
-            renderTerrains();
+        function drawForest(c, u) {
+            c.lineWidth = u * 0.09;
+            c.strokeStyle = '#0f3d1a';
+            c.fillStyle = '#237a35';
+            for (const [dx, dy] of [[0, -0.45], [-0.52, 0.32], [0.52, 0.32]]) {
+                c.beginPath();
+                c.arc(dx * u, dy * u, u * 0.52, 0, Math.PI * 2);
+                c.fill();
+                c.stroke();
+            }
         }
 
-        function buildEditableTerrain(terrain, index) {
-            const item = document.createElement('div');
-            item.className = 'terrain-item';
-            item.appendChild(buildHex(terrain, 'terrain-hex'));
+        // Forteresse hexagonale ; crenelEdges = numéros des côtés portant des créneaux (côté i : milieu à i × 60°).
+        function drawFortress(c, u, crenelEdges) {
+            const radius = u * 1.1;
+            c.lineJoin = 'round';
+            hexPath(c, radius);
+            c.fillStyle = '#9a9a9a';
+            c.fill();
+            c.strokeStyle = '#3d3d3d';
+            c.lineWidth = u * 0.1;
+            c.stroke();
+            hexPath(c, u * 0.55);
+            c.fillStyle = '#d0d0d0';
+            c.fill();
+            c.lineWidth = u * 0.06;
+            c.stroke();
 
-            item.appendChild(colorInput(terrain.color, `Couleur de ${terrain.label}`,
-                (value) => updateTerrain(terrain, (t) => { t.color = value; })));
+            c.fillStyle = '#3d3d3d';
+            const size = u * 0.26;
+            for (const edge of crenelEdges) {
+                const a1 = rad(60 * edge - 30);
+                const a2 = rad(60 * (edge + 1) - 30);
+                for (const t of [0.2, 0.5, 0.8]) {
+                    const px = (radius * Math.cos(a1) + (radius * Math.cos(a2) - radius * Math.cos(a1)) * t) * 0.84;
+                    const py = (radius * Math.sin(a1) + (radius * Math.sin(a2) - radius * Math.sin(a1)) * t) * 0.84;
+                    c.save();
+                    c.translate(px, py);
+                    c.rotate(rad(60 * edge));
+                    c.fillRect(-size / 2, -size / 2, size, size);
+                    c.restore();
+                }
+            }
+        }
 
-            if (terrain.inner) {
-                item.appendChild(colorInput(terrain.inner, `Petit hexagone de ${terrain.label}`,
-                    (value) => updateTerrain(terrain, (t) => { t.inner = value; })));
+        function drawVillage(c, u, flatRoof) {
+            c.lineJoin = 'round';
+            c.lineWidth = u * 0.09;
+            c.strokeStyle = '#4a3524';
+
+            c.fillStyle = '#f0dcae';
+            c.beginPath();
+            if (flatRoof) c.rect(-0.62 * u, -0.35 * u, 1.24 * u, 1.15 * u);
+            else c.rect(-0.62 * u, -0.05 * u, 1.24 * u, 0.85 * u);
+            c.fill();
+            c.stroke();
+
+            if (flatRoof) {
+                c.fillStyle = '#7d6b58';
+                c.beginPath();
+                c.rect(-0.76 * u, -0.6 * u, 1.52 * u, 0.28 * u);
+                c.fill();
+                c.stroke();
+            } else {
+                c.fillStyle = '#b5482f';
+                c.beginPath();
+                c.moveTo(-0.82 * u, -0.05 * u);
+                c.lineTo(0, -0.92 * u);
+                c.lineTo(0.82 * u, -0.05 * u);
+                c.closePath();
+                c.fill();
+                c.stroke();
             }
 
-            const labelInput = document.createElement('input');
-            labelInput.type = 'text';
-            labelInput.className = 'terrain-label-input';
-            labelInput.value = terrain.label;
-            labelInput.maxLength = 40;
-            labelInput.addEventListener('change', () => {
-                terrain.label = labelInput.value.trim();
-                pushTerrains();
-            });
-            item.appendChild(labelInput);
-
-            const toggle = document.createElement('button');
-            toggle.className = 'btn btn-dark btn-small';
-            toggle.textContent = terrain.inner ? '⬢' : '⬡';
-            toggle.title = terrain.inner ? 'Retirer le petit hexagone' : 'Ajouter un petit hexagone (tuile bicolore)';
-            toggle.setAttribute('aria-label', toggle.title);
-            toggle.addEventListener('click', () => updateTerrain(terrain, (t) => {
-                if (t.inner) delete t.inner;
-                else t.inner = '#ffffff';
-            }));
-            item.appendChild(toggle);
-
-            const remove = document.createElement('button');
-            remove.className = 'btn btn-danger btn-small';
-            remove.textContent = '✕';
-            remove.setAttribute('aria-label', `Supprimer ${terrain.label}`);
-            remove.addEventListener('click', () => {
-                if (state.terrains.length <= 1) return toast('Il faut garder au moins une couleur.', true);
-                state.terrains.splice(index, 1);
-                pushTerrains();
-                renderTerrains();
-            });
-            item.appendChild(remove);
-
-            return item;
+            c.fillStyle = '#6b4423';
+            c.fillRect(-0.16 * u, 0.35 * u, 0.32 * u, 0.45 * u);
         }
+
+        // Pont et muret traversent toute la case, d'un côté au côté opposé (deux orientations symétriques).
+        function drawBridge(c, R) {
+            const length = R * Math.sqrt(3);
+            const width = R * 0.5;
+            c.fillStyle = '#a4753a';
+            c.fillRect(-length / 2, -width / 2, length, width);
+            c.strokeStyle = '#6d4a1f';
+            c.lineWidth = R * 0.05;
+            for (let x = -length / 2 + R * 0.2; x < length / 2; x += R * 0.22) {
+                c.beginPath();
+                c.moveTo(x, -width / 2);
+                c.lineTo(x, width / 2);
+                c.stroke();
+            }
+            c.strokeStyle = '#4a3115';
+            c.lineWidth = R * 0.1;
+            c.beginPath();
+            c.moveTo(-length / 2, -width / 2);
+            c.lineTo(length / 2, -width / 2);
+            c.moveTo(-length / 2, width / 2);
+            c.lineTo(length / 2, width / 2);
+            c.stroke();
+        }
+
+        function drawWall(c, R) {
+            const length = R * Math.sqrt(3);
+            const thickness = R * 0.3;
+            c.fillStyle = '#a3a3a3';
+            c.fillRect(-length / 2, -thickness / 2, length, thickness);
+            c.strokeStyle = '#555555';
+            c.lineWidth = R * 0.04;
+            for (let x = -length / 2 + R * 0.3; x < length / 2; x += R * 0.3) {
+                c.beginPath();
+                c.moveTo(x, -thickness / 2);
+                c.lineTo(x, thickness / 2);
+                c.stroke();
+            }
+            c.lineWidth = R * 0.07;
+            c.strokeRect(-length / 2, -thickness / 2, length, thickness);
+        }
+
+        // rotation : rotation de la vue. Les objets sans orientation restent droits ; les autres suivent la carte.
+        function drawObject(c, object, dir, x, y, R, rotation) {
+            const u = R * 0.62;
+            c.save();
+            c.translate(x, y);
+            switch (object) {
+                case 'forest':
+                    c.rotate(-rotation);
+                    drawForest(c, u);
+                    break;
+                case 'village':
+                    c.rotate(-rotation);
+                    drawVillage(c, u, false);
+                    break;
+                case 'village-flat':
+                    c.rotate(-rotation);
+                    drawVillage(c, u, true);
+                    break;
+                case 'fortress':
+                    drawFortress(c, u, [0, 1, 2, 3, 4, 5]);
+                    break;
+                case 'fortress-half':
+                    c.rotate(rad(60 * dir));
+                    drawFortress(c, u, [0, 1]);
+                    break;
+                case 'bridge':
+                    c.rotate(rad(60 * dir));
+                    drawBridge(c, R);
+                    break;
+                case 'wall':
+                    c.rotate(rad(60 * dir));
+                    drawWall(c, R);
+                    break;
+                default:
+                    break;
+            }
+            c.restore();
+        }
+
+        function luminance(hex) {
+            const n = Number.parseInt(hex.slice(1), 16);
+            return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+        }
+
+        const contrastOn = (hex) => (luminance(hex) > 0.55 ? '#111111' : '#ffffff');
+
+        // Marque (carré, triangle, losange, croix), toujours droite. Plus petite dans un coin si la case porte un objet.
+        function drawMark(c, x, y, mark, ink, rotation, small) {
+            const s = HEX_RADIUS * (small ? 0.17 : 0.3);
+            const halo = ink === '#111111' ? '#ffffff' : '#000000';
+
+            c.save();
+            c.translate(x + (small ? HEX_RADIUS * 0.4 : 0), y - (small ? HEX_RADIUS * 0.32 : 0));
+            c.rotate(-rotation);
+            c.lineJoin = 'round';
+            c.lineCap = 'round';
+
+            const shape = () => {
+                c.beginPath();
+                switch (mark) {
+                    case 'square':
+                        c.rect(-s, -s, 2 * s, 2 * s);
+                        break;
+                    case 'triangle':
+                        c.moveTo(0, -s * 1.15);
+                        c.lineTo(s * 1.1, s * 0.85);
+                        c.lineTo(-s * 1.1, s * 0.85);
+                        c.closePath();
+                        break;
+                    case 'diamond':
+                        c.moveTo(0, -s * 1.3);
+                        c.lineTo(s * 1.3, 0);
+                        c.lineTo(0, s * 1.3);
+                        c.lineTo(-s * 1.3, 0);
+                        c.closePath();
+                        break;
+                    case 'cross':
+                        c.moveTo(-s, -s);
+                        c.lineTo(s, s);
+                        c.moveTo(s, -s);
+                        c.lineTo(-s, s);
+                        break;
+                    default:
+                        break;
+                }
+            };
+
+            c.strokeStyle = halo;
+            c.lineWidth = HEX_RADIUS * 0.19;
+            shape();
+            c.stroke();
+            c.strokeStyle = ink;
+            c.lineWidth = HEX_RADIUS * 0.1;
+            shape();
+            c.stroke();
+            c.restore();
+        }
+
+        /* ---------- Palette (terrains, objets, gomme d'objet) ---------- */
 
         function showPaletteTooltip(button, text) {
-            el.tooltip.textContent = text || '(sans légende)';
+            el.tooltip.textContent = text;
             el.tooltip.hidden = false;
             const rect = button.getBoundingClientRect();
             el.tooltip.style.left = `${rect.right + 12}px`;
@@ -651,70 +933,91 @@
             el.tooltip.hidden = true;
         }
 
-        function buildPaletteButton(terrain) {
-            const real = document.createElement('button');
-            real.className = 'hex-option';
-            real.style.backgroundColor = terrain.color;
-            real.dataset.key = terrainKey(terrain);
-            real.setAttribute('aria-label', terrain.label);
-            if (terrain.inner) {
-                const inner = document.createElement('span');
-                inner.className = 'terrain-hex-inner';
-                inner.style.backgroundColor = terrain.inner;
-                real.appendChild(inner);
+        function markSelectedBrush() {
+            const key = brushKey(state.brush);
+            for (const button of el.fsPalette.querySelectorAll('[data-brush]')) {
+                button.classList.toggle('selected', button.dataset.brush === key);
             }
+        }
 
-            // Souris : la légende apparaît au survol.
-            real.addEventListener('pointerenter', (e) => {
-                if (e.pointerType === 'mouse') showPaletteTooltip(real, terrain.label);
+        function selectBrush(brush) {
+            state.brush = brush;
+            markSelectedBrush();
+            // Choisir un terrain ou un objet passe automatiquement en mode peindre
+            // (sauf pendant une sélection au rectangle, où le pinceau s'applique à la sélection).
+            if (state.mode !== 'select') setMode('paint');
+            resetIdleTimer();
+        }
+
+        function paletteButton(brush, className, label, hint) {
+            const button = document.createElement('button');
+            button.className = className;
+            button.dataset.brush = brushKey(brush);
+            button.setAttribute('aria-label', label);
+            const tip = hint ? `${label} : ${hint}` : label;
+
+            // Souris : la légende apparaît au survol. Tactile : elle s'affiche brièvement au toucher.
+            button.addEventListener('pointerenter', (e) => {
+                if (e.pointerType === 'mouse') showPaletteTooltip(button, tip);
             });
-            real.addEventListener('pointerleave', hidePaletteTooltip);
-
-            real.addEventListener('click', (e) => {
-                state.activeKey = terrainKey(terrain);
-                markSelectedTerrain();
-                // Tactile : pas de survol possible, la légende s'affiche brièvement.
+            button.addEventListener('pointerleave', hidePaletteTooltip);
+            button.addEventListener('click', (e) => {
+                selectBrush(brush);
                 if (e.pointerType !== 'mouse') {
-                    showPaletteTooltip(real, terrain.label);
+                    showPaletteTooltip(button, tip);
                     clearTimeout(tooltipTimer);
-                    tooltipTimer = setTimeout(hidePaletteTooltip, 1500);
+                    tooltipTimer = setTimeout(hidePaletteTooltip, 1800);
                 }
             });
-            return real;
+            return button;
         }
 
-        function markSelectedTerrain() {
-            for (const button of el.fsPalette.children) {
-                button.classList.toggle('selected', button.dataset.key === state.activeKey);
-            }
+        function objectPreview(object) {
+            const size = 34;
+            const ratio = window.devicePixelRatio || 1;
+            const canvas = document.createElement('canvas');
+            canvas.width = size * ratio;
+            canvas.height = size * ratio;
+            const c = canvas.getContext('2d');
+            c.scale(ratio, ratio);
+            drawObject(c, object.id, 0, size / 2, size / 2, 15.5, 0);
+            return canvas;
         }
 
-        function renderTerrains() {
-            el.terrainContainer.replaceChildren();
+        function paletteTitle(text) {
+            const title = document.createElement('div');
+            title.className = 'palette-title';
+            title.textContent = text;
+            return title;
+        }
+
+        function renderPalette() {
             el.fsPalette.replaceChildren();
             hidePaletteTooltip();
 
-            if (!activeTerrain()) state.activeKey = state.terrains[0] ? terrainKey(state.terrains[0]) : null;
+            el.fsPalette.appendChild(paletteTitle('Terrains'));
+            for (const terrain of TERRAINS) {
+                const button = paletteButton({ kind: 'terrain', id: terrain.id }, 'hex-option', terrain.label, '');
+                button.style.backgroundColor = terrainColor(terrain.id);
+                el.fsPalette.appendChild(button);
+            }
 
-            state.terrains.forEach((terrain, index) => {
-                if (state.isAdmin) el.terrainContainer.appendChild(buildEditableTerrain(terrain, index));
-                el.fsPalette.appendChild(buildPaletteButton(terrain));
-            });
-            markSelectedTerrain();
+            el.fsPalette.appendChild(paletteTitle('Objets'));
+            for (const object of OBJECTS) {
+                const button = paletteButton({ kind: 'object', id: object.id }, 'obj-option', object.label, object.hint);
+                button.appendChild(objectPreview(object));
+                el.fsPalette.appendChild(button);
+            }
+
+            const eraser = paletteButton({ kind: 'clear-object' }, 'obj-option', 'Retirer l’objet', 'garde le terrain');
+            eraser.textContent = '🧽';
+            el.fsPalette.appendChild(eraser);
+
+            markSelectedBrush();
         }
-
-        function addTerrain(terrain) {
-            if (state.terrains.length >= MAX_TERRAINS) return toast(`Maximum ${MAX_TERRAINS} couleurs.`, true);
-            state.terrains.push(terrain);
-            pushTerrains();
-            renderTerrains();
-        }
-
-        $('btnAddTerrain').addEventListener('click', () => addTerrain({ color: '#cccccc', label: 'Nouveau terrain' }));
-        $('btnAddBicolor').addEventListener('click', () => addTerrain({ color: '#3498db', inner: '#f1c40f', label: 'Tuile bicolore' }));
 
         /* ============================================================ */
-        /* Cartes enregistrées (admin)                                   */
+        /* Cartes enregistrées et nouvelle carte (MJ)                    */
         /* ============================================================ */
 
         function formatDate(timestamp) {
@@ -765,7 +1068,7 @@
                 actions.className = 'map-actions';
                 actions.append(
                     actionButton('Charger', 'btn-primary', `Charger ${map.name}`, () => {
-                        if (confirm(`Charger « ${map.name} » ? Le plateau actuel sera remplacé pour tous les joueurs (une sauvegarde automatique est créée).`)) {
+                        if (confirm(`Charger « ${map.name} » ? La carte en cours sera remplacée pour tous les joueurs (une sauvegarde automatique est créée).`)) {
                             runMapAction('load-map', { id: map.id }).then((res) => {
                                 if (res.success) el.mapsModal.hidden = true;
                             });
@@ -811,18 +1114,15 @@
         $('btnSaveMap').addEventListener('click', saveCurrentMap);
         el.mapName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveCurrentMap(); });
 
-        /* ============================================================ */
-        /* Configuration de la taille (admin)                            */
-        /* ============================================================ */
-
-        $('btnAdminConfig').addEventListener('click', () => {
+        // La taille du plateau ne se règle qu'ici, à la création d'une nouvelle carte.
+        $('btnNewMap').addEventListener('click', () => {
             $('cols').value = state.cols;
             $('rows').value = state.rows;
-            el.configModal.hidden = false;
+            el.newMapModal.hidden = false;
         });
-        $('btnCloseModal').addEventListener('click', () => { el.configModal.hidden = true; });
+        $('btnCancelNewMap').addEventListener('click', () => { el.newMapModal.hidden = true; });
 
-        $('btnApplyConfig').addEventListener('click', async () => {
+        $('btnCreateMap').addEventListener('click', async () => {
             const cols = Number.parseInt($('cols').value, 10);
             const rows = Number.parseInt($('rows').value, 10);
             const valid = (n) => Number.isInteger(n) && n >= MIN_SIZE && n <= MAX_SIZE;
@@ -830,11 +1130,14 @@
             if (!valid(cols) || !valid(rows)) {
                 return toast(`La taille doit être comprise entre ${MIN_SIZE} et ${MAX_SIZE}.`, true);
             }
-            if (!confirm('Changer la taille réinitialisera le plateau. Continuer ?')) return;
+            if (!confirm('Créer une nouvelle carte vierge ? La carte en cours sera sauvegardée automatiquement.')) return;
 
-            const res = await request('change-config', { cols, rows });
+            const res = await request('new-map', { cols, rows });
             toast(res.message, !res.success);
-            if (res.success) el.configModal.hidden = true;
+            if (res.success) {
+                el.newMapModal.hidden = true;
+                el.mapsModal.hidden = true;
+            }
         });
 
         /* ============================================================ */
@@ -852,6 +1155,16 @@
             for (const button of el.markPalette.children) {
                 button.classList.toggle('active', button.dataset.mark === state.activeMark);
             }
+        }
+
+        // Sans usage du pinceau pendant 10 secondes, on repasse en mode déplacer.
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            idleTimer = null;
+            if (state.mode !== 'paint') return;
+            idleTimer = setTimeout(() => {
+                if (state.mode === 'paint') setMode('move');
+            }, IDLE_MODE_MS);
         }
 
         function setMode(mode) {
@@ -874,6 +1187,7 @@
             dragRect = null;
             updateSelectionBar();
             updateMarkPalette();
+            resetIdleTimer();
             requestDraw();
         }
 
@@ -885,7 +1199,8 @@
             el.btnLock.classList.toggle('locked', state.isLocked);
             el.fsPalette.hidden = state.isLocked;
             el.btnMode.hidden = state.isLocked;
-            el.tools.hidden = state.isLocked;
+            if (state.isLocked) el.tools.hidden = true;
+            else el.tools.hidden = !state.isAdmin;
 
             if (state.isLocked || (!state.isAdmin && ADMIN_MODES.has(state.mode))) setMode('move');
         }
@@ -908,15 +1223,14 @@
             socket?.emit('edit-tiles', { keys: [...state.selection], action, ...extra });
         }
 
-        $('btnSelPaint').addEventListener('click', () => {
-            const terrain = activeTerrain();
-            if (!terrain) return toast('Choisissez d’abord une couleur.', true);
-            editSelection('paint', { color: terrain.color, inner: terrain.inner ?? '' });
+        $('btnSelBrush').addEventListener('click', () => {
+            const brush = state.brush;
+            if (brush.kind === 'terrain') editSelection('terrain', { terrain: brush.id });
+            else if (brush.kind === 'object') editSelection('object', { object: brush.id });
+            else editSelection('clear-object');
         });
         $('btnSelRemove').addEventListener('click', () => editSelection('remove'));
         $('btnSelRestore').addEventListener('click', () => editSelection('restore'));
-        $('btnSelArrow').addEventListener('click', () => editSelection('arrow-add'));
-        $('btnSelNoArrow').addEventListener('click', () => editSelection('arrow-remove'));
         $('btnSelMark').addEventListener('click', () => editSelection('mark', { mark: state.activeMark }));
         $('btnSelUnmark').addEventListener('click', () => editSelection('unmark'));
         $('btnSelClear').addEventListener('click', () => {
@@ -926,44 +1240,21 @@
         });
 
         /* ============================================================ */
-        /* Plein écran, veille et navigation                             */
+        /* Navigation, veille et reconnexion                             */
         /* ============================================================ */
 
-        $('btnGo').addEventListener('click', () => {
-            requestFullscreen();
-            enterMap();
-        });
+        $('btnGo').addEventListener('click', enterMap);
 
         el.btnExit.addEventListener('click', () => {
-            if (state.isAdmin) {
-                leaveFullscreen();
-                showPage('dashboard');
-            } else if (confirm('Se déconnecter ?')) {
-                logout();
-            }
+            if (state.isAdmin) showPage('dashboard');
+            else if (confirm('Se déconnecter ?')) logout();
         });
-
-        // L'admin revient au tableau de bord s'il quitte le plein écran (Échap, geste système),
-        // sauf si c'est la mise en veille du téléphone qui l'a provoqué. Les joueurs restent sur la carte.
-        function onFullscreenChange() {
-            const active = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
-            if (active) {
-                wasFullscreen = true;
-                return;
-            }
-            const justResumed = document.hidden || Date.now() - lastVisibilityChange < 2500;
-            if (wasFullscreen && state.isAdmin && isMapActive() && !justResumed) showPage('dashboard');
-            wasFullscreen = false;
-        }
-        document.addEventListener('fullscreenchange', onFullscreenChange);
-        document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
         // Au réveil du téléphone, on relance la connexion : la session enregistrée est reprise automatiquement.
         function ensureConnected() {
             if (socket && !socket.connected) socket.connect();
         }
         document.addEventListener('visibilitychange', () => {
-            lastVisibilityChange = Date.now();
             if (!document.hidden) ensureConnected();
         });
         window.addEventListener('online', ensureConnected);
@@ -1038,7 +1329,7 @@
         }
 
         /* ============================================================ */
-        /* Rendu                                                         */
+        /* Rendu (écran et export partagent le même dessin)              */
         /* ============================================================ */
 
         function resizeCanvas() {
@@ -1060,87 +1351,88 @@
             });
         }
 
-        function addHexPath(path, x, y, factor = 1) {
-            path.moveTo(x + HEX_CORNERS[0][0] * factor, y + HEX_CORNERS[0][1] * factor);
-            for (let i = 1; i < 6; i++) path.lineTo(x + HEX_CORNERS[i][0] * factor, y + HEX_CORNERS[i][1] * factor);
+        function addHexPath(path, x, y) {
+            path.moveTo(x + HEX_CORNERS[0][0], y + HEX_CORNERS[0][1]);
+            for (let i = 1; i < 6; i++) path.lineTo(x + HEX_CORNERS[i][0], y + HEX_CORNERS[i][1]);
             path.closePath();
         }
 
-        function luminance(hex) {
-            const n = Number.parseInt(hex.slice(1), 16);
-            return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-        }
+        // Dessine les cases d'une zone. Le contexte est déjà transformé (déplacement, rotation, échelle).
+        function paintScene(c, range, { scale, rotation, ghosts: showGhosts, selection, minLinePx }) {
+            const { minCol, maxCol, minRow, maxRow } = range;
+            const withOutline = HEX_RADIUS * scale >= 5;
+            const withSymbols = HEX_RADIUS * scale >= 6;
 
-        const contrastOn = (hex) => (luminance(hex) > 0.55 ? '#111111' : '#ffffff');
+            const fills = new Map(); // couleur -> Path2D (un seul tracé par couleur)
+            const outline = new Path2D();
+            const ghostPath = new Path2D();
+            const selectionPath = new Path2D();
+            const symbols = [];
 
-        // Flèche passant par le milieu de deux côtés opposés : direction = numéro × 60°.
-        function drawArrow(x, y, direction, color) {
-            const half = HEX_RADIUS * 0.7;
-            const head = HEX_RADIUS * 0.38;
-            const wing = HEX_RADIUS * 0.26;
+            for (let row = minRow; row <= maxRow; row++) {
+                for (let col = minCol; col <= maxCol; col++) {
+                    const key = `${col},${row}`;
+                    const { x, y } = hexCenter(col, row);
+                    const tile = state.gridData[key];
 
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(direction * (Math.PI / 3));
-            ctx.strokeStyle = color;
-            ctx.fillStyle = color;
-            ctx.lineWidth = HEX_RADIUS * 0.12;
-            ctx.lineCap = 'round';
+                    if (selection && selection.size > 0 && selection.has(key)) addHexPath(selectionPath, x, y);
 
-            ctx.beginPath();
-            ctx.moveTo(-half, 0);
-            ctx.lineTo(half - head * 0.5, 0);
-            ctx.stroke();
+                    if (tile?.removed) {
+                        // Case supprimée : invisible, sauf pour le MJ en mode suppression / sélection.
+                        if (showGhosts) addHexPath(ghostPath, x, y);
+                        continue;
+                    }
 
-            ctx.beginPath();
-            ctx.moveTo(half, 0);
-            ctx.lineTo(half - head, -wing);
-            ctx.lineTo(half - head, wing);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        }
+                    const color = terrainColor(terrainOf(tile)); // une case absente est une plaine
+                    let path = fills.get(color);
+                    if (!path) {
+                        path = new Path2D();
+                        fills.set(color, path);
+                    }
+                    addHexPath(path, x, y);
+                    if (withOutline) addHexPath(outline, x, y);
 
-        // Marque (carré, triangle, losange, croix). Elle reste droite même quand la carte pivote.
-        function drawMark(x, y, mark, color) {
-            const s = HEX_RADIUS * 0.3;
-
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(-view.rotation);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = HEX_RADIUS * 0.1;
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            switch (mark) {
-                case 'square':
-                    ctx.rect(-s, -s, 2 * s, 2 * s);
-                    break;
-                case 'triangle':
-                    ctx.moveTo(0, -s * 1.15);
-                    ctx.lineTo(s * 1.1, s * 0.85);
-                    ctx.lineTo(-s * 1.1, s * 0.85);
-                    ctx.closePath();
-                    break;
-                case 'diamond':
-                    ctx.moveTo(0, -s * 1.3);
-                    ctx.lineTo(s * 1.3, 0);
-                    ctx.lineTo(0, s * 1.3);
-                    ctx.lineTo(-s * 1.3, 0);
-                    ctx.closePath();
-                    break;
-                case 'cross':
-                    ctx.moveTo(-s, -s);
-                    ctx.lineTo(s, s);
-                    ctx.moveTo(s, -s);
-                    ctx.lineTo(-s, s);
-                    break;
-                default:
-                    break;
+                    if (withSymbols && (tile?.object || tile?.mark)) symbols.push({ x, y, tile, color });
+                }
             }
-            ctx.stroke();
-            ctx.restore();
+
+            for (const [color, path] of fills) {
+                c.fillStyle = color;
+                c.fill(path);
+                if (!withOutline) {
+                    // Sans contour, on couvre les fines coutures entre cases.
+                    c.strokeStyle = color;
+                    c.lineWidth = 1 / scale;
+                    c.stroke(path);
+                }
+            }
+
+            if (withOutline) {
+                c.strokeStyle = '#333333';
+                c.lineWidth = Math.max(1.5, minLinePx / scale);
+                c.stroke(outline);
+            }
+
+            for (const { x, y, tile, color } of symbols) {
+                if (tile.object) drawObject(c, tile.object, tile.dir ?? 0, x, y, HEX_RADIUS, rotation);
+                if (tile.mark) drawMark(c, x, y, tile.mark, contrastOn(color), rotation, Boolean(tile.object));
+            }
+
+            if (showGhosts) {
+                c.setLineDash([6, 4]);
+                c.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+                c.lineWidth = 1.5;
+                c.stroke(ghostPath);
+                c.setLineDash([]);
+            }
+
+            if (selection && selection.size > 0) {
+                c.fillStyle = 'rgba(52, 152, 219, 0.3)';
+                c.fill(selectionPath);
+                c.strokeStyle = '#1f78ff';
+                c.lineWidth = 3;
+                c.stroke(selectionPath);
+            }
         }
 
         function draw() {
@@ -1156,106 +1448,13 @@
             ctx.rotate(view.rotation);
             ctx.scale(view.scale, view.scale);
 
-            const { minCol, maxCol, minRow, maxRow } = visibleRange();
-            const withOutline = HEX_RADIUS * view.scale >= 5;
-            const withSymbols = HEX_RADIUS * view.scale >= 8;
-            const showGhosts = state.isAdmin && GHOST_MODES.has(state.mode);
-            const selected = state.selection;
-            const plain = defaultColor(); // une case absente est une plaine
-
-            const fills = new Map(); // couleur -> Path2D (un seul tracé par couleur)
-            const innerFills = new Map(); // couleur du petit hexagone -> Path2D
-            const outline = new Path2D();
-            const innerOutline = new Path2D();
-            const ghosts = new Path2D();
-            const selectionPath = new Path2D();
-            const symbols = [];
-
-            const pathFor = (map, color) => {
-                let path = map.get(color);
-                if (!path) {
-                    path = new Path2D();
-                    map.set(color, path);
-                }
-                return path;
-            };
-
-            for (let row = minRow; row <= maxRow; row++) {
-                for (let col = minCol; col <= maxCol; col++) {
-                    const key = `${col},${row}`;
-                    const { x, y } = hexCenter(col, row);
-                    const tile = state.gridData[key];
-
-                    if (selected.size > 0 && selected.has(key)) addHexPath(selectionPath, x, y);
-
-                    if (tile?.removed) {
-                        // Case supprimée : invisible, sauf pour l'admin en mode suppression / sélection.
-                        if (showGhosts) addHexPath(ghosts, x, y);
-                        continue;
-                    }
-
-                    const color = tile?.color ?? plain;
-                    addHexPath(pathFor(fills, color), x, y);
-                    if (withOutline) addHexPath(outline, x, y);
-
-                    if (tile?.inner) {
-                        addHexPath(pathFor(innerFills, tile.inner), x, y, INNER_FACTOR);
-                        if (withOutline) addHexPath(innerOutline, x, y, INNER_FACTOR);
-                    }
-
-                    if (withSymbols && (tile?.mark || Number.isInteger(tile?.arrow))) {
-                        symbols.push({ x, y, mark: tile.mark, arrow: tile.arrow, ink: contrastOn(tile.inner ?? color) });
-                    }
-                }
-            }
-
-            for (const [color, path] of fills) {
-                ctx.fillStyle = color;
-                ctx.fill(path);
-                if (!withOutline) {
-                    // Sans contour, on couvre les fines coutures entre cases.
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 1 / view.scale;
-                    ctx.stroke(path);
-                }
-            }
-
-            if (withOutline) {
-                ctx.strokeStyle = '#333333';
-                ctx.lineWidth = 1.5;
-                ctx.stroke(outline);
-            }
-
-            for (const [color, path] of innerFills) {
-                ctx.fillStyle = color;
-                ctx.fill(path);
-            }
-            if (withOutline) {
-                ctx.strokeStyle = '#333333';
-                ctx.lineWidth = 1;
-                ctx.stroke(innerOutline);
-            }
-
-            for (const symbol of symbols) {
-                if (symbol.mark) drawMark(symbol.x, symbol.y, symbol.mark, symbol.ink);
-                if (Number.isInteger(symbol.arrow)) drawArrow(symbol.x, symbol.y, symbol.arrow, symbol.ink);
-            }
-
-            if (showGhosts) {
-                ctx.setLineDash([6, 4]);
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
-                ctx.lineWidth = 1.5;
-                ctx.stroke(ghosts);
-                ctx.setLineDash([]);
-            }
-
-            if (selected.size > 0) {
-                ctx.fillStyle = 'rgba(52, 152, 219, 0.3)';
-                ctx.fill(selectionPath);
-                ctx.strokeStyle = '#1f78ff';
-                ctx.lineWidth = 3;
-                ctx.stroke(selectionPath);
-            }
+            paintScene(ctx, visibleRange(), {
+                scale: view.scale,
+                rotation: view.rotation,
+                ghosts: state.isAdmin && GHOST_MODES.has(state.mode),
+                selection: state.selection,
+                minLinePx: 0
+            });
 
             if (dragRect) {
                 // Rectangle de sélection, tracé en coordonnées d'écran.
@@ -1294,7 +1493,7 @@
             const cy = viewH / 2;
             const world = screenToWorld(cx, cy);
 
-            view.rotation += (degrees * Math.PI) / 180;
+            view.rotation += rad(degrees);
             const cos = Math.cos(view.rotation);
             const sin = Math.sin(view.rotation);
             view.panX = cx - (world.x * cos - world.y * sin) * view.scale;
@@ -1308,50 +1507,202 @@
         window.addEventListener('resize', () => { if (isMapActive()) resizeCanvas(); });
 
         /* ============================================================ */
-        /* Outils sur les cases                                          */
+        /* Export JPEG (A4, marges minimales)                            */
         /* ============================================================ */
 
-        function applyPaint(key, terrain) {
-            const tile = { ...state.gridData[key], color: terrain.color, author: state.username };
-            if (terrain.inner) tile.inner = terrain.inner;
-            else delete tile.inner;
-            state.gridData[key] = tile;
-            requestDraw();
-            socket?.emit('paint-tile', { key, color: terrain.color, inner: terrain.inner ?? '' });
+        // Le MJ exporte toute la carte ; un joueur, la zone où il est intervenu.
+        function exportRegion() {
+            if (state.isAdmin) return { minCol: 0, maxCol: state.cols - 1, minRow: 0, maxRow: state.rows - 1 };
+
+            let region = null;
+            for (const [key, tile] of Object.entries(state.gridData)) {
+                if (tile.removed || (tile.author !== state.username && tile.objectAuthor !== state.username)) continue;
+                const [col, row] = key.split(',').map(Number);
+                if (!region) region = { minCol: col, maxCol: col, minRow: row, maxRow: row };
+                region.minCol = Math.min(region.minCol, col);
+                region.maxCol = Math.max(region.maxCol, col);
+                region.minRow = Math.min(region.minRow, row);
+                region.maxRow = Math.max(region.maxRow, row);
+            }
+            return region;
         }
 
-        function openOverrideModal(key, author) {
-            pendingTileKey = key;
-            const strong = document.createElement('strong');
-            strong.textContent = author; // textContent : le pseudo n'est jamais interprété comme du HTML
-            el.overrideMessage.replaceChildren(
-                document.createTextNode("L'utilisateur "),
-                strong,
-                document.createTextNode(' a déjà modifié cette case.'),
-                document.createElement('br'),
-                document.createTextNode('Voulez-vous la remplacer ?')
-            );
+        function regionBounds({ minCol, maxCol, minRow, maxRow }) {
+            let minX = Infinity;
+            let maxX = -Infinity;
+            let minY = Infinity;
+            let maxY = -Infinity;
+            for (let row = minRow; row <= maxRow; row++) {
+                for (let col = minCol; col <= maxCol; col++) {
+                    const { x, y } = hexCenter(col, row);
+                    minX = Math.min(minX, x - HEX_WIDTH / 2);
+                    maxX = Math.max(maxX, x + HEX_WIDTH / 2);
+                    minY = Math.min(minY, y - HEX_RADIUS);
+                    maxY = Math.max(maxY, y + HEX_RADIUS);
+                }
+            }
+            return { minX, maxX, minY, maxY };
+        }
+
+        const canvasToBlob = (canvas) => new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+
+        // Indique 300 dpi dans l'en-tête JPEG pour que l'impression respecte la taille A4.
+        async function withDpi(blob, dpi) {
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            const isJfif = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF && bytes[3] === 0xE0
+                && bytes[6] === 0x4A && bytes[7] === 0x46 && bytes[8] === 0x49 && bytes[9] === 0x46;
+            if (isJfif) {
+                bytes[13] = 1;
+                bytes[14] = dpi >> 8;
+                bytes[15] = dpi & 255;
+                bytes[16] = dpi >> 8;
+                bytes[17] = dpi & 255;
+            }
+            return new Blob([bytes], { type: 'image/jpeg' });
+        }
+
+        async function deliverImage(blob, filename) {
+            const file = new File([blob], filename, { type: 'image/jpeg' });
+            const touch = window.matchMedia('(pointer: coarse)').matches;
+            if (touch && navigator.canShare?.({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file], title: 'Plateau hexagonal' });
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
+                }
+            }
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 15000);
+        }
+
+        async function exportJpeg() {
+            const region = exportRegion();
+            if (!region) return toast('Vous n’êtes encore intervenu sur aucune case : rien à exporter.', true);
+
+            toast('Création de l’image…');
+            await new Promise((resolve) => setTimeout(resolve, 30)); // laisse le message s'afficher
+
+            const bounds = regionBounds(region);
+            const worldW = bounds.maxX - bounds.minX;
+            const worldH = bounds.maxY - bounds.minY;
+
+            // Orientation choisie selon la forme de la zone ; l'image occupe la page A4 en entier.
+            const landscape = worldW > worldH;
+            const pageW = landscape ? A4.height : A4.width;
+            const pageH = landscape ? A4.width : A4.height;
+            const scale = Math.min((pageW - 2 * A4.margin) / worldW, (pageH - 2 * A4.margin) / worldH, 6);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = pageW;
+            canvas.height = pageH;
+            const c = canvas.getContext('2d');
+            c.fillStyle = '#ffffff';
+            c.fillRect(0, 0, pageW, pageH);
+
+            c.translate((pageW - worldW * scale) / 2 - bounds.minX * scale, (pageH - worldH * scale) / 2 - bounds.minY * scale);
+            c.scale(scale, scale);
+            paintScene(c, region, { scale, rotation: 0, ghosts: false, selection: null, minLinePx: 1.4 });
+
+            const blob = await canvasToBlob(canvas);
+            if (!blob) return toast('Impossible de créer l’image sur cet appareil.', true);
+
+            const stamp = new Date().toISOString().slice(0, 10);
+            await deliverImage(await withDpi(blob, A4.dpi), `plateau-${stamp}.jpg`);
+            toast('Image JPEG A4 prête (300 dpi).');
+        }
+
+        $('btnExport').addEventListener('click', exportJpeg);
+
+        /* ============================================================ */
+        /* Pinceau sur les cases                                         */
+        /* ============================================================ */
+
+        // Prévision locale immédiate ; le serveur confirme (ou corrige) ensuite.
+        function predict(existing, brush) {
+            const next = { ...existing };
+            if (brush.kind === 'terrain') {
+                next.terrain = brush.id;
+                next.author = state.username;
+                if (next.object && !objectAllowed(next.object, brush.id)) {
+                    delete next.object;
+                    delete next.dir;
+                    delete next.objectAuthor;
+                }
+            } else if (brush.kind === 'object') {
+                next.author = existing?.author ?? '';
+                next.object = brush.id;
+                next.objectAuthor = state.username;
+                if (OBJECT_BY_ID.get(brush.id).turns > 1) next.dir = 0;
+                else delete next.dir;
+            } else {
+                delete next.object;
+                delete next.dir;
+                delete next.objectAuthor;
+            }
+            return next;
+        }
+
+        function applyBrush(key, brush) {
+            const next = predict(state.gridData[key], brush);
+            if (next.terrain || next.object || next.mark) state.gridData[key] = next;
+            else delete state.gridData[key];
+            requestDraw();
+            socket?.emit('paint-tile', { key, kind: brush.kind, id: brush.id ?? '' });
+        }
+
+        function openOverrideModal(message, key, brush) {
+            pendingOverride = { key, brush };
+            el.overrideMessage.replaceChildren(document.createTextNode(message));
             el.overrideModal.hidden = false;
         }
 
-        function paintTile(key) {
-            if (state.isLocked) return;
-            const terrain = activeTerrain();
+        function askOverride(key, brush, author, what) {
+            endGestures();
+            openOverrideModal(`${author} a déjà posé ${what} sur cette case. Voulez-vous le remplacer ?`, key, brush);
+        }
+
+        function rejectObject(objectId) {
+            const now = Date.now();
+            if (now - lastRejectAt < 2500) return; // évite de répéter le message pendant un glissé
+            lastRejectAt = now;
+            const object = OBJECT_BY_ID.get(objectId);
+            toast(object.on.includes('water')
+                ? 'Le pont ne se pose que sur l’eau.'
+                : 'Cet objet se pose seulement sur une plaine ou une colline.', true);
+        }
+
+        function paintTile(key, brush = state.brush) {
+            if (state.isLocked || !brush) return;
             const existing = state.gridData[key];
+            if (existing?.removed) return; // une case supprimée ne peut ni être coloriée ni recevoir d'objet
+            resetIdleTimer();
 
-            // Une case supprimée ne peut pas être coloriée.
-            if (!terrain || existing?.removed) return;
-
-            const sameLook = (existing?.color ?? defaultColor()) === terrain.color
-                && (existing?.inner ?? '') === (terrain.inner ?? '');
-            if (sameLook) return;
-
-            if (existing?.author && existing.author !== state.username) {
-                endGestures();
-                openOverrideModal(key, existing.author);
-                return;
+            const me = state.username;
+            if (brush.kind === 'terrain') {
+                if (terrainOf(existing) === brush.id) return;
+                if (existing?.terrain && existing.author && existing.author !== me) {
+                    return askOverride(key, brush, existing.author, 'un terrain');
+                }
+            } else if (brush.kind === 'object') {
+                if (!objectAllowed(brush.id, terrainOf(existing))) return rejectObject(brush.id);
+                if (existing?.object === brush.id) return;
+                if (existing?.object && existing.objectAuthor && existing.objectAuthor !== me) {
+                    return askOverride(key, brush, existing.objectAuthor, 'un objet');
+                }
+            } else {
+                if (!existing?.object) return;
+                if (existing.objectAuthor && existing.objectAuthor !== me) {
+                    return askOverride(key, brush, existing.objectAuthor, 'un objet');
+                }
             }
-            applyPaint(key, terrain);
+            applyBrush(key, brush);
         }
 
         function clearPendingTap() {
@@ -1359,17 +1710,15 @@
             pendingTap = null;
         }
 
-        // Mode peindre, toucher initial : un double toucher sur une flèche la fait tourner d'un sixième de tour.
-        // Sur une case à flèche, la peinture d'un simple toucher est retardée pour laisser le temps du second toucher.
+        // Mode peindre, toucher initial : un double toucher sur un objet orienté le fait pivoter d'un cran
+        // (1/6 de tour). Sur ces cases, la peinture d'un simple toucher est retardée pour laisser le temps du second.
         function handlePaintDown(clientX, clientY) {
             if (state.isLocked) return;
             const key = tileKeyAt(clientX, clientY);
             if (!key) return;
 
-            const tile = state.gridData[key];
-            const hasArrow = Number.isInteger(tile?.arrow) && !tile.removed;
-
-            if (!hasArrow) {
+            const rotatable = objectTurns(state.gridData[key]) > 1;
+            if (!rotatable) {
                 clearPendingTap();
                 paintTile(key);
                 return;
@@ -1377,7 +1726,8 @@
 
             if (pendingTap?.key === key) {
                 clearPendingTap();
-                socket?.emit('rotate-arrow', { key });
+                resetIdleTimer();
+                socket?.emit('rotate-object', { key });
                 return;
             }
 
@@ -1405,15 +1755,6 @@
             socket?.emit('edit-tiles', { keys: [key], action: 'restore' });
         }
 
-        // Ouvert à tous. Toucher : ajoute la flèche ou la retire. Glisser : ajoute seulement.
-        function toggleArrow(key, existing, isDrag) {
-            if (existing?.removed) return;
-            const hasArrow = Number.isInteger(existing?.arrow);
-            if (hasArrow && isDrag) return;
-            socket?.emit('arrow-tile', { key, remove: hasArrow });
-        }
-
-        // Admin uniquement : marquer / démarquer (glisser pour marquer plusieurs cases).
         function markTile(key, existing) {
             if (!state.isAdmin || existing?.removed || existing?.mark === state.activeMark) return;
             socket?.emit('edit-tiles', { keys: [key], action: 'mark', mark: state.activeMark });
@@ -1424,7 +1765,7 @@
             socket?.emit('edit-tiles', { keys: [key], action: 'unmark' });
         }
 
-        function useToolAt(clientX, clientY, isDrag) {
+        function useToolAt(clientX, clientY) {
             if (state.isLocked || state.mode === 'move' || state.mode === 'select') return;
 
             const key = tileKeyAt(clientX, clientY);
@@ -1434,7 +1775,6 @@
             switch (state.mode) {
                 case 'erase': return removeTile(key, existing);
                 case 'restore': return restoreTile(key, existing);
-                case 'arrow': return toggleArrow(key, existing, isDrag);
                 case 'mark': return markTile(key, existing);
                 case 'unmark': return unmarkTile(key, existing);
                 default: return paintTile(key);
@@ -1442,18 +1782,17 @@
         }
 
         $('btnConfirmOverride').addEventListener('click', () => {
-            const terrain = activeTerrain();
-            if (pendingTileKey && terrain && !state.isLocked) applyPaint(pendingTileKey, terrain);
-            pendingTileKey = null;
+            if (pendingOverride && !state.isLocked) applyBrush(pendingOverride.key, pendingOverride.brush);
+            pendingOverride = null;
             el.overrideModal.hidden = true;
         });
 
         $('btnCancelOverride').addEventListener('click', () => {
-            pendingTileKey = null;
+            pendingOverride = null;
             el.overrideModal.hidden = true;
         });
 
-        /* ---------- Sélection par rectangle (admin) ---------- */
+        /* ---------- Sélection par rectangle (MJ) ---------- */
 
         function selectTilesInRect(rect) {
             const left = Math.min(rect.x1, rect.x2);
@@ -1555,7 +1894,7 @@
             } else if (state.mode === 'paint') {
                 handlePaintDown(e.clientX, e.clientY);
             } else {
-                useToolAt(e.clientX, e.clientY, false);
+                useToolAt(e.clientX, e.clientY);
             }
         });
 
@@ -1573,7 +1912,7 @@
                         requestDraw();
                     }
                 } else if (state.mode !== 'move' && !state.isLocked && !gesture.panOnly) {
-                    useToolAt(e.clientX, e.clientY, true);
+                    useToolAt(e.clientX, e.clientY);
                 } else {
                     view.panX = e.clientX - gesture.startX;
                     view.panY = e.clientY - gesture.startY;
@@ -1647,11 +1986,12 @@
                 state.cols = data.config?.cols ?? 10;
                 state.rows = data.config?.rows ?? 8;
                 state.isLocked = Boolean(data.isLocked);
-                state.terrains = data.terrains || [];
+                state.terrains = mergeTerrains(data.terrains);
                 updateUsers(data.users || []);
 
                 updateLockUI();
-                renderTerrains();
+                renderPalette();
+                renderTerrainEditor();
 
                 if (isMapActive()) {
                     if (sizeChanged) centerMap();
@@ -1661,12 +2001,11 @@
 
             socket.on('update-users-list', updateUsers);
 
+            // Les cases référencent leur terrain par son nom : elles prennent la nouvelle couleur sans autre mise à jour.
             socket.on('update-terrains', (terrains) => {
-                // Les joueurs gardent le même terrain sélectionné (même position dans la légende) si l'admin le modifie.
-                const activeIndex = state.terrains.findIndex((t) => terrainKey(t) === state.activeKey);
-                state.terrains = terrains;
-                if (activeIndex >= 0 && terrains[activeIndex]) state.activeKey = terrainKey(terrains[activeIndex]);
-                renderTerrains();
+                state.terrains = mergeTerrains(terrains);
+                renderPalette();
+                renderTerrainEditor();
                 requestDraw();
             });
 
@@ -1702,7 +2041,6 @@
                 clearSession();
                 state.username = '';
                 state.isAdmin = false;
-                leaveFullscreen();
                 applyRole();
                 showLoginError(message);
                 showPage('login');
@@ -1715,6 +2053,7 @@
 
         applyRole();
         renderMaps();
+        renderPalette();
         if (!socket) showLoginError('Impossible de joindre le serveur.');
         else if (loadSession()) showLoginError('Reconnexion en cours…', false);
     })();
