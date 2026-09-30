@@ -21,6 +21,10 @@ const MAPS_DIR = path.join(DATA_DIR, 'maps');
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const LEGACY_FILE = path.join(__dirname, 'data.json');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+const BACKGROUND_FILE = path.join(DATA_DIR, 'background.json');
+const BACKGROUND_MAX_BYTES = 3 * 1024 * 1024; // image de fond de la page de connexion
+const HISTORY_MAX_BATCHES = 100; // annuler / rétablir : 100 actions par joueur
+const HISTORY_MAX_ENTRIES = 30000;
 
 const LIMITS = {
     minSize: 2,
@@ -40,8 +44,8 @@ const LOGIN_BLOCK_MS = 60 * 1000;
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const MAP_ID = /^[a-z0-9-]{1,64}$/;
-const MARKS = new Set(['square', 'triangle', 'diamond', 'cross']);
-const EDIT_ACTIONS = new Set(['terrain', 'object', 'clear-object', 'remove', 'restore', 'mark', 'unmark']);
+const MARKS = new Set(['square', 'triangle', 'diamond', 'cross', 'disc', 'x']);
+const EDIT_ACTIONS = new Set(['terrain', 'object', 'remove', 'restore', 'mark', 'unmark']);
 const ADMIN_NAME = 'mj';
 
 // Terrains : liste fixe, seules les couleurs sont modifiables par l'admin. La plaine est le terrain par défaut.
@@ -176,14 +180,13 @@ function editTile(tile, action, options, author) {
     switch (action) {
         case 'terrain': {
             const { terrain } = options;
-            if (removed || (tile?.terrain ?? 'plain') === terrain) return undefined; // case supprimée : non coloriable
+            if (removed) return undefined; // une case supprimée ne peut pas être coloriée
+            // Poser une tuile de terrain remplace la tuile : l'objet éventuel disparaît, même si le terrain est identique.
+            if ((tile?.terrain ?? 'plain') === terrain && !tile?.object) return undefined;
             const next = { ...tile, terrain, author };
-            // Un objet qui n'a plus de sens sur le nouveau terrain disparaît (ex. un pont hors de l'eau).
-            if (next.object && !objectAllowed(next.object, terrain)) {
-                delete next.object;
-                delete next.dir;
-                delete next.objectAuthor;
-            }
+            delete next.object;
+            delete next.dir;
+            delete next.objectAuthor;
             return next;
         }
         case 'object': {
@@ -193,11 +196,6 @@ function editTile(tile, action, options, author) {
             if (OBJECT_RULES[object].turns > 1) next.dir = 0;
             else delete next.dir;
             return next;
-        }
-        case 'clear-object': {
-            if (removed || !tile?.object) return undefined;
-            const { object, dir, objectAuthor, ...rest } = tile;
-            return keepOrNull(rest);
         }
         case 'rotate': {
             const turns = isObjectId(tile?.object) ? OBJECT_RULES[tile.object].turns : 1;
@@ -302,6 +300,23 @@ const fileStorage = {
         }
     },
 
+    async loadBackground() {
+        const raw = readJson(BACKGROUND_FILE);
+        if (!raw?.image) return null;
+        return { buffer: Buffer.from(raw.image, 'base64'), version: raw.version || 1 };
+    },
+    async saveBackground(bg) {
+        if (!bg) {
+            try {
+                fs.unlinkSync(BACKGROUND_FILE);
+            } catch (err) {
+                if (err.code !== 'ENOENT') throw err;
+            }
+            return;
+        }
+        writeJsonAtomic(BACKGROUND_FILE, { version: bg.version, image: bg.buffer.toString('base64') });
+    },
+
     sessionsCache: null,
     async loadSessions() {
         this.sessionsCache = readJson(SESSIONS_FILE) || {};
@@ -391,6 +406,25 @@ function createSupabaseStorage() {
             check(await db.from('saved_maps').delete().eq('id', id));
         },
 
+        async loadBackground() {
+            const res = await db.from('app_state').select('data').eq('id', 'background').maybeSingle();
+            check(res);
+            const data = res.data?.data;
+            if (!data?.image) return null;
+            return { buffer: Buffer.from(data.image, 'base64'), version: data.version || 1 };
+        },
+        async saveBackground(bg) {
+            if (!bg) {
+                check(await db.from('app_state').delete().eq('id', 'background'));
+                return;
+            }
+            check(await db.from('app_state').upsert({
+                id: 'background',
+                data: { version: bg.version, image: bg.buffer.toString('base64') },
+                updated_at: new Date().toISOString()
+            }));
+        },
+
         async loadSessions() {
             check(await db.from('sessions').delete().lt('last_seen', Date.now() - SESSION_TTL_MS));
             const res = await db.from('sessions').select('*');
@@ -424,6 +458,7 @@ const storage = SUPABASE_URL && SUPABASE_KEY ? createSupabaseStorage() : fileSto
 /* ------------------------------------------------------------------ */
 
 let state = null; // chargé au démarrage
+let background = null; // { buffer, version } : image de fond de la page de connexion
 let saveTimer = null;
 let saveChain = Promise.resolve();
 
@@ -542,9 +577,16 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Image de fond de la page de connexion ; le numéro de version dans l'adresse permet un cache durable.
+app.get('/background.jpg', (req, res) => {
+    if (!background) return res.status(404).end();
+    res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable' });
+    return res.send(background.buffer);
+});
+
 const server = http.createServer(app);
 // Délais plus larges : un téléphone en veille ne doit pas être considéré comme déconnecté trop vite.
-const io = new Server(server, { pingInterval: 20000, pingTimeout: 60000 });
+const io = new Server(server, { pingInterval: 20000, pingTimeout: 60000, maxHttpBufferSize: 6e6 });
 
 function connectedUsers() {
     const names = [];
@@ -572,22 +614,78 @@ function requireAdmin(socket, ack) {
     return false;
 }
 
-// Applique une action sur des cases, sauvegarde et diffuse uniquement ce qui a changé.
+// Historique annuler / rétablir : un par joueur (en mémoire, perdu au redémarrage du serveur).
+const histories = new Map(); // pseudo -> { undo: [lot], redo: [lot] } ; lot = [{ key, before, after }] (JSON)
+
+function historyOf(name) {
+    if (!histories.has(name)) histories.set(name, { undo: [], redo: [] });
+    return histories.get(name);
+}
+
+function recordHistory(name, batch) {
+    const history = historyOf(name);
+    history.undo.push(batch);
+    history.redo = [];
+    let total = history.undo.reduce((sum, b) => sum + b.length, 0);
+    while (history.undo.length > HISTORY_MAX_BATCHES || (total > HISTORY_MAX_ENTRIES && history.undo.length > 1)) {
+        total -= history.undo.shift().length;
+    }
+}
+
+// Rejoue un lot en sens inverse. Une case modifiée depuis par quelqu'un d'autre est laissée telle quelle.
+function replayBatch(grid, batch) {
+    const changes = {};
+    const inverse = [];
+    for (const { key, before, after } of batch) {
+        if (JSON.stringify(grid[key] ?? null) !== after) continue;
+        const tile = JSON.parse(before);
+        if (tile) grid[key] = tile;
+        else delete grid[key];
+        changes[key] = tile;
+        inverse.push({ key, before: after, after: before });
+    }
+    return { changes, inverse };
+}
+
+// Applique une action sur des cases, sauvegarde, diffuse uniquement ce qui a changé et l'inscrit dans l'historique.
 function applyEdits(keys, action, options, author) {
     const changes = {};
+    const batch = [];
     for (const key of new Set(keys)) {
         if (!isValidKey(key, state.config)) continue;
-        const next = editTile(state.gridData[key], action, options, author);
+        const previous = state.gridData[key];
+        const next = editTile(previous, action, options, author);
         if (next === undefined) continue;
 
         if (next === null) delete state.gridData[key];
         else state.gridData[key] = next;
         changes[key] = next;
+        batch.push({ key, before: JSON.stringify(previous ?? null), after: JSON.stringify(next) });
     }
-    if (Object.keys(changes).length > 0) {
+    if (batch.length > 0) {
+        recordHistory(author, batch);
         scheduleSave();
         broadcastTiles(changes);
     }
+}
+
+function runHistory(socket, ack, from, to) {
+    if (!socket.data.name) return reply(ack, { success: false, message: 'Connectez-vous d’abord.' });
+    if (state.isLocked) return reply(ack, { success: false, message: 'Le plateau est verrouillé.' });
+
+    const history = historyOf(socket.data.name);
+    const batch = history[from].pop();
+    if (!batch) return reply(ack, { success: false, message: from === 'undo' ? 'Rien à annuler.' : 'Rien à rétablir.' });
+
+    const { changes, inverse } = replayBatch(state.gridData, batch);
+    if (inverse.length === 0) {
+        return reply(ack, { success: false, message: 'Ces cases ont été modifiées par quelqu’un d’autre : impossible.' });
+    }
+    history[to].push(inverse);
+    scheduleSave();
+    broadcastTiles(changes);
+    const label = from === 'undo' ? 'Annulé' : 'Rétabli';
+    return reply(ack, { success: true, message: `${label} (${inverse.length} case${inverse.length > 1 ? 's' : ''}).` });
 }
 
 // Évite qu'une erreur de stockage ne fasse tomber le serveur : le client reçoit un message clair.
@@ -608,7 +706,8 @@ io.on('connection', (socket) => {
         gridData: state.gridData,
         terrains: state.terrainsList,
         users: connectedUsers(),
-        isLocked: state.isLocked
+        isLocked: state.isLocked,
+        backgroundVersion: background?.version ?? 0
     });
 
     /* ---------- Connexion ---------- */
@@ -708,8 +807,6 @@ io.on('connection', (socket) => {
         } else if (data.kind === 'object' && isObjectId(data.id)) {
             action = 'object';
             options.object = data.id;
-        } else if (data.kind === 'clear-object') {
-            action = 'clear-object';
         } else {
             return;
         }
@@ -779,10 +876,43 @@ io.on('connection', (socket) => {
         await createAutoBackup('nouvelle carte', socket.data.name);
         state.config = config;
         state.gridData = {}; // toutes les cases redeviennent des plaines
+        histories.clear();
         await saveNow();
         io.emit('update-config', { config: state.config, gridData: state.gridData });
         broadcastMaps();
         reply(ack, { success: true, message: 'Nouvelle carte créée. L’ancienne a été sauvegardée automatiquement.' });
+    }));
+
+    /* ---------- Annuler / rétablir (chacun ses propres modifications) ---------- */
+
+    socket.on('undo', (payload, ack) => runHistory(socket, ack, 'undo', 'redo'));
+    socket.on('redo', (payload, ack) => runHistory(socket, ack, 'redo', 'undo'));
+
+    /* ---------- Image de fond de la page de connexion (MJ) ---------- */
+
+    socket.on('set-background', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+
+        const match = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(payload?.dataUrl ?? ''));
+        if (!match) return reply(ack, { success: false, message: 'Image invalide (JPEG attendu).' });
+
+        const buffer = Buffer.from(match[1], 'base64');
+        if (buffer.length > BACKGROUND_MAX_BYTES || buffer[0] !== 0xFF || buffer[1] !== 0xD8) {
+            return reply(ack, { success: false, message: 'Image trop lourde ou illisible.' });
+        }
+
+        background = { buffer, version: Date.now() };
+        await storage.saveBackground(background);
+        io.emit('update-background', { version: background.version });
+        reply(ack, { success: true, message: 'Image de fond enregistrée.' });
+    }));
+
+    socket.on('clear-background', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        background = null;
+        await storage.saveBackground(null);
+        io.emit('update-background', { version: 0 });
+        reply(ack, { success: true, message: 'Image de fond retirée.' });
     }));
 
     /* ---------- Cartes enregistrées ---------- */
@@ -831,6 +961,7 @@ io.on('connection', (socket) => {
 
         state.config = config;
         state.gridData = gridData;
+        histories.clear();
         if (terrains) state.terrainsList = terrains;
         await saveNow();
 
@@ -895,6 +1026,8 @@ async function start() {
 
     state = normalizeState(raw);
     await storage.saveState(state);
+
+    background = await storage.loadBackground();
 
     for (const meta of await storage.listMaps()) mapsIndex.set(meta.id, meta);
     console.log(`🗺️  ${mapsIndex.size} carte(s) enregistrée(s).`);
