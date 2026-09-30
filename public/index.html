@@ -12,7 +12,25 @@
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" type="image/png" href="/icon-192.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Diagnostic : si le script principal ne démarre pas (fichier incomplet, erreur), un bandeau rouge l'indique.
+        (function () {
+            var errors = [];
+            window.addEventListener('error', function (e) {
+                errors.push((e.message || 'erreur') + (e.lineno ? ' (ligne ' + e.lineno + ')' : ''));
+            });
+            window.addEventListener('load', function () {
+                setTimeout(function () {
+                    if (window.__hexReady) return;
+                    var box = document.createElement('div');
+                    box.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:999;background:#c0392b;color:#fff;padding:12px;font:14px sans-serif;text-align:center';
+                    box.textContent = 'La page n’a pas démarré : ' + (errors[0] || 'script incomplet ou absent') + '. Vérifiez que index.html est complet sur GitHub, puis redéployez.';
+                    document.body.appendChild(box);
+                }, 1500);
+            });
+        })();
+    </script>
+    <script src="/socket.io/socket.io.js" defer></script>
     <style>
         :root {
             --bg: #f0f2f5;
@@ -393,7 +411,7 @@
         const rad = (degrees) => (degrees * Math.PI) / 180;
         const brushKey = (brush) => `${brush.kind}:${brush.id ?? ''}`;
 
-        const socket = typeof io !== 'undefined' ? io() : null;
+        let socket = null; // créé par connectSocket() une fois socket.io chargé
 
         const state = {
             username: '',
@@ -685,7 +703,7 @@
         function handleLogin() {
             const name = el.username.value.trim();
             if (!name) return;
-            if (!socket) return showLoginError('Connexion au serveur impossible.');
+            if (!socket) return showLoginError('Connexion au serveur en cours, patientez quelques secondes…', false);
             authenticate({ name, password: el.password.value }, false);
         }
 
@@ -2144,4 +2162,126 @@
 
         el.canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
-            const
+            const rect = el.canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const newScale = clamp(view.scale * (e.deltaY < 0 ? 1.1 : 0.9), MIN_SCALE, MAX_SCALE);
+            const ratio = newScale / view.scale;
+            view.panX = mouseX - (mouseX - view.panX) * ratio;
+            view.panY = mouseY - (mouseY - view.panY) * ratio;
+            view.scale = newScale;
+            requestDraw();
+        }, { passive: false });
+
+        /* ============================================================ */
+        /* Événements serveur                                            */
+        /* ============================================================ */
+
+        function attachSocket() {
+            socket.on('connect', () => {
+                // À chaque (re)connexion, on reprend la session enregistrée : plus besoin de se reconnecter à la main.
+                const saved = loadSession();
+                if (saved) authenticate({ token: saved.token }, Boolean(state.username));
+            });
+
+            socket.on('init', (data) => {
+                const sizeChanged = data.config && (data.config.cols !== state.cols || data.config.rows !== state.rows);
+
+                state.gridData = data.gridData || {};
+                state.cols = data.config?.cols ?? 10;
+                state.rows = data.config?.rows ?? 8;
+                state.isLocked = Boolean(data.isLocked);
+                state.terrains = mergeTerrains(data.terrains);
+                updateUsers(data.users || []);
+                applyBackground(data.backgroundVersion || 0);
+
+                updateLockUI();
+                renderPalette();
+                renderTerrainEditor();
+
+                if (isMapActive()) {
+                    if (sizeChanged) centerMap();
+                    else requestDraw();
+                }
+            });
+
+            socket.on('update-users-list', updateUsers);
+            socket.on('update-background', ({ version }) => applyBackground(version));
+
+            // Les cases référencent leur terrain par son nom : elles prennent la nouvelle couleur sans autre mise à jour.
+            socket.on('update-terrains', (terrains) => {
+                state.terrains = mergeTerrains(terrains);
+                renderPalette();
+                renderTerrainEditor();
+                requestDraw();
+            });
+
+            socket.on('update-lock', (locked) => {
+                state.isLocked = Boolean(locked);
+                updateLockUI();
+            });
+
+            // Modifications de cases : { clé: case } ; null signifie que la case revient à l'état vierge (plaine).
+            socket.on('update-tiles', ({ changes }) => {
+                for (const [key, tile] of Object.entries(changes || {})) {
+                    if (tile) state.gridData[key] = tile;
+                    else delete state.gridData[key];
+                }
+                requestDraw();
+            });
+
+            socket.on('update-config', ({ config, gridData }) => {
+                state.cols = config.cols;
+                state.rows = config.rows;
+                state.gridData = gridData || {};
+                state.selection.clear();
+                updateSelectionInfo();
+                if (isMapActive()) centerMap();
+            });
+
+            socket.on('maps-list', (maps) => {
+                state.maps = maps;
+                renderMaps();
+            });
+
+            socket.on('kicked', (message) => {
+                clearSession();
+                state.username = '';
+                state.isAdmin = false;
+                applyRole();
+                showLoginError(message);
+                showPage('login');
+            });
+        }
+
+        /* ============================================================ */
+        /* Démarrage                                                     */
+        /* ============================================================ */
+
+        // Connexion au serveur : si socket.io tarde (serveur qui se réveille), on réessaie sans bloquer la page.
+        function connectSocket(attempt = 0) {
+            if (typeof io !== 'undefined') {
+                socket = io();
+                attachSocket();
+                return;
+            }
+            if (attempt >= 30) return showLoginError('Impossible de joindre le serveur. Rechargez la page.');
+            showLoginError('Connexion au serveur en cours…', false);
+            const script = document.createElement('script');
+            script.src = `/socket.io/socket.io.js?essai=${attempt}`;
+            script.onload = () => connectSocket(attempt + 1);
+            script.onerror = () => setTimeout(() => connectSocket(attempt + 1), 3000);
+            document.head.appendChild(script);
+        }
+
+        applyRole();
+        renderMaps();
+        renderPalette();
+        if (loadSession()) showLoginError('Reconnexion en cours…', false);
+        document.addEventListener('DOMContentLoaded', () => connectSocket());
+        window.__hexReady = true;
+    })();
+    </script>
+</body>
+</html>
