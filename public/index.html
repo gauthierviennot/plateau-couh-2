@@ -256,14 +256,16 @@
    <div id="palTerrains" class="pal pal-terrains" role="toolbar" aria-label="Terrains"></div>
    <div id="palObjects" class="pal pal-objects" role="toolbar" aria-label="Objets"></div>
    <div id="palMarks" class="pal pal-marks admin-only" role="toolbar" aria-label="Marqueurs" hidden></div>
-   <div id="palTools" class="pal pal-tools" role="toolbar" aria-label="Outils de modification">
-    <button id="btnSelect" class="btn-round admin-only" title="Sélectionner une zone" aria-label="Sélectionner une zone avec un rectangle" hidden>⛶</button>
-    <button id="btnErase" class="btn-round admin-only" title="Supprimer des tuiles" aria-label="Supprimer des tuiles" hidden>✂️</button>
-    <button id="btnRestore" class="btn-tile-add admin-only" title="Ajouter des tuiles" aria-label="Ajouter des tuiles" hidden>★</button>
+   <div id="palTools" class="pal pal-tools admin-only" role="toolbar" aria-label="Outils du MJ" hidden>
+    <button id="btnSelect" class="btn-round" title="Sélectionner une zone" aria-label="Sélectionner une zone avec un rectangle">⛶</button>
+    <button id="btnErase" class="btn-round" title="Supprimer des tuiles" aria-label="Supprimer des tuiles">✂️</button>
+    <button id="btnRestore" class="btn-tile-add" title="Ajouter des tuiles" aria-label="Ajouter des tuiles">★</button>
     <div id="selectionInfo" class="selection-info" hidden>
      <span id="selectionCount"></span>
      <button id="btnSelClear" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
     </div>
+   </div>
+   <div id="palHistory" class="pal pal-history" role="toolbar" aria-label="Annuler et rétablir">
     <button id="btnUndo" class="btn-round" title="Annuler" aria-label="Annuler ma dernière modification">↶</button>
     <button id="btnRedo" class="btn-round" title="Rétablir" aria-label="Rétablir la modification annulée">↷</button>
    </div>
@@ -363,7 +365,7 @@
      <li><strong>Appui long sur la carte</strong> en mode déplacer : les sélecteurs se déplient et le mode peindre s'active. Un nouvel appui long en mode peindre les replie et ramène au mode déplacer.</li>
      <li><strong>Double toucher</strong> sur un objet orienté (pont, muret, mur de fortification), en mode déplacer ou peindre : il pivote d'un sixième de tour et le mode peindre s'active.</li>
      <li><strong>Appui long sur un sélecteur</strong>, puis glisser : le poser où vous voulez sur un bord de l'écran.</li>
-     <li><strong>Annuler / rétablir</strong> font partie des outils de modification : ils apparaissent avec les sélecteurs de peinture.</li>
+     <li><strong>Annuler / rétablir</strong> forment un sélecteur à part, qui se déplie avec les sélecteurs de peinture. Le bouclier est vert à l'ouverture de la carte : les autres doivent confirmer pour modifier vos tuiles.</li>
     </ul>
     <label class="help-check"><input type="checkbox" id="helpNever"> Ne plus afficher ce message</label>
     <div class="modal-actions">
@@ -511,6 +513,7 @@
             palObjects: $('palObjects'),
             palMarks: $('palMarks'),
             palTools: $('palTools'),
+            palHistory: $('palHistory'),
             printBanner: $('printBanner'),
             compass: $('btnCompass'),
             compassDial: $('compassDial'),
@@ -758,6 +761,7 @@
             resizeCanvas();
             centerMap();
             requestLayout();
+            activateProtection();
             showHelpIfNeeded();
         }
 
@@ -1454,7 +1458,8 @@
             el.palTerrains.hidden = locked;
             el.palObjects.hidden = locked;
             el.palMarks.hidden = locked || !state.isAdmin;
-            el.palTools.hidden = locked; // annuler / rétablir pour tous ; sélection, supprimer, ajouter réservés au MJ (boutons admin-only)
+            el.palTools.hidden = locked || !state.isAdmin;
+            el.palHistory.hidden = locked;
             requestLayout();
 
             if (locked || (!state.isAdmin && ADMIN_MODES.has(state.mode))) setMode('move');
@@ -1517,12 +1522,13 @@
             terrains: el.palTerrains,
             objects: el.palObjects,
             marks: el.palMarks,
-            tools: el.palTools, // outils de modification : sélection, supprimer, ajouter (MJ) + annuler / rétablir (tous)
+            tools: el.palTools, // outils du MJ : sélection au rectangle, supprimer, ajouter des tuiles
+            history: el.palHistory, // annuler / rétablir (tous)
             protect: el.palProtect
         };
-        const FOLDING = ['terrains', 'objects', 'marks', 'tools']; // se replient en mode déplacer
+        const FOLDING = ['terrains', 'objects', 'marks', 'tools', 'history']; // se replient en mode déplacer
         const EDGES = ['left', 'right', 'top', 'bottom'];
-        const DEFAULT_DOCK = { left: ['terrains'], top: ['objects'], right: ['tools'], bottom: ['marks', 'protect'] };
+        const DEFAULT_DOCK = { left: ['terrains'], top: ['objects'], right: ['tools', 'history'], bottom: ['marks', 'protect'] };
         const PANEL_GAP = 4; // espace entre deux boutons d'un sélecteur
         const PANEL_CHROME = 12; // marges internes et bordures d'un sélecteur
         const PANEL_SPACE = 6; // espace minimal entre deux sélecteurs d'un même bord
@@ -1737,6 +1743,7 @@
             set('objects', brushMode && kind === 'object');
             set('marks', brushMode && (kind === 'mark' || kind === 'unmark'));
             set('tools', mode === 'select' || mode === 'erase' || mode === 'restore');
+            set('history', false);
             set('protect', false);
         }
 
@@ -1854,6 +1861,15 @@
         /* ============================================================ */
 
         const myProtection = () => state.protection[state.username];
+
+        // À l'ouverture de la carte, la protection est toujours active (bouclier vert) :
+        // les autres joueurs doivent confirmer pour modifier vos tuiles.
+        function activateProtection() {
+            const rule = myProtection() ?? { on: true, clearedAt: 0 };
+            state.protection[state.username] = { ...rule, on: true };
+            socket?.emit('set-protection', { on: true });
+            updateProtectUI();
+        }
 
         function updateProtectUI() {
             const on = myProtection()?.on !== false;
