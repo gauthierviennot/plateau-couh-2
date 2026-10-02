@@ -1,18 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-    <title>Couhé Warhamer Battlefield</title>
-    <meta name="theme-color" content="#2c3e50">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Plateau">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="icon" type="image/png" href="/icon-192.png">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <script>
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>Couhé Warhamer Battlefield</title>
+  <meta name="theme-color" content="#2c3e50">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Plateau">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <script>
         // Diagnostic : si le script principal ne démarre pas (fichier incomplet, erreur), un bandeau rouge l'indique.
         (function () {
             var errors = [];
@@ -30,8 +30,8 @@
             });
         })();
     </script>
-    <script src="/socket.io/socket.io.js" defer></script>
-    <style>
+  <script src="/socket.io/socket.io.js" defer></script>
+  <style>
         :root {
             --bg: #f0f2f5;
             --dark: #2c3e50;
@@ -169,6 +169,7 @@
         .btn-round.quit { background: var(--red); color: #fff; }
         .btn-round.active { outline: 2px solid var(--dark); background: #ffeaa7; }
         .btn-round.on { background: #d6f5e3; outline: 2px solid var(--green); }
+        .btn-round.off { background: var(--red); color: #fff; outline: 2px solid #b03a2e; }
         .btn-round:disabled { opacity: .45; }
         .btn-compass { width: 32px; height: 32px; border: none; border-radius: 50%; background: #fff; padding: 0; box-shadow: 0 2px 6px rgba(0,0,0,.25); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-compass svg { width: 28px; height: 28px; transition: transform .25s ease; pointer-events: none; }
@@ -206,204 +207,179 @@
         .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; max-width: 90vw; padding: 10px 16px; border-radius: 8px; background: var(--dark); color: #fff; font-size: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,.3); pointer-events: none; text-align: center; }
         .toast.error { background: var(--red); }
     </style>
-</head>
-<body>
-
-    <!-- Connexion -->
-    <main id="pageLogin" class="page active">
-        <button id="btnClose" class="btn-close" title="Fermer" aria-label="Fermer l'application">✖</button>
-        <div class="login-card">
-            <h1>Couhé Warhamer Battlefield</h1>
-            <input type="text" id="usernameInput" placeholder="Entrez votre pseudo" maxlength="15" autocomplete="off" autofocus>
-            <input type="password" id="passwordInput" placeholder="Code secret" autocomplete="current-password" hidden>
-            <p id="loginError" class="error" role="alert" hidden></p>
-            <button id="btnLogin" class="btn btn-primary">Rejoindre</button>
-            <button id="btnInstall" class="btn btn-dark" hidden>📲 Installer sur l'écran d'accueil</button>
-            <p id="iosHint" class="install-hint" hidden>Sur iPhone : touchez « Partager » puis « Sur l'écran d'accueil » pour installer l'application en plein écran.</p>
-            <div class="presence">
-                <div class="presence-title">En ligne</div>
-                <div id="presenceOnline" class="presence-list"></div>
-                <div class="presence-title">Hors ligne · ont modifié la carte</div>
-                <div id="presenceOffline" class="presence-list"></div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Tableau de bord : réservé au MJ -->
-    <main id="pageDashboard" class="page">
-        <div class="dashboard-card">
-            <div class="dashboard-header">
-                <h2 id="welcomeUser">MJ</h2>
-                <div class="header-actions">
-                    <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
-                    <button id="btnLogout" class="btn btn-secondary">Déconnexion</button>
-                </div>
-            </div>
-
-            <div class="section-title">Couleurs des terrains</div>
-            <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain. Les objets se posent sur le terrain : forêt, tours fortes, murs de fortification, maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
-            <div id="terrainContainer" class="terrain-palette"></div>
-
-            <div class="section-title">Image de fond de la page de connexion</div>
-            <p class="hint">Elle sera visible par tous les joueurs sur la première page.</p>
-            <div class="add-row">
-                <button id="btnPickBackground" class="btn btn-primary">🖼️ Choisir une image</button>
-                <button id="btnClearBackground" class="btn btn-secondary">Retirer</button>
-                <input type="file" id="backgroundInput" accept="image/*" hidden>
-            </div>
-
-            <button id="btnGo" class="btn-go">🚀 Ouvrir la carte</button>
-        </div>
-    </main>
-
-    <!-- Carte -->
-    <main id="pageMap" class="page">
-        <div id="miniOnlineUsers" class="mini-user-list" aria-label="Personnes connectées"></div>
-        <div id="palTerrains" class="pal pal-terrains" role="toolbar" aria-label="Terrains"></div>
-        <div id="palObjects" class="pal pal-objects" role="toolbar" aria-label="Objets"></div>
-        <div id="palMarks" class="pal pal-marks admin-only" role="toolbar" aria-label="Marqueurs" hidden></div>
-        <div id="palTools" class="pal pal-tools admin-only" role="toolbar" aria-label="Outils du MJ" hidden>
-            <button id="btnSelect" class="btn-round" title="Sélectionner une zone" aria-label="Sélectionner une zone avec un rectangle">⛶</button>
-            <button id="btnErase" class="btn-round" title="Supprimer des tuiles" aria-label="Supprimer des tuiles">✂️</button>
-            <button id="btnRestore" class="btn-tile-add" title="Ajouter des tuiles" aria-label="Ajouter des tuiles">★</button>
-            <div id="selectionInfo" class="selection-info" hidden>
-                <span id="selectionCount"></span>
-                <button id="btnSelClear" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
-            </div>
-        </div>
-        <div id="palHistory" class="pal pal-history" role="toolbar" aria-label="Historique">
-            <button id="btnUndo" class="btn-round" title="Annuler" aria-label="Annuler ma dernière modification">↶</button>
-            <button id="btnRedo" class="btn-round" title="Rétablir" aria-label="Rétablir la modification annulée">↷</button>
-        </div>
-        <div id="palProtect" class="pal pal-protect" role="toolbar" aria-label="Protection de mes modifications">
-            <button id="btnProtect" class="btn-round on" title="Protection active" aria-label="Protection de mes modifications">🛡️</button>
-            <button id="btnRelease" class="btn-round" title="Libérer définitivement mes modifications" aria-label="Libérer définitivement mes modifications">🏳️</button>
-        </div>
-
-        <div id="printBanner" class="print-banner" hidden>
-            <span>Tracez la zone à imprimer</span>
-            <button id="btnPrintBannerCancel" class="btn btn-secondary btn-small">Annuler</button>
-        </div>
-
-        <div id="stackBr" class="stack-br">
-            <button id="btnCompass" class="btn-compass" title="Boussole : toucher pour pivoter de 90°, maintenir pour remettre le nord en haut" aria-label="Boussole : pivoter la carte de 90 degrés">
-                <svg id="compassDial" viewBox="0 0 48 48" aria-hidden="true">
-                    <circle cx="24" cy="24" r="21" fill="#ffffff" stroke="#2c3e50" stroke-width="2.5"/>
-                    <text x="24" y="12" font-size="9" font-weight="700" text-anchor="middle" fill="#2c3e50">N</text>
-                    <polygon points="24,15 29,25 19,25" fill="#e74c3c"/>
-                    <polygon points="24,35 29,25 19,25" fill="#7f8c8d"/>
-                    <circle cx="24" cy="25" r="2" fill="#2c3e50"/>
-                </svg>
-            </button>
-            <button id="btnExport" class="btn-round" title="Imprimer (JPEG A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
-            <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
-            <button id="btnExitMap" class="btn-round quit" title="Quitter" aria-label="Quitter">🚪</button>
-        </div>
-
-        <canvas id="hexCanvas" class="board"></canvas>
-
-        <div id="overrideModal" class="modal-overlay" hidden>
-            <div class="modal-content">
-                <h3>Remplacer ?</h3>
-                <p id="overrideMessage"></p>
-                <div class="modal-actions">
-                    <button id="btnCancelOverride" class="btn btn-secondary">Annuler</button>
-                    <button id="btnConfirmOverride" class="btn btn-danger">Confirmer</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="paletteTooltip" class="palette-tooltip" hidden></div>
-    </main>
-
-    <!-- Impression -->
-    <div id="printModal" class="modal-overlay" hidden>
-        <div class="modal-content">
-            <h3>Imprimer en JPEG (A4)</h3>
-            <p>Quelle partie de la carte voulez-vous exporter ?</p>
-            <div class="stack">
-                <button id="btnPrintAll" class="btn btn-primary">🗺️ Carte complète</button>
-                <button id="btnPrintZone" class="btn btn-dark">▭ Zone à définir (rectangle)</button>
-            </div>
-            <div class="modal-actions">
-                <button id="btnPrintCancel" class="btn btn-secondary">Annuler</button>
-            </div>
-        </div>
+ </head>
+ <body>
+  <!-- Connexion -->
+  <main id="pageLogin" class="page active">
+   <button id="btnClose" class="btn-close" title="Fermer" aria-label="Fermer l'application">✖</button>
+   <div class="login-card">
+    <h1>Couhé Warhamer Battlefield</h1>
+    <input type="text" id="usernameInput" placeholder="Entrez votre pseudo" maxlength="15" autocomplete="off" autofocus> <input type="password" id="passwordInput" placeholder="Code secret" autocomplete="current-password" hidden>
+    <p id="loginError" class="error" role="alert" hidden></p>
+    <button id="btnLogin" class="btn btn-primary">Rejoindre</button>
+    <button id="btnInstall" class="btn btn-dark" hidden>📲 Installer sur l'écran d'accueil</button>
+    <p id="iosHint" class="install-hint" hidden>Sur iPhone : touchez « Partager » puis « Sur l'écran d'accueil » pour installer l'application en plein écran.</p>
+    <div class="presence">
+     <div class="presence-title">En ligne</div>
+     <div id="presenceOnline" class="presence-list"></div>
+     <div class="presence-title">Hors ligne · ont modifié la carte</div>
+     <div id="presenceOffline" class="presence-list"></div>
     </div>
-
-    <div id="exportViewer" class="modal-overlay" hidden>
-        <div class="modal-content modal-wide export-viewer">
-            <h3>Image prête (A4, 300 dpi)</h3>
-            <img id="exportImage" alt="Aperçu de la carte à imprimer">
-            <p>Touchez « Enregistrer / Partager », ou maintenez le doigt sur l'image puis choisissez « Enregistrer l'image ».</p>
-            <div class="modal-actions">
-                <button id="btnExportClose" class="btn btn-secondary">Fermer</button>
-                <button id="btnExportShare" class="btn btn-primary">📤 Enregistrer / Partager</button>
-            </div>
-        </div>
+   </div>
+  </main>
+  <!-- Tableau de bord : réservé au MJ -->
+  <main id="pageDashboard" class="page">
+   <div class="dashboard-card">
+    <div class="dashboard-header">
+     <h2 id="welcomeUser">MJ</h2>
+     <div class="header-actions">
+      <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
+      <button id="btnLogout" class="btn btn-secondary">Déconnexion</button>
+     </div>
     </div>
-
-    <!-- Cartes enregistrées et nouvelle carte (MJ) -->
-    <div id="mapsModal" class="modal-overlay" hidden>
-        <div class="modal-content modal-wide">
-            <h3>Cartes</h3>
-            <div class="map-actions-top">
-                <button id="btnNewMap" class="btn btn-danger">＋ Nouvelle carte</button>
-            </div>
-            <div class="map-save">
-                <input type="text" id="mapNameInput" placeholder="Nom pour enregistrer la carte en cours" maxlength="60" autocomplete="off">
-                <button id="btnSaveMap" class="btn btn-primary">💾 Enregistrer</button>
-            </div>
-            <div id="mapList" class="map-list"></div>
-            <div class="modal-actions">
-                <button id="btnCloseMaps" class="btn btn-secondary">Fermer</button>
-            </div>
-        </div>
+    <div class="section-title">Couleurs des terrains</div>
+    <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain. Les objets se posent sur le terrain : forêt, tours fortes, murs de fortification, maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
+    <div id="terrainContainer" class="terrain-palette"></div>
+    <div class="section-title">Image de fond de la page de connexion</div>
+    <p class="hint">Elle sera visible par tous les joueurs sur la première page.</p>
+    <div class="add-row">
+     <button id="btnPickBackground" class="btn btn-primary">🖼️ Choisir une image</button>
+     <button id="btnClearBackground" class="btn btn-secondary">Retirer</button>
+     <input type="file" id="backgroundInput" accept="image/*" hidden>
     </div>
-
-    <div id="newMapModal" class="modal-overlay" hidden>
-        <div class="modal-content">
-            <h3>Nouvelle carte</h3>
-            <div class="control-group">
-                <label for="cols">Colonnes (largeur)</label>
-                <input type="number" id="cols" value="150" min="2" max="300">
-            </div>
-            <div class="control-group">
-                <label for="rows">Lignes (longueur)</label>
-                <input type="number" id="rows" value="100" min="2" max="300">
-            </div>
-            <p>La carte en cours est sauvegardée automatiquement, puis remplacée par une carte vierge : toutes les cases sont des plaines.</p>
-            <div class="modal-actions">
-                <button id="btnCancelNewMap" class="btn btn-secondary">Annuler</button>
-                <button id="btnCreateMap" class="btn btn-danger">Créer</button>
-            </div>
-        </div>
+    <button id="btnGo" class="btn-go">🚀 Ouvrir la carte</button>
+   </div>
+  </main>
+  <!-- Carte -->
+  <main id="pageMap" class="page">
+   <div id="miniOnlineUsers" class="mini-user-list" aria-label="Personnes connectées"></div>
+   <div id="palTerrains" class="pal pal-terrains" role="toolbar" aria-label="Terrains"></div>
+   <div id="palObjects" class="pal pal-objects" role="toolbar" aria-label="Objets"></div>
+   <div id="palMarks" class="pal pal-marks admin-only" role="toolbar" aria-label="Marqueurs" hidden></div>
+   <div id="palTools" class="pal pal-tools" role="toolbar" aria-label="Outils de modification">
+    <button id="btnSelect" class="btn-round admin-only" title="Sélectionner une zone" aria-label="Sélectionner une zone avec un rectangle" hidden>⛶</button>
+    <button id="btnErase" class="btn-round admin-only" title="Supprimer des tuiles" aria-label="Supprimer des tuiles" hidden>✂️</button>
+    <button id="btnRestore" class="btn-tile-add admin-only" title="Ajouter des tuiles" aria-label="Ajouter des tuiles" hidden>★</button>
+    <div id="selectionInfo" class="selection-info" hidden>
+     <span id="selectionCount"></span>
+     <button id="btnSelClear" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
     </div>
-
-    <div id="helpModal" class="modal-overlay" hidden>
-        <div class="modal-content">
-            <h3>Gestes sur la carte</h3>
-            <ul class="help-list">
-                <li><strong>Triple toucher</strong> sur la carte en mode déplacer : les sélecteurs se déplient et le mode peindre s'active.</li>
-                <li><strong>Triple toucher</strong> en mode peindre : les sélecteurs se replient et on revient au mode déplacer.</li>
-                <li><strong>Double toucher</strong> en mode peindre sur un objet orienté (pont, muret, mur de fortification) : il pivote d'un sixième de tour.</li>
-                <li><strong>Appui long</strong> sur un sélecteur, puis glisser : le placer sur un autre bord de l'écran.</li>
-            </ul>
-            <label class="help-check"><input type="checkbox" id="helpNever"> Ne plus afficher ce message</label>
-            <div class="modal-actions"><button id="btnHelpOk" class="btn btn-primary">Compris</button></div>
-        </div>
+    <button id="btnUndo" class="btn-round" title="Annuler" aria-label="Annuler ma dernière modification">↶</button>
+    <button id="btnRedo" class="btn-round" title="Rétablir" aria-label="Rétablir la modification annulée">↷</button>
+   </div>
+   <div id="palProtect" class="pal pal-protect" role="toolbar" aria-label="Protection de mes modifications">
+    <button id="btnProtect" class="btn-round on" title="Protection active" aria-label="Protection de mes modifications">🛡️</button>
+    <button id="btnRelease" class="btn-round" title="Libérer définitivement mes modifications" aria-label="Libérer définitivement mes modifications">🏳️</button>
+   </div>
+   <div id="printBanner" class="print-banner" hidden>
+    <span>Tracez la zone à imprimer</span>
+    <button id="btnPrintBannerCancel" class="btn btn-secondary btn-small">Annuler</button>
+   </div>
+   <div id="stackBr" class="stack-br">
+    <button id="btnCompass" class="btn-compass" title="Boussole : toucher pour pivoter de 90°, maintenir pour remettre le nord en haut" aria-label="Boussole : pivoter la carte de 90 degrés">
+     <svg id="compassDial" viewBox="0 0 48 48" aria-hidden="true">
+      <circle cx="24" cy="24" r="21" fill="#ffffff" stroke="#2c3e50" stroke-width="2.5" /> <text x="24" y="12" font-size="9" font-weight="700" text-anchor="middle" fill="#2c3e50">N</text> <polygon points="24,15 29,25 19,25" fill="#e74c3c" /> <polygon points="24,35 29,25 19,25" fill="#7f8c8d" /> <circle cx="24" cy="25" r="2" fill="#2c3e50" />
+     </svg>
+    </button>
+    <button id="btnExport" class="btn-round" title="Imprimer (JPEG A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
+    <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
+    <button id="btnExitMap" class="btn-round quit" title="Quitter" aria-label="Quitter">🚪</button>
+   </div>
+   <canvas id="hexCanvas" class="board"></canvas>
+   <div id="overrideModal" class="modal-overlay" hidden>
+    <div class="modal-content">
+     <h3>Remplacer ?</h3>
+     <p id="overrideMessage"></p>
+     <div class="modal-actions">
+      <button id="btnCancelOverride" class="btn btn-secondary">Annuler</button>
+      <button id="btnConfirmOverride" class="btn btn-danger">Confirmer</button>
+     </div>
     </div>
-
-    <div id="closedScreen" hidden>
-        <p>L'application est fermée.<br>Vous pouvez quitter cet onglet ou revenir à l'écran d'accueil.</p>
-        <button id="btnReopen" class="btn btn-primary">Rouvrir</button>
+   </div>
+   <div id="paletteTooltip" class="palette-tooltip" hidden></div>
+  </main>
+  <!-- Impression -->
+  <div id="printModal" class="modal-overlay" hidden>
+   <div class="modal-content">
+    <h3>Imprimer en JPEG (A4)</h3>
+    <p>Quelle partie de la carte voulez-vous exporter ?</p>
+    <div class="stack">
+     <button id="btnPrintAll" class="btn btn-primary">🗺️ Carte complète</button>
+     <button id="btnPrintZone" class="btn btn-dark">▭ Zone à définir (rectangle)</button>
     </div>
-
-    <div id="safeProbe" aria-hidden="true"></div>
-
-    <div id="toast" class="toast" role="status" hidden></div>
-
-    <script>
+    <div class="modal-actions">
+     <button id="btnPrintCancel" class="btn btn-secondary">Annuler</button>
+    </div>
+   </div>
+  </div>
+  <div id="exportViewer" class="modal-overlay" hidden>
+   <div class="modal-content modal-wide export-viewer">
+    <h3>Image prête (A4, 300 dpi)</h3>
+    <img id="exportImage" alt="Aperçu de la carte à imprimer">
+    <p>Touchez « Enregistrer / Partager », ou maintenez le doigt sur l'image puis choisissez « Enregistrer l'image ».</p>
+    <div class="modal-actions">
+     <button id="btnExportClose" class="btn btn-secondary">Fermer</button>
+     <button id="btnExportShare" class="btn btn-primary">📤 Enregistrer / Partager</button>
+    </div>
+   </div>
+  </div>
+  <!-- Cartes enregistrées et nouvelle carte (MJ) -->
+  <div id="mapsModal" class="modal-overlay" hidden>
+   <div class="modal-content modal-wide">
+    <h3>Cartes</h3>
+    <div class="map-actions-top">
+     <button id="btnNewMap" class="btn btn-danger">＋ Nouvelle carte</button>
+    </div>
+    <div class="map-save">
+     <input type="text" id="mapNameInput" placeholder="Nom pour enregistrer la carte en cours" maxlength="60" autocomplete="off">
+     <button id="btnSaveMap" class="btn btn-primary">💾 Enregistrer</button>
+    </div>
+    <div id="mapList" class="map-list"></div>
+    <div class="modal-actions">
+     <button id="btnCloseMaps" class="btn btn-secondary">Fermer</button>
+    </div>
+   </div>
+  </div>
+  <div id="newMapModal" class="modal-overlay" hidden>
+   <div class="modal-content">
+    <h3>Nouvelle carte</h3>
+    <div class="control-group">
+     <label for="cols">Colonnes (largeur)</label> <input type="number" id="cols" value="150" min="2" max="300">
+    </div>
+    <div class="control-group">
+     <label for="rows">Lignes (longueur)</label> <input type="number" id="rows" value="100" min="2" max="300">
+    </div>
+    <p>La carte en cours est sauvegardée automatiquement, puis remplacée par une carte vierge : toutes les cases sont des plaines.</p>
+    <div class="modal-actions">
+     <button id="btnCancelNewMap" class="btn btn-secondary">Annuler</button>
+     <button id="btnCreateMap" class="btn btn-danger">Créer</button>
+    </div>
+   </div>
+  </div>
+  <div id="helpModal" class="modal-overlay" hidden>
+   <div class="modal-content">
+    <h3>Gestes sur la carte</h3>
+    <ul class="help-list">
+     <li><strong>Appui long sur la carte</strong> en mode déplacer : les sélecteurs se déplient et le mode peindre s'active. Un nouvel appui long en mode peindre les replie et ramène au mode déplacer.</li>
+     <li><strong>Double toucher</strong> sur un objet orienté (pont, muret, mur de fortification), en mode déplacer ou peindre : il pivote d'un sixième de tour et le mode peindre s'active.</li>
+     <li><strong>Appui long sur un sélecteur</strong>, puis glisser : le poser où vous voulez sur un bord de l'écran.</li>
+     <li><strong>Annuler / rétablir</strong> font partie des outils de modification : ils apparaissent avec les sélecteurs de peinture.</li>
+    </ul>
+    <label class="help-check"><input type="checkbox" id="helpNever"> Ne plus afficher ce message</label>
+    <div class="modal-actions">
+     <button id="btnHelpOk" class="btn btn-primary">Compris</button>
+    </div>
+   </div>
+  </div>
+  <div id="closedScreen" hidden>
+   <p>L'application est fermée.
+    <br>
+    Vous pouvez quitter cet onglet ou revenir à l'écran d'accueil.</p>
+   <button id="btnReopen" class="btn btn-primary">Rouvrir</button>
+  </div>
+  <div id="safeProbe" aria-hidden="true"></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script>
     (() => {
         'use strict';
 
@@ -463,9 +439,8 @@
         const BACKGROUND = '#ecf0f1';
         const REQUEST_TIMEOUT_MS = 8000;
         const UPLOAD_TIMEOUT_MS = 30000;
-        const DOUBLE_TAP_MS = 300;
-        const TRIPLE_TAP_WINDOW_MS = 700; // trois touchers rapprochés : retour au mode déplacer
-        const TRIPLE_TAP_GUARD_MS = 350; // la rotation d'un objet attend qu'il ne s'agisse pas d'un triple toucher
+        const DOUBLE_TAP_MS = 400; // double toucher : rotation d'un objet orienté
+        const LONG_MAP_PRESS_MS = 600; // appui long sur la carte : bascule entre mode déplacer et mode peindre
         const IDLE_MODE_MS = 10000; // sans usage du pinceau, retour automatique au mode déplacer
         const SESSION_KEY = 'hexSession';
         const ADMIN_NAME = 'mj';
@@ -510,8 +485,9 @@
         let viewH = window.innerHeight;
         let pendingOverride = null;
         let pendingTap = null;
-        let pendingRotate = null;
         let layoutQueued = false;
+        let mapPress = null;
+        let lastTap = null;
         let dragRect = null;
         let idleTimer = null;
         let tooltipTimer = null;
@@ -535,7 +511,6 @@
             palObjects: $('palObjects'),
             palMarks: $('palMarks'),
             palTools: $('palTools'),
-            palHistory: $('palHistory'),
             printBanner: $('printBanner'),
             compass: $('btnCompass'),
             compassDial: $('compassDial'),
@@ -1478,9 +1453,8 @@
             // Plateau verrouillé : plus de pinceau, d'outils ni d'historique (impression, boussole et protection restent disponibles).
             el.palTerrains.hidden = locked;
             el.palObjects.hidden = locked;
-            el.palHistory.hidden = locked;
             el.palMarks.hidden = locked || !state.isAdmin;
-            el.palTools.hidden = locked || !state.isAdmin;
+            el.palTools.hidden = locked; // annuler / rétablir pour tous ; sélection, supprimer, ajouter réservés au MJ (boutons admin-only)
             requestLayout();
 
             if (locked || (!state.isAdmin && ADMIN_MODES.has(state.mode))) setMode('move');
@@ -1543,23 +1517,23 @@
             terrains: el.palTerrains,
             objects: el.palObjects,
             marks: el.palMarks,
-            tools: el.palTools,
-            history: el.palHistory,
+            tools: el.palTools, // outils de modification : sélection, supprimer, ajouter (MJ) + annuler / rétablir (tous)
             protect: el.palProtect
         };
-        const FOLDING = ['terrains', 'objects', 'marks', 'tools', 'history']; // se replient en mode déplacer
+        const FOLDING = ['terrains', 'objects', 'marks', 'tools']; // se replient en mode déplacer
         const EDGES = ['left', 'right', 'top', 'bottom'];
-        const DEFAULT_DOCK = { left: ['terrains'], top: ['objects'], right: ['tools', 'history'], bottom: ['marks', 'protect'] };
+        const DEFAULT_DOCK = { left: ['terrains'], top: ['objects'], right: ['tools'], bottom: ['marks', 'protect'] };
         const PANEL_GAP = 4; // espace entre deux boutons d'un sélecteur
         const PANEL_CHROME = 12; // marges internes et bordures d'un sélecteur
-        const PANEL_SPACE = 6; // espace entre deux sélecteurs d'un même bord
+        const PANEL_SPACE = 6; // espace minimal entre deux sélecteurs d'un même bord
         const PANEL_MIN = 40;
         const EDGE_MARGIN = 8;
 
         const isVertical = (edge) => edge === 'left' || edge === 'right';
 
+        // dock = bord de chaque sélecteur + position libre le long du bord (pos : 0 = début du bord, 1 = fin).
         function loadDock() {
-            const result = { left: [], right: [], top: [], bottom: [] };
+            const result = { left: [], right: [], top: [], bottom: [], pos: {} };
             const seen = new Set();
             let saved = null;
             try { saved = JSON.parse(localStorage.getItem(DOCK_KEY) || 'null'); } catch { saved = null; }
@@ -1578,6 +1552,9 @@
                         seen.add(name);
                     }
                 }
+            }
+            for (const [name, t] of Object.entries(saved?.pos && typeof saved.pos === 'object' ? saved.pos : {})) {
+                if (PANELS[name] && Number.isFinite(t)) result.pos[name] = clamp(t, 0, 1);
             }
             return result;
         }
@@ -1638,12 +1615,10 @@
             requestAnimationFrame(layoutDocks);
         }
 
-        // Place chaque sélecteur sur son bord, les uns après les autres à partir du coin.
-        // Les zones occupées (liste des joueurs en haut à gauche, boussole et boutons en bas à droite) sont évitées.
-        function layoutDocks() {
-            layoutQueued = false;
-            if (!isMapActive()) return;
-
+        // Calcule la place de chaque sélecteur. Chacun vise sa position mémorisée le long de son bord ;
+        // ceux qui se chevauchent sont écartés au minimum. Les zones occupées (liste des joueurs en haut à gauche,
+        // boussole et boutons en bas à droite) sont évitées.
+        function computeLayout() {
             const rect = el.pages.map.getBoundingClientRect();
             const width = rect.width || window.innerWidth;
             const height = rect.height || window.innerHeight;
@@ -1676,7 +1651,9 @@
                 left: { from: yMin + (listH ? listH + M : (topUsed ? thick.top + M : 0)), to: yMax - (bottomUsed ? thick.bottom + M : 0) },
                 right: { from: yMin + (topUsed ? thick.top + M : 0), to: yMax - (stackH ? stackH + M : 0) }
             };
+            const cross = { left: xMin, right: xMax - thick.right, top: yMin, bottom: yMax - thick.bottom };
 
+            const result = [];
             for (const edge of EDGES) {
                 const names = edges[edge];
                 if (names.length === 0) continue;
@@ -1684,26 +1661,62 @@
                 const vertical = isVertical(edge);
                 const { from, to } = range[edge];
                 const naturals = names.map((name) => measurePanel(PANELS[name], vertical).length);
-                const lengths = waterFill(to - from - PANEL_SPACE * (names.length - 1), naturals);
+                const lengths = waterFill(to - from - PANEL_SPACE * (names.length - 1), naturals)
+                    .map((length) => Math.max(PANEL_MIN, Math.round(length)));
 
+                // Position souhaitée : celle mémorisée (fraction de la course libre), sinon à la suite du précédent.
                 let cursor = from;
-                names.forEach((name, index) => {
-                    const panel = PANELS[name];
-                    const length = Math.max(PANEL_MIN, Math.round(lengths[index]));
-                    panel.dataset.edge = edge;
-                    if (vertical) {
-                        panel.style.width = `${thick[edge]}px`;
-                        panel.style.height = `${length}px`;
-                        panel.style.left = `${edge === 'left' ? xMin : xMax - thick[edge]}px`;
-                        panel.style.top = `${cursor}px`;
-                    } else {
-                        panel.style.height = `${thick[edge]}px`;
-                        panel.style.width = `${length}px`;
-                        panel.style.top = `${edge === 'top' ? yMin : yMax - thick[edge]}px`;
-                        panel.style.left = `${cursor}px`;
-                    }
-                    cursor += length + PANEL_SPACE;
+                const items = names.map((name, index) => {
+                    const length = lengths[index];
+                    const travel = Math.max(0, to - from - length);
+                    const t = dock.pos[name];
+                    const desired = t === undefined ? cursor : from + t * travel;
+                    cursor = desired + length + PANEL_SPACE;
+                    return { name, edge, vertical, length, from, to, travel, desired, thickness: thick[edge], cross: cross[edge], start: desired };
                 });
+
+                // Écarte au minimum les sélecteurs qui se chevauchent : d'abord vers la fin du bord, puis en retour vers le début.
+                items.sort((a, b) => a.desired - b.desired);
+                let previousEnd = from - PANEL_SPACE;
+                for (const item of items) {
+                    item.start = Math.max(item.desired, previousEnd + PANEL_SPACE);
+                    previousEnd = item.start + item.length;
+                }
+                let limit = to + PANEL_SPACE;
+                for (let i = items.length - 1; i >= 0; i--) {
+                    items[i].start = Math.max(from, Math.min(items[i].start, limit - PANEL_SPACE - items[i].length));
+                    limit = items[i].start;
+                }
+                result.push(...items);
+            }
+            return result;
+        }
+
+        function layoutDocks() {
+            layoutQueued = false;
+            if (!isMapActive()) return;
+
+            for (const item of computeLayout()) {
+                const panel = PANELS[item.name];
+                panel.dataset.edge = item.edge;
+                if (item.vertical) {
+                    panel.style.width = `${item.thickness}px`;
+                    panel.style.height = `${item.length}px`;
+                    panel.style.left = `${item.cross}px`;
+                    panel.style.top = `${item.start}px`;
+                } else {
+                    panel.style.height = `${item.thickness}px`;
+                    panel.style.width = `${item.length}px`;
+                    panel.style.top = `${item.cross}px`;
+                    panel.style.left = `${item.start}px`;
+                }
+            }
+        }
+
+        // Mémorise la position actuelle de chaque sélecteur visible (utile avant et après un déplacement).
+        function freezePositions() {
+            for (const item of computeLayout()) {
+                dock.pos[item.name] = item.travel > 0 ? clamp((item.start - item.from) / item.travel, 0, 1) : 0;
             }
         }
 
@@ -1724,7 +1737,6 @@
             set('objects', brushMode && kind === 'object');
             set('marks', brushMode && (kind === 'mark' || kind === 'unmark'));
             set('tools', mode === 'select' || mode === 'erase' || mode === 'restore');
-            set('history', false);
             set('protect', false);
         }
 
@@ -1749,6 +1761,7 @@
         function beginDockDrag() {
             if (!dockDrag) return;
             dockDrag.active = true;
+            freezePositions(); // les autres sélecteurs gardent leur place, ils ne bougent que pour faire de la place
             PANELS[dockDrag.name].classList.add('dragging');
             if (navigator.vibrate) navigator.vibrate(15);
             resetIdleTimer();
@@ -1759,41 +1772,34 @@
             clearTimeout(dockDrag.timer);
             if (dockDrag.active) {
                 PANELS[dockDrag.name].classList.remove('dragging');
+                freezePositions(); // positions exactes après écartement
                 saveDock();
                 suppressClickUntil = performance.now() + 400; // le relâchement ne doit pas sélectionner un bouton
             }
             dockDrag = null;
         }
 
-        // Le sélecteur saisi s'installe sur le bord le plus proche du doigt, à la bonne place dans la rangée ;
-        // les autres se décalent au plus près de leur position.
+        // Le sélecteur saisi se place sur le bord le plus proche du doigt, centré sous le doigt (dans la limite du bord) ;
+        // les autres s'écartent au minimum.
         function moveDockDrag(x, y) {
             const rect = el.pages.map.getBoundingClientRect();
             const width = rect.width || window.innerWidth;
             const height = rect.height || window.innerHeight;
             const distance = { left: x - rect.left, right: rect.left + width - x, top: y - rect.top, bottom: rect.top + height - y };
             const edge = EDGES.reduce((best, candidate) => (distance[candidate] < distance[best] ? candidate : best), 'left');
-            const vertical = isVertical(edge);
-            const coordinate = vertical ? y : x;
+            const coordinate = isVertical(edge) ? y : x;
             const name = dockDrag.name;
 
-            const list = dock[edge].filter((other) => other !== name);
-            const others = list.filter((other) => !PANELS[other].hidden);
-            let index = 0;
-            for (const other of others) {
-                const box = PANELS[other].getBoundingClientRect();
-                const center = vertical ? box.top + box.height / 2 : box.left + box.width / 2;
-                if (center < coordinate) index += 1;
+            if (!dock[edge].includes(name)) {
+                for (const candidate of EDGES) dock[candidate] = dock[candidate].filter((other) => other !== name);
+                dock[edge].push(name);
+                delete dock.pos[name];
             }
-            let position = list.length;
-            if (index < others.length) position = list.indexOf(others[index]);
-            else if (others.length > 0) position = list.indexOf(others[others.length - 1]) + 1;
-            list.splice(position, 0, name);
-
-            const next = {};
-            for (const candidate of EDGES) next[candidate] = candidate === edge ? list : dock[candidate].filter((other) => other !== name);
-            if (JSON.stringify(next) === JSON.stringify(dock)) return;
-            dock = next;
+            const mine = computeLayout().find((item) => item.name === name);
+            if (mine) {
+                const desiredStart = coordinate - mine.length / 2;
+                dock.pos[name] = mine.travel > 0 ? clamp((desiredStart - mine.from) / mine.travel, 0, 1) : 0;
+            }
             layoutDocks();
             resetIdleTimer();
         }
@@ -1855,6 +1861,7 @@
                 ? 'Protection active : les autres confirment avant de modifier vos tuiles (toucher pour désactiver)'
                 : 'Protection désactivée : les autres modifient vos tuiles sans confirmation (toucher pour activer)';
             el.btnProtect.classList.toggle('on', on);
+            el.btnProtect.classList.toggle('off', !on); // rouge : vos tuiles ne sont plus protégées
             el.btnProtect.title = label;
             el.btnProtect.setAttribute('aria-label', label);
         }
@@ -2445,57 +2452,84 @@
         function clearPendingTap() {
             if (pendingTap) clearTimeout(pendingTap.timer);
             pendingTap = null;
-            if (pendingRotate) clearTimeout(pendingRotate.timer);
-            pendingRotate = null;
         }
 
-        // Mode peindre : un double toucher sur un objet orienté le fait pivoter d'un cran (1/6 de tour).
-        // Sur ces cases, la peinture du premier toucher est retardée, et la rotation attend de savoir
-        // qu'il ne s'agit pas d'un triple toucher (qui ramène au mode déplacer).
-        function handlePaintDown(clientX, clientY) {
+        // Rotation d'un cran (1/6 de tour) d'un objet orienté. Possible en mode déplacer comme en mode peindre ;
+        // depuis le mode déplacer, elle active automatiquement le mode peindre (sélecteurs dépliés, aucun pinceau choisi).
+        function rotateObjectAt(key) {
+            if (state.isLocked) return;
+            if (state.mode === 'move') {
+                state.brush = null;
+                markSelectedBrush();
+                setMode('paint');
+            }
+            resetIdleTimer();
+            socket?.emit('rotate-object', { key });
+        }
+
+        // Simple toucher (sans glisser) : double toucher sur un objet orienté = rotation ; sinon, en mode peindre,
+        // pose du pinceau (au relâchement) ; en mode supprimer / ajouter, action sur la case.
+        function handleTap(clientX, clientY) {
             if (state.isLocked) return;
             const key = tileKeyAt(clientX, clientY);
-            if (!key) return;
+            const now = performance.now();
+            const rotatable = Boolean(key) && objectTurns(state.gridData[key]) > 1;
 
-            if (pendingRotate) {
-                if (pendingRotate.key === key) { // troisième toucher : ce n'était pas une rotation
-                    clearPendingTap();
-                    return;
-                }
-                clearTimeout(pendingRotate.timer); // autre case : la rotation demandée part tout de suite
-                socket?.emit('rotate-object', { key: pendingRotate.key });
-                pendingRotate = null;
-            }
-
-            const rotatable = objectTurns(state.gridData[key]) > 1;
-            if (!rotatable) {
+            if (rotatable && (state.mode === 'move' || state.mode === 'paint') && lastTap?.key === key && now - lastTap.time < DOUBLE_TAP_MS) {
+                lastTap = null;
                 clearPendingTap();
-                paintTile(key);
+                rotateObjectAt(key);
                 return;
             }
+            lastTap = key ? { key, time: now } : null;
+            if (!key || state.mode === 'move') return;
 
-            if (pendingTap?.key === key) {
-                clearTimeout(pendingTap.timer);
-                pendingTap = null;
-                resetIdleTimer();
-                pendingRotate = {
+            if (state.mode === 'paint') {
+                clearPendingTap();
+                if (!rotatable) {
+                    paintTile(key);
+                    return;
+                }
+                // Objet orienté : le premier toucher attend de savoir si un second suit.
+                pendingTap = {
                     key,
                     timer: setTimeout(() => {
-                        pendingRotate = null;
-                        socket?.emit('rotate-object', { key });
-                    }, TRIPLE_TAP_GUARD_MS)
+                        pendingTap = null;
+                        if (state.mode === 'paint') paintTile(key);
+                    }, DOUBLE_TAP_MS)
                 };
                 return;
             }
+            useToolAt(clientX, clientY);
+        }
 
+        /* ---------- Appui long sur la carte : mode déplacer <-> mode peindre ---------- */
+
+        function cancelMapPress() {
+            if (mapPress) clearTimeout(mapPress.timer);
+            mapPress = null;
+        }
+
+        function fireMapLongPress() {
+            const active = gesture;
+            mapPress = null;
+            if (!active || active.type !== 'single') return;
+            active.consumed = true; // le relâchement ne déclenche plus rien
+            dragRect = null;
             clearPendingTap();
-            pendingTap = {
-                key,
-                timer: setTimeout(() => {
-                    pendingTap = null;
-                    if (state.mode === 'paint') paintTile(key);
-                }, DOUBLE_TAP_MS)
-            };
+            if (navigator.vibrate) navigator.vibrate(20);
+            if (state.mode !== 'move') {
+                setMode('move');
+                toast('Mode déplacement');
+            } else if (!state.isLocked) {
+                unfoldSelectors();
+                toast('Mode peindre : choisissez un sélecteur');
+            }
+        }
+
+        function startMapPress(e) {
+            cancelMapPress();
+            mapPress = { x: e.clientX, y: e.clientY, timer: setTimeout(fireMapLongPress, LONG_MAP_PRESS_MS) };
         }
 
         function removeTile(key, existing) {
@@ -2609,6 +2643,7 @@
         let gesture = null;
 
         function endGestures() {
+            cancelMapPress();
             pointers.clear();
             gesture = null;
             dragRect = null;
@@ -2637,6 +2672,7 @@
                 const [a, b] = active;
                 const rect = el.canvas.getBoundingClientRect();
                 dragRect = null;
+                cancelMapPress();
                 gesture = {
                     type: 'pinch',
                     distance: Math.hypot(b.x - a.x, b.y - a.y) || 1,
@@ -2664,11 +2700,10 @@
             if (gesture.select) {
                 const p = toCanvas(e);
                 dragRect = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
-            } else if (state.mode === 'paint') {
-                handlePaintDown(e.clientX, e.clientY);
-            } else {
-                useToolAt(e.clientX, e.clientY);
             }
+            // Pas d'action au toucher : la pose se fait au relâchement (simple toucher) ou dès que le doigt glisse.
+            // Un appui long immobile sur la carte bascule entre mode déplacer et mode peindre.
+            startMapPress(e);
         });
 
         el.canvas.addEventListener('pointermove', (e) => {
@@ -2677,6 +2712,9 @@
             if (!gesture) return;
 
             if (gesture.type === 'single') {
+                if (gesture.consumed) return;
+                if (mapPress && Math.hypot(e.clientX - mapPress.x, e.clientY - mapPress.y) > 10) cancelMapPress();
+
                 if (gesture.select) {
                     if (dragRect) {
                         const p = toCanvas(e);
@@ -2685,6 +2723,12 @@
                         requestDraw();
                     }
                 } else if (dragUsesTool() && !gesture.panOnly) {
+                    // Glissé : on commence à peindre dès que le doigt a bougé de quelques pixels, case de départ comprise.
+                    if (!gesture.stroking) {
+                        if (Math.hypot(e.clientX - gesture.downX, e.clientY - gesture.downY) < 8) return;
+                        gesture.stroking = true;
+                        useToolAt(gesture.downX, gesture.downY);
+                    }
                     useToolAt(e.clientX, e.clientY);
                 } else {
                     view.panX = e.clientX - gesture.startX;
@@ -2710,22 +2754,10 @@
             requestDraw();
         });
 
-        // Trois touchers rapprochés (sans glisser) : retour au mode déplacer.
-        let tapLog = [];
-        function registerTap(e) {
-            const now = performance.now();
-            tapLog = tapLog.filter((t) => now - t.time < TRIPLE_TAP_WINDOW_MS);
-            tapLog.push({ time: now, x: e.clientX, y: e.clientY });
-            if (tapLog.length < 3) return false;
-            const [first, , last] = tapLog.slice(-3);
-            const close = Math.hypot(last.x - first.x, last.y - first.y) < 40;
-            if (close) tapLog = [];
-            return close;
-        }
-
         function releasePointer(e, cancelled) {
             if (!pointers.delete(e.pointerId)) return;
             if (el.canvas.hasPointerCapture(e.pointerId)) el.canvas.releasePointerCapture(e.pointerId);
+            cancelMapPress();
 
             const single = gesture?.type === 'single' ? gesture : null;
             if (single?.select && dragRect) {
@@ -2737,21 +2769,10 @@
                 }
             }
 
-            // Triple toucher : en mode actif, retour au mode déplacer (sélecteurs repliés) ;
-            // en mode déplacer, les sélecteurs se déplient et le mode peindre s'active.
-            if (single && !cancelled && !single.panOnly) {
+            // Simple toucher (sans glisser ni appui long) : double toucher = rotation, sinon pose du pinceau.
+            if (single && !cancelled && !single.select && !single.panOnly && !single.consumed && !single.stroking) {
                 const moved = Math.hypot(e.clientX - single.downX, e.clientY - single.downY);
-                const isTap = moved < 12 && performance.now() - single.downTime < 350;
-                if (isTap && registerTap(e)) {
-                    clearPendingTap();
-                    if (state.mode !== 'move') {
-                        setMode('move');
-                        toast('Mode déplacement');
-                    } else if (!state.isLocked) {
-                        unfoldSelectors();
-                        toast('Mode peindre : choisissez un sélecteur');
-                    }
-                }
+                if (moved < 12) handleTap(e.clientX, e.clientY);
             }
             beginGesture();
         }
@@ -2890,5 +2911,5 @@
         window.__hexReady = true;
     })();
     </script>
-</body>
+ </body>
 </html>
