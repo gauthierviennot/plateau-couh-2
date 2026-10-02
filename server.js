@@ -160,6 +160,9 @@ function sanitizeTile(tile) {
         if (typeof tile.objectAuthor === 'string') clean.objectAuthor = tile.objectAuthor.slice(0, LIMITS.maxName);
     }
     if (MARKS.has(tile.mark)) clean.mark = tile.mark;
+    // Dates des dernières modifications : elles servent à la protection des tuiles (voir « libérer mes modifications »).
+    if (Number.isFinite(tile.at)) clean.at = tile.at;
+    if (clean.object && Number.isFinite(tile.oat)) clean.oat = tile.oat;
     return keepOrNull(clean);
 }
 
@@ -183,16 +186,17 @@ function editTile(tile, action, options, author) {
             if (removed) return undefined; // une case supprimée ne peut pas être coloriée
             // Poser une tuile de terrain remplace la tuile : l'objet éventuel disparaît, même si le terrain est identique.
             if ((tile?.terrain ?? 'plain') === terrain && !tile?.object) return undefined;
-            const next = { ...tile, terrain, author };
+            const next = { ...tile, terrain, author, at: Date.now() };
             delete next.object;
             delete next.dir;
             delete next.objectAuthor;
+            delete next.oat;
             return next;
         }
         case 'object': {
             const { object } = options;
             if (removed || !objectAllowed(object, tile?.terrain ?? 'plain') || tile?.object === object) return undefined;
-            const next = { ...tile, author: tile?.author ?? '', object, objectAuthor: author };
+            const next = { ...tile, author: tile?.author ?? '', object, objectAuthor: author, oat: Date.now() };
             if (OBJECT_RULES[object].turns > 1) next.dir = 0;
             else delete next.dir;
             return next;
@@ -219,13 +223,26 @@ function editTile(tile, action, options, author) {
     }
 }
 
+// Protection : par joueur, « on » (les autres confirment avant de modifier ses tuiles) et « clearedAt »
+// (les modifications antérieures à cette date sont définitivement libérées).
+function sanitizeProtection(raw) {
+    const clean = Object.create(null);
+    if (!raw || typeof raw !== 'object') return clean;
+    for (const [name, rule] of Object.entries(raw).slice(0, 500)) {
+        if (name.length > LIMITS.maxName || !rule || typeof rule !== 'object') continue;
+        clean[name] = { on: rule.on !== false, clearedAt: Number.isFinite(rule.clearedAt) ? rule.clearedAt : 0 };
+    }
+    return clean;
+}
+
 function normalizeState(raw) {
     const config = sanitizeConfig(raw?.config) || { cols: 150, rows: 100 };
     return {
         config,
         gridData: sanitizeGrid(raw?.gridData, config),
         terrainsList: sanitizeTerrains(raw?.terrainsList ?? raw?.terrains),
-        isLocked: Boolean(raw?.isLocked)
+        isLocked: Boolean(raw?.isLocked),
+        protection: sanitizeProtection(raw?.protection)
     };
 }
 
@@ -596,7 +613,27 @@ function connectedUsers() {
     return [...new Set(names)];
 }
 
-const broadcastUsers = () => io.emit('update-users-list', connectedUsers());
+// Pseudos ayant modifié la carte en cours (affichés hors ligne sur la page de connexion).
+const contributors = new Set();
+
+function rebuildContributors() {
+    contributors.clear();
+    for (const tile of Object.values(state.gridData)) {
+        if (tile.author) contributors.add(tile.author);
+        if (tile.objectAuthor) contributors.add(tile.objectAuthor);
+    }
+}
+
+function presence() {
+    const online = connectedUsers();
+    const onlineLower = new Set(online.map((name) => name.toLowerCase()));
+    const offline = [...contributors]
+        .filter((name) => !onlineLower.has(name.toLowerCase()))
+        .sort((a, b) => a.localeCompare(b, 'fr'));
+    return { online, offline };
+}
+
+const broadcastUsers = () => io.emit('update-users-list', presence());
 const broadcastMaps = () => io.to('admins').emit('maps-list', listMaps());
 // changes : { "col,ligne": case | null }
 const broadcastTiles = (changes) => io.emit('update-tiles', { changes });
@@ -666,6 +703,10 @@ function applyEdits(keys, action, options, author) {
         recordHistory(author, batch);
         scheduleSave();
         broadcastTiles(changes);
+        if (author && !contributors.has(author)) {
+            contributors.add(author);
+            broadcastUsers();
+        }
     }
 }
 
@@ -705,7 +746,8 @@ io.on('connection', (socket) => {
         config: state.config,
         gridData: state.gridData,
         terrains: state.terrainsList,
-        users: connectedUsers(),
+        presence: presence(),
+        protection: state.protection,
         isLocked: state.isLocked,
         backgroundVersion: background?.version ?? 0
     });
@@ -877,11 +919,35 @@ io.on('connection', (socket) => {
         state.config = config;
         state.gridData = {}; // toutes les cases redeviennent des plaines
         histories.clear();
+        rebuildContributors();
+        broadcastUsers();
         await saveNow();
         io.emit('update-config', { config: state.config, gridData: state.gridData });
         broadcastMaps();
         reply(ack, { success: true, message: 'Nouvelle carte créée. L’ancienne a été sauvegardée automatiquement.' });
     }));
+
+    /* ---------- Protection de ses propres modifications ---------- */
+
+    // Activer / désactiver : les autres joueurs doivent-ils confirmer avant de modifier mes tuiles ?
+    socket.on('set-protection', (payload) => {
+        const name = socket.data.name;
+        if (!name) return;
+        const rule = state.protection[name] ?? { on: true, clearedAt: 0 };
+        state.protection[name] = { on: payload?.on !== false, clearedAt: rule.clearedAt };
+        scheduleSave();
+        io.emit('update-protection', state.protection);
+    });
+
+    // Libérer définitivement les modifications faites jusqu'ici (l'historique annuler / rétablir est conservé).
+    socket.on('clear-protection', () => {
+        const name = socket.data.name;
+        if (!name) return;
+        const rule = state.protection[name] ?? { on: true, clearedAt: 0 };
+        state.protection[name] = { on: rule.on, clearedAt: Date.now() };
+        scheduleSave();
+        io.emit('update-protection', state.protection);
+    });
 
     /* ---------- Annuler / rétablir (chacun ses propres modifications) ---------- */
 
@@ -962,6 +1028,8 @@ io.on('connection', (socket) => {
         state.config = config;
         state.gridData = gridData;
         histories.clear();
+        rebuildContributors();
+        broadcastUsers();
         if (terrains) state.terrainsList = terrains;
         await saveNow();
 
@@ -1025,6 +1093,7 @@ async function start() {
     if (!raw) console.log('🆕 Aucune donnée trouvée : plateau par défaut (150x100).');
 
     state = normalizeState(raw);
+    rebuildContributors();
     await storage.saveState(state);
 
     background = await storage.loadBackground();
