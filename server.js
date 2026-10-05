@@ -48,6 +48,13 @@ const MARKS = new Set(['square', 'triangle', 'diamond', 'cross', 'disc', 'x']);
 const EDIT_ACTIONS = new Set(['terrain', 'object', 'remove', 'restore', 'mark', 'unmark']);
 const ADMIN_NAME = 'mj';
 
+// Fiches d'armée : données d'origine dans fiches-seed.json ; les modifications du MJ sont enregistrées dans le stockage.
+const FICHES_SEED_FILE = path.join(__dirname, 'fiches-seed.json');
+const DOCS_DIR = path.join(DATA_DIR, 'docs');
+const FICHES_MAX_BYTES = 800 * 1024;
+const FICHES_MAX_UNITS = 600;
+const DOC_ID = /^[a-z0-9_]{1,64}$/;
+
 // Terrains : liste fixe, seules les couleurs sont modifiables par l'admin. La plaine est le terrain par défaut.
 const DEFAULT_TERRAINS = [
     { id: 'plain', color: '#8fd16b' },
@@ -235,6 +242,19 @@ function sanitizeProtection(raw) {
     return clean;
 }
 
+// Légion choisie par chaque joueur : pseudo -> { army, legion }.
+function sanitizePicks(raw) {
+    const clean = Object.create(null);
+    if (!raw || typeof raw !== 'object') return clean;
+    for (const [name, pick] of Object.entries(raw).slice(0, 500)) {
+        if (name.length > LIMITS.maxName || !pick || typeof pick !== 'object') continue;
+        if (typeof pick.army !== 'string' || !DOC_ID.test(pick.army)) continue;
+        if (typeof pick.legion !== 'string' || !/^[A-Za-z0-9_-]{1,12}$/.test(pick.legion)) continue;
+        clean[name] = { army: pick.army, legion: pick.legion };
+    }
+    return clean;
+}
+
 function normalizeState(raw) {
     const config = sanitizeConfig(raw?.config) || { cols: 150, rows: 100 };
     return {
@@ -242,7 +262,9 @@ function normalizeState(raw) {
         gridData: sanitizeGrid(raw?.gridData, config),
         terrainsList: sanitizeTerrains(raw?.terrainsList ?? raw?.terrains),
         isLocked: Boolean(raw?.isLocked),
-        protection: sanitizeProtection(raw?.protection)
+        protection: sanitizeProtection(raw?.protection),
+        fichesAccess: raw?.fichesAccess !== false, // les joueurs peuvent consulter les fiches d'armée (le MJ peut le refuser)
+        fichesPicks: sanitizePicks(raw?.fichesPicks)
     };
 }
 
@@ -334,6 +356,16 @@ const fileStorage = {
         writeJsonAtomic(BACKGROUND_FILE, { version: bg.version, image: bg.buffer.toString('base64') });
     },
 
+    async loadDoc(id) {
+        if (!DOC_ID.test(id)) throw new Error('Identifiant de document invalide');
+        return readJson(path.join(DOCS_DIR, `${id}.json`));
+    },
+    async saveDoc(id, data) {
+        if (!DOC_ID.test(id)) throw new Error('Identifiant de document invalide');
+        fs.mkdirSync(DOCS_DIR, { recursive: true });
+        writeJsonAtomic(path.join(DOCS_DIR, `${id}.json`), data);
+    },
+
     sessionsCache: null,
     async loadSessions() {
         this.sessionsCache = readJson(SESSIONS_FILE) || {};
@@ -421,6 +453,18 @@ function createSupabaseStorage() {
         },
         async deleteMap(id) {
             check(await db.from('saved_maps').delete().eq('id', id));
+        },
+
+        // Documents divers (fiches d'armée) : même table app_state, un identifiant par document.
+        async loadDoc(id) {
+            if (!DOC_ID.test(id)) throw new Error('Identifiant de document invalide');
+            const res = await db.from('app_state').select('data').eq('id', id).maybeSingle();
+            check(res);
+            return res.data?.data ?? null;
+        },
+        async saveDoc(id, data) {
+            if (!DOC_ID.test(id)) throw new Error('Identifiant de document invalide');
+            check(await db.from('app_state').upsert({ id, data, updated_at: new Date().toISOString() }));
         },
 
         async loadBackground() {
@@ -587,6 +631,86 @@ function dropSession(token) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Fiches d'armée                                                      */
+/* ------------------------------------------------------------------ */
+
+const fiches = {
+    ready: false,
+    version: '',
+    families: [], // formules d'origine
+    seedArmies: new Map(), // id -> armée d'origine
+    armies: new Map(), // id -> armée modifiée par le MJ
+    famTexts: {} // id de formule -> texte modifié par le MJ
+};
+
+function loadFichesSeed() {
+    const raw = readJson(FICHES_SEED_FILE);
+    if (!raw || !Array.isArray(raw.armies)) {
+        console.warn('⚠️ fiches-seed.json introuvable : les fiches d’armée sont désactivées.');
+        return;
+    }
+    fiches.version = String(raw.version || 'v1').slice(0, 40);
+    fiches.families = Array.isArray(raw.families) ? raw.families : [];
+    for (const army of raw.armies) {
+        if (army && DOC_ID.test(army.id)) fiches.seedArmies.set(army.id, army);
+    }
+    fiches.ready = fiches.seedArmies.size > 0;
+    console.log(`📜 Fiches d'armée : ${fiches.seedArmies.size} armées (version ${fiches.version}).`);
+}
+
+// Les modifications du MJ ne s'appliquent que si elles correspondent à la version du fichier d'origine.
+async function loadFichesOverrides() {
+    if (!fiches.ready) return;
+    for (const id of fiches.seedArmies.keys()) {
+        const doc = await storage.loadDoc(`fiches_a_${id}`);
+        if (doc?.version === fiches.version && doc.army?.id === id && Array.isArray(doc.army.units)) fiches.armies.set(id, doc.army);
+    }
+    const famDoc = await storage.loadDoc('fiches_fams');
+    if (famDoc?.version === fiches.version && famDoc.texts && typeof famDoc.texts === 'object') fiches.famTexts = famDoc.texts;
+    console.log(`📜 ${fiches.armies.size} armée(s) modifiée(s) par le MJ.`);
+}
+
+const fichesArmy = (id) => fiches.armies.get(id) || fiches.seedArmies.get(id);
+
+function legionFigs(army, lid) {
+    let total = 0;
+    for (const unit of army.units || []) {
+        const q = unit.q?.[lid];
+        if (Array.isArray(q) && Number.isFinite(q[0])) total += q[0];
+    }
+    return total;
+}
+
+const validPick = (armyId, lid) => {
+    const army = typeof armyId === 'string' ? fichesArmy(armyId) : null;
+    return Boolean(army) && typeof lid === 'string' && lid !== 'ni'
+        && (army.legions || []).some((l) => l.id === lid) && legionFigs(army, lid) > 0;
+};
+
+// Liste sommaire (sans unités) : uniquement pour choisir sa légion quand les fiches sont fermées.
+function fichesCatalog() {
+    return [...fiches.seedArmies.keys()].map((id) => {
+        const army = fichesArmy(id);
+        const legions = (army.legions || [])
+            .filter((l) => l.id !== 'ni')
+            .map((l) => ({ id: l.id, figs: legionFigs(army, l.id), comp: l.comp || null }))
+            .filter((l) => l.figs > 0);
+        return { id, name: army.name, legions };
+    });
+}
+
+// Armée réduite à une seule légion : c'est tout ce que reçoit un joueur quand l'accès aux fiches est refusé.
+function fichesOwnArmy(pick) {
+    if (!validPick(pick.army, pick.legion)) return null;
+    const army = fichesArmy(pick.army);
+    const legion = army.legions.find((l) => l.id === pick.legion);
+    const units = (army.units || [])
+        .filter((u) => Array.isArray(u.q?.[pick.legion]))
+        .map((u) => ({ ...u, q: { [pick.legion]: u.q[pick.legion] } }));
+    return { ...army, legions: [legion], units };
+}
+
+/* ------------------------------------------------------------------ */
 /* Serveur HTTP + Socket.IO                                            */
 /* ------------------------------------------------------------------ */
 
@@ -749,6 +873,7 @@ io.on('connection', (socket) => {
         presence: presence(),
         protection: state.protection,
         isLocked: state.isLocked,
+        fichesAccess: state.fichesAccess,
         backgroundVersion: background?.version ?? 0
     });
 
@@ -927,6 +1052,103 @@ io.on('connection', (socket) => {
         reply(ack, { success: true, message: 'Nouvelle carte créée. L’ancienne a été sauvegardée automatiquement.' });
     }));
 
+    /* ---------- Fiches d'armée ---------- */
+
+    // Chargement : le serveur décide de ce que le joueur a le droit de voir.
+    socket.on('fiches-load', (payload, ack) => {
+        if (!fiches.ready) {
+            return reply(ack, { success: false, message: 'Fiches d’armée indisponibles (fichier fiches-seed.json absent du serveur).' });
+        }
+        const name = socket.data.name;
+        if (!name) return reply(ack, { success: false, message: 'Connectez-vous d’abord.' });
+
+        const base = {
+            success: true,
+            access: state.fichesAccess,
+            version: fiches.version,
+            families: fiches.families,
+            famTexts: fiches.famTexts
+        };
+        if (socket.data.isAdmin || state.fichesAccess) {
+            return reply(ack, {
+                ...base,
+                mode: 'full',
+                armies: [...fiches.seedArmies.keys()].map(fichesArmy),
+                picks: { ...state.fichesPicks }
+            });
+        }
+        // Accès refusé : seule la légion choisie par le joueur lui est transmise.
+        const pick = state.fichesPicks[name];
+        const army = pick ? fichesOwnArmy(pick) : null;
+        return reply(ack, { ...base, mode: 'own', pick: army ? pick : null, army, catalog: army ? null : fichesCatalog() });
+    });
+
+    // Un joueur choisit sa légion. Quand les fiches sont fermées, le choix déjà fait ne peut plus être changé par le joueur.
+    socket.on('fiches-pick', (payload, ack) => {
+        const name = socket.data.name;
+        if (!name) return reply(ack, { success: false, message: 'Connectez-vous d’abord.' });
+
+        if (socket.data.isAdmin) {
+            const target = cleanText(payload?.name, LIMITS.maxName);
+            if (!payload?.clear || !state.fichesPicks[target]) return reply(ack, { success: false, message: 'Aucun choix à retirer.' });
+            delete state.fichesPicks[target];
+        } else if (payload?.clear) {
+            if (!state.fichesAccess) return reply(ack, { success: false, message: 'Le MJ a verrouillé les choix de légion.' });
+            delete state.fichesPicks[name];
+        } else {
+            if (state.fichesPicks[name] && !state.fichesAccess) {
+                return reply(ack, { success: false, message: 'Votre légion est déjà choisie : seul le MJ peut la modifier.' });
+            }
+            if (!validPick(payload?.army, payload?.legion)) return reply(ack, { success: false, message: 'Légion invalide.' });
+            state.fichesPicks[name] = { army: payload.army, legion: payload.legion };
+        }
+        scheduleSave();
+        io.emit('fiches-changed', { picks: true });
+        return reply(ack, { success: true });
+    });
+
+    // Le MJ autorise ou refuse l'accès aux fiches d'armée (jamais à la fiche de la légion choisie).
+    socket.on('fiches-access', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        state.fichesAccess = Boolean(payload?.allow);
+        scheduleSave();
+        io.emit('fiches-access', state.fichesAccess);
+        io.emit('fiches-changed', { access: true });
+        reply(ack, { success: true, allow: state.fichesAccess });
+    });
+
+    // Le MJ modifie des armées et/ou des formules : enregistré pour tout le monde.
+    socket.on('fiches-save', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        if (!fiches.ready) return reply(ack, { success: false, message: 'Fiches d’armée indisponibles.' });
+
+        const armies = payload?.armies && typeof payload.armies === 'object' ? Object.entries(payload.armies).slice(0, 40) : [];
+        for (const [id, army] of armies) {
+            const ok = fiches.seedArmies.has(id) && army && army.id === id
+                && Array.isArray(army.units) && army.units.length <= FICHES_MAX_UNITS && Array.isArray(army.legions);
+            if (!ok) return reply(ack, { success: false, message: `Fiche invalide : ${String(id).slice(0, 30)}` });
+            if (JSON.stringify(army).length > FICHES_MAX_BYTES) return reply(ack, { success: false, message: `Fiche trop volumineuse : ${id}` });
+        }
+        let texts = null;
+        if (payload?.fams && typeof payload.fams === 'object') {
+            texts = {};
+            for (const [id, text] of Object.entries(payload.fams)) {
+                if (typeof text === 'string' && text.length <= 2000 && fiches.families.some((f) => f.id === id)) texts[id] = text;
+            }
+        }
+
+        for (const [id, army] of armies) {
+            await storage.saveDoc(`fiches_a_${id}`, { version: fiches.version, army });
+            fiches.armies.set(id, army);
+        }
+        if (texts) {
+            await storage.saveDoc('fiches_fams', { version: fiches.version, texts });
+            fiches.famTexts = texts;
+        }
+        socket.broadcast.emit('fiches-changed', { armies: armies.map(([id]) => id), fams: Boolean(texts) });
+        reply(ack, { success: true });
+    }));
+
     /* ---------- Protection de ses propres modifications ---------- */
 
     // Activer / désactiver : les autres joueurs doivent-ils confirmer avant de modifier mes tuiles ?
@@ -1097,6 +1319,13 @@ async function start() {
     await storage.saveState(state);
 
     background = await storage.loadBackground();
+
+    try {
+        loadFichesSeed();
+        await loadFichesOverrides();
+    } catch (err) {
+        console.error('⚠️ Fiches d’armée : modifications du MJ illisibles, version d’origine utilisée :', err.message);
+    }
 
     for (const meta of await storage.listMaps()) mapsIndex.set(meta.id, meta);
     console.log(`🗺️  ${mapsIndex.size} carte(s) enregistrée(s).`);
