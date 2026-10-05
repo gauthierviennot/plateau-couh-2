@@ -78,6 +78,22 @@ tr.total td{font-weight:700;background:var(--head);border-bottom:none}tr.total t
 .toast.show{opacity:1}
 @media print{:root,:root[data-theme="dark"]{--bg:#fff;--card:#fff;--fg:#000;--muted:#444;--border:#bbb;--head:#eee;--cat:#e6e6e6;--stick:#fff;--hl:#eee;--accent:#000}
  body{background:#fff;font-size:12px}.noprint,.top,.act,#modal,.toast{display:none!important}.scroll{overflow:visible;border:none}td.name,th.name{position:static}.wrap{padding:0}}
+
+.chip.me{border-color:var(--accent)}
+.pk{display:inline-flex;align-items:center;gap:2px}
+th.lg.gs,td.lg.gs{border-left:2px solid var(--border)}
+th.lg.sub{font-weight:500;color:var(--muted);min-width:34px;padding:4px 6px}
+.secb{margin-left:8px;display:inline-flex;gap:2px}
+.fcode{display:block;font:13px ui-monospace,Menlo,Consolas,monospace;background:var(--head);padding:8px 10px;border-radius:8px;word-break:break-word;white-space:pre-wrap}
+.tree{border:1px solid var(--border);border-radius:10px;max-height:46vh;overflow:auto;padding:6px 8px;background:var(--bg)}
+.tn.l1{margin-left:18px}.tr{display:flex;align-items:center;gap:6px;padding:3px 0;font:14px system-ui,sans-serif}
+.tr.leaf{margin-left:20px}.tr.leaf label{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.tr.leaf span{overflow-wrap:anywhere}
+.tr input[type=checkbox]{width:18px;height:18px;flex:none}
+.tg{border:none;background:none;color:var(--fg);font-size:14px;width:22px;cursor:pointer;padding:0}
+.badge2{font:600 10px system-ui,sans-serif;border:1px solid var(--border);border-radius:20px;padding:1px 7px;color:var(--muted);white-space:nowrap}
+.badge2.ov{border-color:var(--ovc);color:var(--ovc)}
+#modal.big .sheet{max-width:760px;max-height:94%}
 </style>
 </head>
 <body>
@@ -242,7 +258,7 @@ const FAMNAME={S:'I (indicateur)',F:"att' (attaque pondérée)",J:"dep' (déplac
 const FAMDESC={S:'Copie le bonus « I » de l\'armée sur la ligne.',F:'Attaque pondérée selon le type (cc, ttc, cd2…).',J:'Coefficient de déplacement de base.',L:'Coefficient de déplacement ajusté par le type de mouvement.',M:'Valeur brute : attaque, PV, armure × déplacement.',Q:'Ajoute les bonus communs et d\'armée (T, C, U, tir…).',R:'Applique les multiplicateurs d\'armée (portée, PV, déplacement, typ).',W:'Valeur finale d\'une figurine (× 1,2 si colonne I).',X:'Valeur totale de la ligne = fig × nombre.',val:'Points d\'une ligne dans une légion (selon quantité, c et E).'};
 let FAM={},ARMIES=[];
 const HOSTED=(typeof DATA==='undefined');
-const S={restricted:false,admin:false,access:true,picks:{},myPick:null,catalog:null,loaded:!HOSTED,tab:'army',army:null,sel:null,view:'full',cols:new Set(DEFCOLS),pseudo:'',canWrite:null,dbOn:false,showCols:false};
+const S={restricted:false,admin:false,access:true,picks:{},myPick:null,catalog:null,loaded:!HOSTED,tab:'army',army:null,sel:null,view:'full',cols:new Set(DEFCOLS),pseudo:'',canWrite:null,dbOn:false,showCols:false,frozen:false,ft:null,pendingOpen:null};
 const isMJ=()=>HOSTED?S.admin:S.pseudo.trim().toLowerCase()==='mj';
 
 const pretty=t=>String(t).replace(/\[\+0\]/g,'');
@@ -253,19 +269,8 @@ function uid(a){return a.id+'-'+Date.now().toString(36)+Math.random().toString(3
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';clearTimeout(toast.t);toast.t=setTimeout(()=>t.className='toast',2800);}
 const getArmy=id=>ARMIES.find(a=>a.id===id);
 const curArmy=()=>getArmy(S.army);
-function legName(l){if(l.id==='ni')return 'Non intégré';if(/^\d+$/.test(l.id))return 'Légion '+l.id;if(l.id==='renfort')return 'Renfort';return 'Légion '+l.id;}
 function colLabel(a,c){if(c==='V'&&a.hdr&&a.hdr.V)return String(a.hdr.V);return SHORT[c];}
 
-function prepArmy(a){
-  let n=0;
-  a.units.forEach(u=>{u.uid=u.uid||(a.id+'-'+(++n)+'-'+Math.random().toString(36).slice(2,6));u.fo=u.fo||{};u.fm=u.fm||{};u.v={};delete u.calc;u.err=null;
-    if(u.l2){u.l2.fo=u.l2.fo||{};u.l2.fm=u.l2.fm||{};u.l2.v={};delete u.l2.calc;}});
-  const cnt={};a.units.forEach(u=>Object.values(u.q).forEach(q=>{if(q[4])cnt[q[4]]=(cnt[q[4]]||0)+1;}));
-  const best=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0];
-  if(best)a.defVal=best;
-  if(!S.restricted&&!a.legions.some(l=>l.id==='ni'))a.legions.push({id:'ni',kind:'ni',figs:0,val:0,sup:0,comp:null,tag:null});
-  a.legions.sort((x,y)=>(x.id==='ni')-(y.id==='ni'));
-}
 function recompute(){let dv=null;ARMIES.forEach(a=>{if(a.defVal)dv=dv||a.defVal;});ARMIES.forEach(a=>{if(!a.defVal)a.defVal=dv;a.units.forEach(u=>calcUnit(u,a,FAM));});}
 function initData(){
   FAM={};DATA.families.forEach(f=>FAM[f.id]={id:f.id,col:f.col,text:pretty(f.rel),orig:pretty(f.rel)});
@@ -282,14 +287,14 @@ function legStats(a,l){const r=legionValue(a,l.id);return {figs:r.figs,val:r.val
 let DB=null;const myRevs=new Set();const pending={};let timer=null;
 const akey=id=>'a_'+id.replace(/[^A-Za-z0-9_-]/g,'_');
 const strip=(k,v)=>(k==='v'||k==='err'||k==='_niFigs'||k==='_stats')?undefined:v;
-function ser(key){if(key==='fams'){const o={};for(const id in FAM)o[id]={col:FAM[id].col,text:FAM[id].text};return JSON.stringify(o);}
+function ser(key){if(key==='fams'){const o={};for(const id in FAM)o[id]={col:FAM[id].col,text:FAM[id].text,custom:!!FAM[id].custom};return JSON.stringify(o);}
   const a=ARMIES.find(x=>akey(x.id)===key);return a?JSON.stringify(a,strip):null;}
 function saveArmy(id){queueSave(akey(id));}
 function saveFams(){queueSave('fams');}
 function queueSave(key){pending[key]=1;clearTimeout(timer);timer=setTimeout(flush,350);}
 async function flush(){const keys=Object.keys(pending);
   if(HOSTED){if(!keys.length||!S.admin)return;const payload={armies:{},fams:null};
-    keys.forEach(k=>{delete pending[k];if(k==='fams'){payload.fams={};for(const id in FAM)payload.fams[id]=FAM[id].text;}
+    keys.forEach(k=>{delete pending[k];if(k==='fams'){payload.fams={};for(const id in FAM)payload.fams[id]={col:FAM[id].col,text:FAM[id].text};}
       else{const a=ARMIES.find(x=>akey(x.id)===k);if(a)payload.armies[a.id]=JSON.parse(JSON.stringify(a,strip));}});
     const r=await hostReq('fiches-save',payload);if(!r.success)toast(r.message||'Enregistrement impossible.');return;}
   for(const k of keys){delete pending[k];const json=ser(k);if(json==null)continue;await writeDoc(k,json);}}
@@ -302,7 +307,7 @@ async function writeDoc(key,json){
 function loadLocal(){try{
   const f=localStorage.getItem('fa2:fams');if(f)applyFams(f);
   ARMIES.forEach((a,i)=>{const s=localStorage.getItem('fa2:'+akey(a.id));if(s)applyArmy(s,false);});}catch(e){}}
-function applyFams(json){try{const o=JSON.parse(json);for(const id in o){if(FAM[id])FAM[id].text=o[id].text;}}catch(e){}}
+function applyFams(json){try{const o=JSON.parse(json);for(const id in o){if(FAM[id])FAM[id].text=o[id].text;else if(o[id].custom&&o[id].col)FAM[id]={id,col:o[id].col,text:o[id].text,orig:null,custom:true};}}catch(e){}}
 function applyArmy(json){try{const a=JSON.parse(json);const i=ARMIES.findIndex(x=>x.id===a.id);if(i<0)return;prepArmy(a);ARMIES[i]=a;}catch(e){}}
 function onSnapshot(snap){
   let changed=false;
@@ -327,17 +332,6 @@ function nameTd(a,u,which){
   const attr=isMJ()?` data-cell="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-w="u" data-col="B"`:'';
   return `<td class="name"${attr}>${esc(u.in_.B||'')}</td>`;
 }
-function actTd(a,u,which){
-  if(!isMJ())return '';
-  if(which==='l2')return '<td class="act"></td>';
-  return `<td class="act noprint"><button class="mini" data-a="dup" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" title="Dupliquer">⧉</button><button class="mini" data-a="move" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" title="Déplacer vers une autre armée">⇄</button><button class="mini" data-a="del" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" title="Supprimer">✕</button></td>`;
-}
-function colsPanel(a){
-  let h='<div class="card noprint"><div class="chips">';
-  COLS.forEach(c=>{if(c==='B')return;const on=S.cols.has(c);h+=`<button class="chip sm ${on?'on':''}" data-a="col" data-col="${c}" title="${esc(LONG[c])}">${esc(colLabel(a,c))}<small>${c}</small></button>`;});
-  h+='</div><div class="row" style="margin:8px 0 0"><button class="btn" data-a="cols-all">Tout afficher</button><button class="btn" data-a="cols-def">Par défaut</button><button class="btn" data-a="cols-none">Masquer tout</button></div></div>';
-  return h;
-}
 function paramsPanel(a){
   const P=[['C','att +0,5'],['D','typ +1'],['E','dis ×1,03'],['G','PV ×1,06'],['I','dep ×1,1'],['K','typ dép ×0,97'],['S','colonne I']];
   let h='<div class="card noprint"><div class="lbl2">Bonus d\'armée</div><div class="chips">';
@@ -345,147 +339,10 @@ function paramsPanel(a){
     h+=`<button class="chip sm ${on?'on':''}" ${isMJ()?`data-a="param" data-col="${c}"`:'disabled'} title="Colonne ${c}">${esc(t)}<small>${on?'actif':'—'}</small></button>`;});
   return h+'</div></div>';
 }
-function headTh(a,c){return `<th class="${c==='B'?'name':'wrapth'}" title="${esc(LONG[c])}">${esc(c==='B'?'Unité':colLabel(a,c))}</th>`;}
 
-function picksBar(){
-  if(!HOSTED||S.restricted)return '';const names=Object.keys(S.picks||{});
-  if(!names.length)return '<div class="hint noprint">Aucun joueur n\'a encore choisi de légion.</div>';
-  let h='<label class="lbl noprint">Légions choisies par les joueurs</label><div class="chips noprint">';
-  names.sort((x,y)=>x.localeCompare(y,'fr')).forEach(n=>{const p=S.picks[n];const ar=getArmy(p.army);if(!ar)return;const me=n.toLowerCase()===S.pseudo.toLowerCase();
-    h+=`<span class="pk"><button class="chip sm ${me?'on':''}" data-a="openpick" data-army="${esc(p.army)}" data-leg="${esc(p.legion)}">${esc(n)}${me?' (moi)':''}<small>${esc(ar.name)} · ${esc(legName({id:p.legion}))}</small></button>${isMJ()?`<button class="mini" data-a="unpick" data-name="${esc(n)}" title="Retirer ce choix">✕</button>`:''}</span>`;});
-  return h+'</div>';
-}
-function pickBtn(a){
-  if(!HOSTED||S.restricted||isMJ()||!S.sel||S.sel==='ni')return '';
-  const mine=S.myPick&&S.myPick.army===a.id&&S.myPick.legion===S.sel;
-  return mine?'<span class="tag" style="margin:0">Ma légion ✓</span>':`<button class="btn" data-a="pickme">⭐ Choisir cette légion</button>`;
-}
-function renderCatalog(){
-  let h='<h1>Choisissez votre légion</h1><p class="sub">Le MJ a fermé l\'accès aux fiches d\'armée. Choisissez la légion que vous commandez : vous ne verrez ensuite que sa fiche.</p>';
-  (S.catalog||[]).forEach(c=>{if(!c.legions.length)return;h+=`<div class="card"><b>${esc(c.name)}</b><div class="chips" style="margin-top:8px">`;
-    c.legions.forEach(l=>{h+=`<button class="chip" data-a="pickcat" data-army="${esc(c.id)}" data-leg="${esc(l.id)}">${esc(legName(l))}<small>${l.figs} fig${l.comp?' · '+esc(l.comp):''}</small></button>`;});h+='</div></div>';});
-  return h;
-}
-function renderFull(a){
-  const cs=visCols();const mj=isMJ();let h=picksBar();
-  h+='<label class="lbl noprint">Légion</label><div class="chips noprint">';
-  a.legions.forEach(l=>{const st=legStats(a,l);if(l.id==='ni'&&!st.figs&&!mj)return;
-    h+=`<button class="chip ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}">${esc(legName(l))}<small>${st.figs} fig · ${pts(st.val)} pts</small></button>`;});
-  h+='</div>';
-  const cur=a.legions.find(l=>l.id===S.sel);
-  h+=`<div class="row noprint"><button class="btn pri" data-a="mk" ${cur?'':'disabled'}>${cur?('Créer la fiche : '+esc(legName(cur))):'Sélectionnez une légion'}</button>`+pickBtn(a);
-  h+=`<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button>`;
-  if(mj)h+='<button class="btn" data-a="newunit">＋ Nouvelle unité</button>';
-  h+='</div>';
-  if(S.showCols)h+=colsPanel(a);
-  h+=paramsPanel(a);
-  h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c)).join('');
-  a.legions.forEach((l,i)=>{const st=legStats(a,l);if(l.id==='ni'&&!st.figs&&!mj)return;
-    h+=`<th class="lg ${i===0?'sep':''} ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}" title="${esc(legName(l))}">${esc(l.id==='ni'?'non int.':l.id)}</th>`;});
-  if(mj)h+='<th class="noprint"></th>';
-  h+='</tr></thead><tbody>';
-  let last=null;const span=cs.length+a.legions.length+(mj?1:0);
-  a.units.forEach(u=>{
-    if(u.cat!==last){last=u.cat;if(u.cat)h+=`<tr class="cat"><td class="name">${esc(u.cat)}</td><td colspan="${span-1}"></td></tr>`;}
-    [['u'],['l2']].forEach(([w])=>{
-      if(w==='l2'&&!u.l2)return;
-      h+='<tr'+(w==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,w):cellTd(a,u,w,c)).join('');
-      a.legions.forEach((l,i)=>{const st=a._stats?a._stats[l.id]:null;if(l.id==='ni'&&!(a._niFigs||mj))return;
-        const q=w==='u'?u.q[l.id]:null;
-        const attr=(mj&&w==='u')?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="0"`:'';
-        h+=`<td class="lg ${i===0?'sep':''} ${S.sel===l.id?'on':''}"${attr}>${q?'<span class="qty">'+q[0]+'</span>':'<span class="dim">·</span>'}</td>`;});
-      h+=actTd(a,u,w)+'</tr>';});
-  });
-  h+='<tr class="total"><td class="name">Total</td>'+cs.slice(1).map(()=>'<td></td>').join('');
-  a.legions.forEach((l,i)=>{const st=legStats(a,l);if(l.id==='ni'&&!st.figs&&!mj)return;h+=`<td class="lg ${i===0?'sep':''} ${S.sel===l.id?'on':''}">${st.figs}</td>`;});
-  if(mj)h+='<td class="noprint"></td>';
-  h+='</tr></tbody></table></div>';
-  if(a.notes&&a.notes.length)h+='<div class="notes">'+a.notes.map(esc).join('<br>')+'</div>';
-  return h;
-}
-function renderLegion(a){
-  const l=a.legions.find(x=>x.id===S.sel);if(!l){S.view='full';return renderFull(a);}
-  const mj=isMJ();const idx=a.legions.indexOf(l);const cs=visCols();const rows=a.units.filter(u=>u.q[l.id]);
-  const st=legStats(a,l);let h='';
-  const vis=a.legions.filter(x=>x.id!=='ni'||mj||legStats(a,x).figs);const vi=vis.indexOf(l);
-  const nav=(HOSTED&&S.restricted)?'':`<button class="btn" data-a="back">← Armée complète</button><button class="btn" data-a="prev" ${vi<=0?'disabled':''}>◀</button><button class="btn" data-a="next" ${vi>=vis.length-1?'disabled':''}>▶</button>`;
-  h+=`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${pickBtn(a)}</div>`;
-  if(HOSTED&&S.restricted)h+='<div class="hint noprint">Le MJ a fermé l\'accès aux fiches d\'armée : seule la fiche de votre légion est affichée.</div>';
-  if(S.showCols)h+=colsPanel(a);
-  h+=`<div class="card"><div class="sans small up">${esc(a.name)}</div><h1 style="font-size:26px;margin:2px 0">${esc(legName(l))}${l.tag?'<span class="tag">'+esc(l.tag)+'</span>':''}</h1>`;
-  h+=`<div class="kpis"><div class="kpi"><b>${st.figs}</b><span>figurines</span></div><div class="kpi"><b>${pts(st.val)}</b><span>points</span></div><div class="kpi"><b>${rows.length}</b><span>types d'unités</span></div></div>`;
-  if(l.comp)h+=`<div class="comp">Composition : ${esc(l.comp)}</div>`;
-  h+='</div>';
-  if(!rows.length)h+='<div class="hint">Aucune unité dans cette légion.</div>';
-  else{
-    h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c)).join('')+'<th>Qté</th><th title="c de la légion">c lég.</th><th title="E de la légion">E lég.</th><th title="Valeur de la ligne dans cette légion">Pts</th>'+(mj?'<th class="noprint"></th>':'')+'</tr></thead><tbody>';
-    let last=null,sq=0;
-    rows.forEach(u=>{const q=u.q[l.id];sq+=q[0];
-      if(u.cat!==last){last=u.cat;if(u.cat)h+=`<tr class="cat"><td class="name">${esc(u.cat)}</td><td colspan="${cs.length+3+(mj?1:0)}"></td></tr>`;}
-      ['u','l2'].forEach(w=>{if(w==='l2'&&!u.l2)return;
-        h+='<tr'+(w==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,w):cellTd(a,u,w,c)).join('');
-        if(w==='u'){const at=i=>mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${i}"`:'';
-          h+=`<td class="qty"${at(0)}>${q[0]}</td><td${at(1)}>${q[1]||''}</td><td${at(2)}>${q[2]||''}</td><td>${q[3]==null||q[3]!==q[3]?'':Math.round(q[3])}</td>`;}
-        else h+='<td></td><td></td><td></td><td></td>';
-        h+=actTd(a,u,w)+'</tr>';});
-    });
-    h+=`<tr class="total"><td class="name">Total</td>${cs.slice(1).map(()=>'<td></td>').join('')}<td>${sq}</td><td></td><td></td><td>${pts(st.val)}</td>${mj?'<td class="noprint"></td>':''}</tr></tbody></table></div>`;
-  }
-  if(mj){const others=a.units.filter(u=>!u.q[l.id]);
-    h+=`<div class="card noprint"><div class="lbl2">Ajouter une unité à cette légion</div><div class="row" style="margin:6px 0 0"><select id="addUnit" style="flex:1;min-width:160px">${others.map(u=>`<option value="${esc(u.uid)}">${esc(u.in_.B||'')}</option>`).join('')}</select><input id="addQty" type="number" min="1" value="1" style="width:84px"><button class="btn" data-a="addtoleg" ${others.length?'':'disabled'}>Ajouter</button></div></div>`;}
-  if(l.sup&&Math.abs(l.sup)>0.01)h+=`<div class="hint">Le total inclut un supplément de ${pts(l.sup)} pts propre à la fiche d'origine, non ventilé par ligne.</div>`;
-  if(a.notes&&a.notes.length)h+='<div class="notes">'+a.notes.map(esc).join('<br>')+'</div>';
-  h+=`<div class="hint noprint">Source : ${esc(a.file)}</div>`;
-  return h;
-}
-function toText(a,l){
-  const cs=visCols();let t=`${a.name} — ${legName(l)}\n\n`;
-  t+=cs.map(c=>c==='B'?'Unité':colLabel(a,c)).concat(['Qté','c lég','E lég','Pts']).join('\t')+'\n';
-  a.units.filter(u=>u.q[l.id]).forEach(u=>{const q=u.q[l.id];
-    t+=cs.map(c=>fnum(cellRaw(u,c))).concat([q[0],q[1]||'',q[2]||'',q[3]==null?'':Math.round(q[3])]).join('\t')+'\n';
-    if(u.l2)t+=cs.map(c=>c==='B'?'↳ 2e attaque':fnum(cellRaw(u.l2,c))).join('\t')+'\n';});
-  return t;
-}
 
 /* ---- page formules ---- */
-function renderFormulas(){
-  const mj=isMJ();let h='<h1>Formules de calcul</h1><p class="sub">Chaque formule ci-dessous s\'applique à toutes les lignes concernées, dans toutes les armées.'+(mj?'':' Mode lecture : passez en MJ pour modifier.')+'</p>';
-  h+='<div class="card"><div class="small">Syntaxe : <code>C</code> = colonne C de la même ligne · <code>C[+1]</code> = ligne suivante (2ᵉ attaque) · <code>C$19</code> = bonus d\'armée · <code>@nb @c @E</code> = quantité, c, E de la légion · fonctions IF, AND, OR, MIN, MAX, ROUND, ABS, SUM.</div></div>';
-  FAMORDER.forEach(col=>{
-    const fams=Object.values(FAM).filter(f=>f.col===col).map(f=>({f,u:usage(f.id)})).filter(x=>x.u.n>0).sort((a,b)=>b.u.n-a.u.n);
-    if(!fams.length)return;
-    h+=`<h2>${esc(FAMNAME[col])}<span class="colb">${col==='val'?'légions':'col. '+col}</span></h2><p class="sub" style="margin-top:0">${esc(FAMDESC[col])}</p>`;
-    fams.forEach(({f,u})=>{
-      const mod=f.text!==f.orig;
-      h+=`<div class="card fam" data-fam="${f.id}"><div class="famh"><b>${u.n} ligne${u.n>1?'s':''}</b> · ${u.armies} armée${u.armies>1?'s':''}${mod?'<span class="tag">modifiée</span>':''}</div>`;
-      h+=`<textarea class="ft" id="ft_${f.id}" spellcheck="false" ${mj?'':'readonly'} rows="${Math.min(8,Math.ceil(f.text.length/46)+1)}">${esc(f.text)}</textarea><div class="ftres" id="fr_${f.id}"></div>`;
-      if(mj)h+=`<div class="row" style="margin:6px 0 0"><button class="btn" data-a="famtest" data-fam="${f.id}">Tester</button><button class="btn pri" data-a="famapply" data-fam="${f.id}">Appliquer à ${u.n} ligne${u.n>1?'s':''}</button>${mod?`<button class="btn" data-a="famreset" data-fam="${f.id}">Rétablir l'original</button>`:''}<button class="btn" data-a="famunify" data-fam="${f.id}">Étendre à toute la colonne</button></div>`;
-      h+='</div>';});
-  });
-  return h;
-}
 
-function render(){
-  const root=document.getElementById('view');
-  if(HOSTED&&!S.loaded){root.innerHTML='<div class="hint">Chargement des fiches…</div>';return;}
-  if(HOSTED&&S.restricted&&!S.myPick){document.getElementById('mjBadge').style.display='none';document.getElementById('dbBadge').textContent='accès limité';
-    document.getElementById('tabA').style.display='none';document.getElementById('tabF').style.display='none';document.getElementById('armyBar').style.display='none';
-    root.innerHTML=renderCatalog();return;}
-  const a=curArmy();
-  if(HOSTED&&S.restricted){S.tab='army';S.view='legion';}
-  document.getElementById('tabA').style.display=(HOSTED&&S.restricted)?'none':'';
-  document.getElementById('tabF').style.display=(HOSTED&&S.restricted)?'none':'';
-  document.getElementById('tabA').className='tab'+(S.tab==='army'?' on':'');
-  document.getElementById('tabF').className='tab'+(S.tab==='form'?' on':'');
-  document.getElementById('armyBar').style.display=(S.tab==='army'&&S.view==='full')?'block':'none';
-  document.getElementById('mjBadge').style.display=isMJ()?'inline-block':'none';
-  document.getElementById('dbBadge').textContent=HOSTED?(S.restricted?'accès limité':(S.access?'serveur':'fiches fermées aux joueurs')):(S.dbOn?(S.canWrite===false?'partagé · lecture':'partagé'):'local');
-  if(S.tab==='form'){root.innerHTML=renderFormulas();return;}
-  const ni=a.legions.find(l=>l.id==='ni');a._niFigs=ni?legStats(a,ni).figs:0;
-  const head=S.view==='legion'?'':`<div class="sub noprint">${a.legions.filter(l=>l.id!=='ni').length} légions · fiche ${esc(a.version||'')} · ${a.units.length} types d'unités</div>`;
-  root.innerHTML=head+(S.view==='legion'?renderLegion(a):renderFull(a));
-  saveView();
-}
 function saveView(){try{localStorage.setItem('fa2:view',JSON.stringify({army:S.army,sel:S.sel,cols:[...S.cols],pseudo:S.pseudo}));}catch(e){}}
 function loadView(){try{return JSON.parse(localStorage.getItem('fa2:view')||'null');}catch(e){return null;}}
 
@@ -535,13 +392,6 @@ function openCell(armyId,uidv,which,col){
   const upd=()=>{try{const p=parse();if(p.f!==undefined){const r=trial(a,u,which,col,p.f);showRes('→ '+(typeof r==='number'&&r!==r?'#ERR':fnum(r)));}else showRes('');}catch(e){showRes(e.message,true);}};
   const inp=document.getElementById('cv');inp.addEventListener('input',upd);upd();
 }
-function openLegQty(armyId,uidv,lid,i){
-  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);const q=u&&u.q[lid];if(!q)return;
-  const nm=['Quantité','c (légion)','E (légion)'][i];
-  openModal('Modifier '+nm,`<div class="small" style="margin-bottom:8px">${esc(a.name)} › ${esc(u.in_.B||'')} › ${esc(legName(a.legions.find(l=>l.id===lid)))}</div><input id="lqv" class="ft" type="number" min="0" value="${q[i]}">${i===0?'<div class="small" style="margin-top:6px">0 retire l\'unité de la légion.</div>':''}`,
-   [{label:'Annuler',fn:closeModal},{label:'Valider',cls:'pri',fn:()=>{const n=Math.max(0,Math.round(Number(mval('lqv'))||0));
-     if(i===0&&n===0)delete u.q[lid];else q[i]=n;closeModal();afterChange([armyId]);}}]);
-}
 function dupUnit(armyId,uidv){
   const a=getArmy(armyId),k=a.units.findIndex(x=>x.uid===uidv);if(k<0)return;
   const src=a.units[k];const c=JSON.parse(JSON.stringify(src,strip));c.uid=uid(a);c.in_.B=(c.in_.B||'')+' (copie)';c.v={};if(c.l2)c.l2.v={};
@@ -561,40 +411,10 @@ function moveUnit(armyId,uidv){
      insertUnit(d,u);closeModal();S.army=d.id;S.sel='ni';S.view='full';
      document.getElementById('armySel').value=d.id;afterChange([armyId,d.id]);toast(`« ${u.in_.B} » déplacée vers ${d.name} (Non intégré)`);}}]);
 }
-function insertUnit(d,u){
-  let idx=-1;d.units.forEach((x,i)=>{if(x.cat===u.cat)idx=i;});
-  if(idx<0){if(!u.cat)u.cat='divers';idx=d.units.length-1;
-    d.units.forEach((x,i)=>{if(x.cat===u.cat)idx=i;});}
-  d.units.splice(idx+1,0,u);
-}
 function delUnit(armyId,uidv){
   const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
   openModal('Supprimer cette unité ?',`<div>${esc(u.in_.B||'')} sera retirée de l'armée ${esc(a.name)} et de toutes ses légions.</div>`,
    [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{a.units.splice(a.units.indexOf(u),1);closeModal();afterChange([armyId]);}}]);
-}
-function newUnit(){
-  const a=curArmy();const cats=[...new Set(a.units.map(u=>u.cat).filter(Boolean))];
-  const types=[...new Set(a.units.map(u=>u.in_.D).filter(Boolean).map(x=>String(x).toLowerCase()))];
-  const mv=['m','vs','v','j','s'];
-  const f=(id,lbl,val,t)=>`<label class="fl">${lbl}<input id="${id}" class="ft" type="${t||'text'}" value="${esc(val)}"></label>`;
-  openModal('Nouvelle unité',`<div class="grid2">${f('nu_n','Nom','')}
-   <label class="fl">Catégorie<select id="nu_c" class="ft">${cats.map(c=>`<option>${esc(c)}</option>`).join('')}</select></label>
-   ${f('nu_C','att',1,'number')}<label class="fl">typ attaque<select id="nu_D" class="ft">${(types.length?types:['cc']).map(c=>`<option>${esc(c)}</option>`).join('')}</select></label>
-   ${f('nu_E','dis','')}${f('nu_G','PV',1,'number')}${f('nu_H','A (armure)','','number')}${f('nu_I','dep',3,'number')}
-   <label class="fl">typ dép<select id="nu_K" class="ft">${mv.map(c=>`<option>${c}</option>`).join('')}</select></label>${f('nu_A','Quantité',1,'number')}</div>
-   <div class="small" style="margin-top:6px">Les formules sont copiées d'une unité de l'armée. L'unité rejoint « Non intégré ».</div><div class="ftres err" id="nuerr"></div>`,
-   [{label:'Annuler',fn:closeModal},{label:'Créer',cls:'pri',fn:()=>{
-     const name=mval('nu_n').trim();if(!name){const e=document.getElementById('nuerr');e.textContent='Nom requis.';return;}
-     const tpl=a.units.find(u=>!u.l2&&String(u.in_.D||'').toLowerCase()==='cc'&&u.fm.F)||a.units.find(u=>!u.l2&&u.fm.F);
-     if(!tpl){const e=document.getElementById('nuerr');e.textContent='Aucune unité modèle dans cette armée.';return;}
-     const num=id=>{const t=mval(id).trim();return t===''?undefined:Number(t);};
-     const n=Math.max(1,num('nu_A')||1);
-     const u={uid:uid(a),cat:mval('nu_c')||tpl.cat,in_:{A:n,B:name,C:num('nu_C')||0,D:mval('nu_D'),G:num('nu_G')||0,I:num('nu_I')||0,K:mval('nu_K')},
-       fm:Object.assign({},tpl.fm),fo:{},v:{},q:{ni:[n,0,0,null,a.defVal]}};
-     if(mval('nu_E').trim()!=='')u.in_.E=isFinite(Number(mval('nu_E')))?Number(mval('nu_E')):mval('nu_E');
-     if(num('nu_H')!==undefined)u.in_.H=num('nu_H');
-     delete u.fm.S;
-     insertUnit(a,u);closeModal();S.sel='ni';afterChange([a.id]);toast('Unité créée dans « Non intégré »');}}]);
 }
 
 /* ===================== ACTIONS ===================== */
@@ -672,48 +492,509 @@ function hostReq(event,payload){return new Promise(res=>{const rid=++HB.rid;
   const t=setTimeout(()=>{HB.wait.delete(rid);res({success:false,message:'Le serveur ne répond pas.'});},20000);
   HB.wait.set(rid,r=>{clearTimeout(t);res(r);});
   parent.postMessage({type:'fiches:req',rid,event,payload},location.origin);});}
-function applyServer(res){
-  S.restricted=res.mode==='own';S.access=!!res.access;S.picks=res.picks||{};S.myPick=res.pick||null;S.catalog=res.catalog||null;
-  if(!S.restricted){const mine=Object.entries(S.picks).find(([n])=>n.toLowerCase()===S.pseudo.toLowerCase());S.myPick=mine?mine[1]:null;}
-  FAM={};(res.families||[]).forEach(f=>FAM[f.id]={id:f.id,col:f.col,text:pretty(f.rel),orig:pretty(f.rel)});
-  for(const id in (res.famTexts||{}))if(FAM[id])FAM[id].text=res.famTexts[id];
-  const list=res.mode==='full'?res.armies:(res.army?[res.army]:[]);
-  ARMIES=JSON.parse(JSON.stringify(list));ARMIES.forEach(prepArmy);ARMIES.forEach(a=>a.legions.forEach(l=>{delete l.val;}));
-  recompute();
-  const sel=document.getElementById('armySel');sel.innerHTML=ARMIES.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
-}
-function fixSelection(first){
-  if(!ARMIES.length){S.army=null;return;}
-  if(S.restricted){S.army=S.myPick.army;S.sel=S.myPick.legion;S.view='legion';S.tab='army';}
-  else{
-    if(first&&S.myPick&&getArmy(S.myPick.army)){S.army=S.myPick.army;S.sel=S.myPick.legion;S.view='legion';S.tab='army';}
-    else{if(!getArmy(S.army))S.army=ARMIES[0].id;if(!curArmy().legions.some(l=>l.id===S.sel)){S.sel=null;if(S.view==='legion')S.view='full';}}
-  }
-  document.getElementById('armySel').value=S.army||'';
-}
-async function loadHosted(first){
-  const r=await hostReq('fiches-load',{});
-  if(!r.success){S.loaded=true;document.getElementById('view').innerHTML=`<div class="card">${esc(r.message||'Fiches indisponibles.')}</div>`;return;}
-  applyServer(r);S.loaded=true;fixSelection(first);render();
-}
 async function reloadHosted(){
   if(document.getElementById('modal').classList.contains('open')){S.reloadPending=true;return;}
   if(S.admin)await flush();
   await loadHosted(false);
 }
-async function doPick(armyId,lid){
-  const r=await hostReq('fiches-pick',{army:armyId,legion:lid});
-  if(!r.success)return toast(r.message||'Choix impossible.');
-  toast('Légion choisie');S.army=armyId;S.sel=lid;S.view='legion';
-}
 function startHosted(init){
-  S.admin=!!init.isAdmin;S.pseudo=init.name||'';S.access=init.access!==false;
+  S.admin=!!init.isAdmin;S.pseudo=init.name||'';S.access=init.access!==false;S.pendingOpen=init.open||null;
   window.addEventListener('message',ev=>{if(ev.origin!==location.origin||ev.source!==parent)return;const d=ev.data;if(!d||typeof d!=='object')return;
     if(d.type==='fiches:res'){const f=HB.wait.get(d.rid);if(f){HB.wait.delete(d.rid);f(d.res);}}
     else if(d.type==='fiches:changed')reloadHosted();
     else if(d.type==='fiches:reopen'){S.tab='army';loadHosted(true);}
-    else if(d.type==='fiches:ouvrir')openFromLink(d.armee||d.army,d.legion);});
+    else if(d.type==='fiches:ouvrir'){if(!S.loaded)S.pendingOpen=d;else{openFromLink(d.armee||d.army,d.legion);}}});
   loadHosted(true);
+}
+
+/* ===================== NOUVEAUTÉS : sections, légions, choix, arbre de formules ===================== */
+function legName(l){if(!l)return '';if(l.id==='ni')return 'Non intégré';if(l.name)return l.name;if(l.id==='renfort')return 'Renfort';return 'Légion '+l.id;}
+function legShort(l){return l.id==='ni'?'non int.':(l.name?l.name:l.id);}
+
+function prepArmy(a){
+  let n=0;
+  a.units.forEach(u=>{u.uid=u.uid||(a.id+'-'+(++n)+'-'+Math.random().toString(36).slice(2,6));u.fo=u.fo||{};u.fm=u.fm||{};u.v={};delete u.calc;u.err=null;
+    u.cat=u.cat||'';if(!u.fm0)u.fm0=Object.assign({},u.fm);
+    Object.values(u.q).forEach(q=>{if(q[5]===undefined)q[5]=q[4]||null;});
+    if(u.l2){u.l2.fo=u.l2.fo||{};u.l2.fm=u.l2.fm||{};u.l2.v={};delete u.l2.calc;if(!u.l2.fm0)u.l2.fm0=Object.assign({},u.l2.fm);}});
+  const cnt={};a.units.forEach(u=>Object.values(u.q).forEach(q=>{if(q[4]&&q[4]!=='none')cnt[q[4]]=(cnt[q[4]]||0)+1;}));
+  const best=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0];
+  if(best)a.defVal=best;
+  if(!Array.isArray(a.sections))a.sections=[];
+  a.units.forEach(u=>{if(!a.sections.includes(u.cat))a.sections.push(u.cat);});
+  if(!S.restricted&&!a.legions.some(l=>l.id==='ni'))a.legions.push({id:'ni',kind:'ni',figs:0,val:0,sup:0,comp:null,tag:null});
+  a.legions.sort((x,y)=>(x.id==='ni')-(y.id==='ni'));
+}
+function groupUnits(a,filter,withEmpty){
+  const out=[];const names=a.sections.slice();
+  a.units.forEach(u=>{if(!names.includes(u.cat||''))names.push(u.cat||'');});
+  names.forEach(n=>{const us=a.units.filter(u=>(u.cat||'')===n&&(!filter||filter(u)));if(us.length||(withEmpty&&n!==''))out.push({cat:n,units:us});});
+  return out;
+}
+function visLegions(a){const mj=isMJ();return a.legions.filter(l=>l.id!=='ni'||mj||legStats(a,l).figs>0);}
+function legTot(a,l){let n=0,c=0,e=0,v=0;a.units.forEach(u=>{const q=u.q[l.id];if(!q)return;n+=q[0];c+=q[1]||0;e+=q[2]||0;v+=(q[3]===q[3]&&q[3]!=null)?q[3]:0;});return {n,c,e,v:v+(l.sup||0)};}
+const lgW=()=>S.cols.has('$pts')?4:3;
+
+/* ---- choix de légion ---- */
+const isMe=n=>String(n).toLowerCase()===String(S.pseudo).toLowerCase();
+function pickOwner(armyId,lid){for(const n in S.picks){const p=S.picks[n];if(p.army===armyId&&p.legion===lid)return n;}return null;}
+function picksBar(){
+  if(!HOSTED)return '';const names=Object.keys(S.picks||{});
+  if(!names.length)return '<div class="hint noprint">Aucun joueur n\'a encore choisi de légion.</div>';
+  let h='<label class="lbl noprint">Légions choisies par les joueurs</label><div class="chips noprint">';
+  names.sort((x,y)=>x.localeCompare(y,'fr')).forEach(n=>{const p=S.picks[n];const ar=getArmy(p.army);const lg=ar&&ar.legions.find(l=>l.id===p.legion);if(!lg)return;
+    const on=S.army===p.army&&S.sel===p.legion&&S.view==='legion';
+    h+=`<span class="pk"><button class="chip sm ${isMe(n)?'me':''} ${on?'on':''}" data-a="openpick" data-army="${esc(p.army)}" data-leg="${esc(p.legion)}">${esc(n)}${isMe(n)?' (moi)':''}<small>${esc(ar.name)} · ${esc(legName(lg))}</small></button>${isMJ()&&!isMe(n)?`<button class="mini" data-a="unpick" data-name="${esc(n)}" title="Retirer ce choix">✕</button>`:''}</span>`;});
+  return h+'</div>';
+}
+function pickBtn(a){
+  if(!HOSTED||!S.sel||S.sel==='ni')return '';
+  const owner=pickOwner(a.id,S.sel);
+  if(owner&&isMe(owner))return '<span class="tag" style="margin:0">Ma légion ✓</span>'+((isMJ()||!S.frozen)?'<button class="btn" data-a="unpickme">Libérer ma légion</button>':'<span class="small">figée par le MJ</span>');
+  if(owner)return `<button class="btn" disabled>Choisie par ${esc(owner)}</button>`;
+  if(S.myPick&&S.frozen&&!isMJ())return '<button class="btn" disabled>Légions figées par le MJ</button>';
+  return `<button class="btn" data-a="pickme">⭐ ${S.myPick?'Prendre cette légion à la place de la mienne':'Choisir cette légion'}</button>`;
+}
+function renderCatalog(){
+  let h='<h1>Choisissez votre légion</h1><p class="sub">Le MJ a fermé l\'accès aux autres fiches d\'armée. Choisissez la légion que vous commandez : une légion ne peut être choisie que par un seul joueur.</p>';
+  (S.catalog||[]).forEach(c=>{if(!c.legions.length)return;h+=`<div class="card"><b>${esc(c.name)}</b><div class="chips" style="margin-top:8px">`;
+    c.legions.forEach(l=>{const t=l.takenBy;h+=`<button class="chip" ${t?'disabled':''} data-a="pickcat" data-army="${esc(c.id)}" data-leg="${esc(l.id)}">${esc(legName(l))}<small>${t?'choisie par '+esc(t):l.figs+' fig'+(l.comp?' · '+esc(l.comp):'')}</small></button>`;});h+='</div></div>';});
+  return h;
+}
+
+/* ---- boutons d'unité / de section ---- */
+function actTd(a,u,which){
+  if(!isMJ())return '';
+  if(which==='l2')return '<td class="act"></td>';
+  const b=(act,t,ic)=>`<button class="mini" data-a="${act}" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" title="${t}">${ic}</button>`;
+  return `<td class="act noprint">${b('dup','Dupliquer','⧉')}${b('move','Déplacer vers une autre armée','⇄')}${b('usec','Changer de section','⇅')}${b('del','Supprimer','✕')}</td>`;
+}
+function secRow(a,g,span,mj){
+  if(!g.cat)return '';
+  const b=mj?`<span class="secb noprint"><button class="mini" data-a="rensec" data-sec="${esc(g.cat)}" title="Renommer">✎</button>${g.units.length===0?`<button class="mini" data-a="delsec" data-sec="${esc(g.cat)}" title="Supprimer cette section vide">✕</button>`:''}</span>`:'';
+  return `<tr class="cat"><td class="name">${esc(g.cat)}${b}</td><td colspan="${span-1}"></td></tr>`;
+}
+function headTh(a,c,rs){return `<th class="${c==='B'?'name':'wrapth'}" ${rs?`rowspan="${rs}"`:''} title="${esc(LONG[c])}">${esc(c==='B'?'Unité':colLabel(a,c))}</th>`;}
+function colsPanel(a){
+  let h='<div class="card noprint"><div class="chips">';
+  COLS.forEach(c=>{if(c==='B')return;const on=S.cols.has(c);h+=`<button class="chip sm ${on?'on':''}" data-a="col" data-col="${c}" title="${esc(LONG[c])}">${esc(colLabel(a,c))}<small>${c}</small></button>`;});
+  h+=`<button class="chip sm ${S.cols.has('$pts')?'on':''}" data-a="col" data-col="$pts" title="Valeur en points de chaque ligne dans chaque légion">pts lég.<small>val ligne</small></button>`;
+  h+='</div><div class="row" style="margin:8px 0 0"><button class="btn" data-a="cols-all">Tout afficher</button><button class="btn" data-a="cols-def">Par défaut</button><button class="btn" data-a="cols-none">Masquer tout</button></div></div>';
+  return h;
+}
+
+/* ---- fiche armée : chaque légion a ses colonnes nb / c / E (+ pts) ---- */
+function renderFull(a){
+  const cs=visCols();const mj=isMJ();const vl=visLegions(a);const w=lgW();let h=picksBar();
+  h+='<label class="lbl noprint">Légion</label><div class="chips noprint">';
+  vl.forEach(l=>{const t=legTot(a,l);const o=HOSTED?pickOwner(a.id,l.id):null;
+    h+=`<button class="chip ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}">${esc(legName(l))}<small>${t.n} fig · ${pts(t.v)} pts${o?' · '+esc(o):''}</small></button>`;});
+  if(mj)h+='<button class="chip" data-a="newleg">＋ Nouvelle légion</button>';
+  h+='</div>';
+  const cur=a.legions.find(l=>l.id===S.sel);
+  h+=`<div class="row noprint"><button class="btn pri" data-a="mk" ${cur?'':'disabled'}>${cur?('Créer la fiche : '+esc(legName(cur))):'Sélectionnez une légion'}</button>`+pickBtn(a);
+  h+=`<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button>`;
+  if(mj)h+='<button class="btn" data-a="newunit">＋ Unité</button><button class="btn" data-a="newsec">＋ Section</button>';
+  h+='</div>';
+  if(S.showCols)h+=colsPanel(a);
+  h+=paramsPanel(a);
+  h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c,2)).join('');
+  vl.forEach(l=>{h+=`<th class="lg gs ${S.sel===l.id?'on':''}" colspan="${w}" data-a="leg" data-leg="${esc(l.id)}" title="${esc(legName(l))}">${esc(legShort(l))}</th>`;});
+  if(mj)h+='<th class="noprint" rowspan="2"></th>';
+  h+='</tr><tr>';
+  vl.forEach(l=>{['nb','c','E'].concat(w===4?['pts']:[]).forEach((t,k)=>{h+=`<th class="lg sub ${k===0?'gs':''} ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}">${t}</th>`;});});
+  h+='</tr></thead><tbody>';
+  const span=cs.length+vl.length*w+(mj?1:0);
+  groupUnits(a,null,mj).forEach(g=>{
+    h+=secRow(a,g,span,mj);
+    g.units.forEach(u=>{['u','l2'].forEach(wh=>{
+      if(wh==='l2'&&!u.l2)return;
+      h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c)).join('');
+      if(wh==='l2')h+=`<td colspan="${vl.length*w}"></td>`;
+      else vl.forEach(l=>{const q=u.q[l.id];const on=S.sel===l.id?'on':'';
+        for(let k=0;k<3;k++){
+          const attr=mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${k}"`:'';
+          const txt=q?(k===0?`<span class="qty">${q[0]}</span>`:(q[k]||'')):(k===0?'<span class="dim">·</span>':'');
+          h+=`<td class="lg ${k===0?'gs':''} ${on}"${attr}>${txt}</td>`;}
+        if(w===4)h+=`<td class="lg ${on}">${q&&q[3]===q[3]&&q[3]!=null?Math.round(q[3]):''}</td>`;});
+      h+=actTd(a,u,wh)+'</tr>';});});
+  });
+  h+='<tr class="total"><td class="name">Total</td>'+cs.slice(1).map(()=>'<td></td>').join('');
+  vl.forEach(l=>{const t=legTot(a,l);const on=S.sel===l.id?'on':'';
+    h+=`<td class="lg gs ${on}">${t.n}</td><td class="lg ${on}">${t.c||''}</td><td class="lg ${on}">${t.e||''}</td>`+(w===4?`<td class="lg ${on}">${pts(t.v)}</td>`:'');});
+  if(mj)h+='<td class="noprint"></td>';
+  h+='</tr></tbody></table></div>';
+  if(a.notes&&a.notes.length)h+='<div class="notes">'+a.notes.map(esc).join('<br>')+'</div>';
+  return h;
+}
+
+/* ---- fiche légion ---- */
+function renderLegion(a){
+  const l=a.legions.find(x=>x.id===S.sel);if(!l){S.view='full';return renderFull(a);}
+  const mj=isMJ();const cs=visCols();const rows=a.units.filter(u=>u.q[l.id]);
+  const t=legTot(a,l);let h=picksBar();
+  const vis=visLegions(a);const vi=vis.indexOf(l);const rs=HOSTED&&S.restricted;
+  const nav=rs?'':`<button class="btn" data-a="back">← Armée complète</button><button class="btn" data-a="prev" ${vi<=0?'disabled':''}>◀</button><button class="btn" data-a="next" ${vi>=vis.length-1?'disabled':''}>▶</button>`;
+  h+=`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${pickBtn(a)}</div>`;
+  if(mj&&l.id!=='ni')h+='<div class="row noprint"><button class="btn" data-a="editleg">✎ Modifier la légion</button><button class="btn" data-a="dupleg">⧉ Dupliquer</button><button class="btn" data-a="delleg">🗑 Supprimer</button><button class="btn" data-a="newleg">＋ Nouvelle légion</button></div>';
+  if(S.showCols)h+=colsPanel(a);
+  h+=`<div class="card"><div class="sans small up">${esc(a.name)}</div><h1 style="font-size:26px;margin:2px 0">${esc(legName(l))}${l.tag?'<span class="tag">'+esc(l.tag)+'</span>':''}</h1>`;
+  h+=`<div class="kpis"><div class="kpi"><b>${t.n}</b><span>figurines</span></div><div class="kpi"><b>${pts(t.v)}</b><span>points</span></div><div class="kpi"><b>${rows.length}</b><span>types d'unités</span></div></div>`;
+  if(l.comp)h+=`<div class="comp">Composition : ${esc(l.comp)}</div>`;
+  h+='</div>';
+  if(!rows.length)h+='<div class="hint">Aucune unité dans cette légion.</div>';
+  else{
+    h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c)).join('')+'<th>nb</th><th title="c de la légion">c</th><th title="E de la légion">E</th><th title="Valeur de la ligne dans cette légion">pts</th>'+(mj?'<th class="noprint"></th>':'')+'</tr></thead><tbody>';
+    groupUnits(a,u=>u.q[l.id],false).forEach(g=>{
+      h+=secRow(a,g,cs.length+4+(mj?1:0),false);
+      g.units.forEach(u=>{const q=u.q[l.id];
+        ['u','l2'].forEach(wh=>{if(wh==='l2'&&!u.l2)return;
+          h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c)).join('');
+          if(wh==='u'){const at=i=>mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${i}"`:'';
+            h+=`<td class="qty"${at(0)}>${q[0]}</td><td${at(1)}>${q[1]||''}</td><td${at(2)}>${q[2]||''}</td><td>${q[3]==null||q[3]!==q[3]?'':Math.round(q[3])}</td>`;}
+          else h+='<td></td><td></td><td></td><td></td>';
+          h+=actTd(a,u,wh)+'</tr>';});});
+    });
+    h+=`<tr class="total"><td class="name">Total</td>${cs.slice(1).map(()=>'<td></td>').join('')}<td>${t.n}</td><td>${t.c||''}</td><td>${t.e||''}</td><td>${pts(t.v)}</td>${mj?'<td class="noprint"></td>':''}</tr></tbody></table></div>`;
+  }
+  if(mj){const others=a.units.filter(u=>!u.q[l.id]);
+    h+=`<div class="card noprint"><div class="lbl2">Ajouter une unité à cette légion</div><div class="row" style="margin:6px 0 0"><select id="addUnit" style="flex:1;min-width:160px">${others.map(u=>`<option value="${esc(u.uid)}">${esc(u.in_.B||'')}</option>`).join('')}</select><input id="addQty" type="number" min="1" value="1" style="width:84px"><button class="btn" data-a="addtoleg" ${others.length?'':'disabled'}>Ajouter</button></div></div>`;}
+  if(l.sup&&Math.abs(l.sup)>0.01)h+=`<div class="hint">Le total inclut un supplément de ${pts(l.sup)} pts propre à la fiche d'origine, non ventilé par ligne.</div>`;
+  if(a.notes&&a.notes.length)h+='<div class="notes">'+a.notes.map(esc).join('<br>')+'</div>';
+  h+=`<div class="hint noprint">Source : ${esc(a.file)}</div>`;
+  return h;
+}
+function toText(a,l){
+  const cs=visCols();let t=`${a.name} — ${legName(l)}\n\n`;
+  t+=cs.map(c=>c==='B'?'Unité':colLabel(a,c)).concat(['nb','c','E','pts']).join('\t')+'\n';
+  a.units.filter(u=>u.q[l.id]).forEach(u=>{const q=u.q[l.id];
+    t+=cs.map(c=>fnum(cellRaw(u,c))).concat([q[0],q[1]||'',q[2]||'',q[3]==null||q[3]!==q[3]?'':Math.round(q[3])]).join('\t')+'\n';
+    if(u.l2)t+=cs.map(c=>c==='B'?'↳ 2e attaque':fnum(cellRaw(u.l2,c))).join('\t')+'\n';});
+  return t;
+}
+
+/* ---- rendu général ---- */
+function render(){
+  const root=document.getElementById('view');
+  if(HOSTED&&!S.loaded){root.innerHTML='<div class="hint">Chargement des fiches…</div>';return;}
+  const rs=HOSTED&&S.restricted;
+  const $=id=>document.getElementById(id);
+  $('tabA').style.display=rs?'none':'';$('tabF').style.display=rs?'none':'';
+  $('mjBadge').style.display=isMJ()?'inline-block':'none';
+  $('dbBadge').textContent=HOSTED?(rs?'accès limité':(S.access?'serveur':'fiches fermées aux joueurs')+(S.frozen?' · légions figées':'')):(S.dbOn?(S.canWrite===false?'partagé · lecture':'partagé'):'local');
+  if(rs){
+    S.tab='army';$('armyBar').style.display='none';
+    const a=curArmy();const ok=a&&a.legions.some(l=>l.id===S.sel&&l.id!=='ni');
+    let h='';
+    if(ok){S.view='legion';h+=renderLegion(a);}else h+=picksBar();
+    if(!S.myPick)h+=renderCatalog();
+    root.innerHTML=h;saveView();return;
+  }
+  if(!ARMIES.length){root.innerHTML='<div class="hint">Aucune fiche disponible.</div>';return;}
+  const a=curArmy();
+  $('tabA').className='tab'+(S.tab==='army'?' on':'');
+  $('tabF').className='tab'+(S.tab==='form'?' on':'');
+  $('armyBar').style.display=(S.tab==='army'&&S.view==='full')?'block':'none';
+  if(S.tab==='form'){root.innerHTML=renderFormulas();return;}
+  const ni=a.legions.find(l=>l.id==='ni');a._niFigs=ni?legStats(a,ni).figs:0;
+  const head=S.view==='legion'?'':`<div class="sub noprint">${a.legions.filter(l=>l.id!=='ni').length} légion${a.legions.filter(l=>l.id!=='ni').length>1?'s':''} · fiche ${esc(a.version||'')} · ${a.units.length} types d'unités</div>`;
+  root.innerHTML=head+(S.view==='legion'?renderLegion(a):renderFull(a));
+  saveView();
+}
+
+/* ---- quantités de légion (cellule vide = ajout de l'unité à la légion) ---- */
+function openLegQty(armyId,uidv,lid,i){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  const q=u.q[lid];const lg=a.legions.find(l=>l.id===lid);
+  const nm=['Quantité','c (légion)','E (légion)'][i];
+  if(!q&&i!==0)return toast("Renseignez d'abord la quantité de cette unité dans la légion.");
+  openModal('Modifier '+nm,`<div class="small" style="margin-bottom:8px">${esc(a.name)} › ${esc(u.in_.B||'')} › ${esc(legName(lg))}</div><input id="lqv" class="ft" type="number" min="0" value="${q?q[i]:0}">${i===0?'<div class="small" style="margin-top:6px">0 retire l\'unité de la légion.</div>':''}`,
+   [{label:'Annuler',fn:closeModal},{label:'Valider',cls:'pri',fn:()=>{const n=Math.max(0,Math.round(Number(mval('lqv'))||0));
+     if(i===0){if(n===0)delete u.q[lid];else if(q)q[0]=n;else u.q[lid]=[n,0,0,null,a.defVal,a.defVal];}else q[i]=n;
+     closeModal();afterChange([armyId]);}}]);
+}
+
+/* ---- sections ---- */
+function cleanName(t,max){return String(t||'').replace(/\s+/g,' ').trim().slice(0,max);}
+function addSection(){
+  const a=curArmy();
+  openModal('Nouvelle section',`<input id="sn" class="ft" type="text" maxlength="60" placeholder="ex. : armes de jet, machines, monstres…"><div class="ftres err" id="sne"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Créer',cls:'pri',fn:()=>{const n=cleanName(mval('sn'),60);const e=document.getElementById('sne');
+     if(!n){e.textContent='Donnez un nom à la section.';return;}
+     if(a.sections.some(x=>x.toLowerCase()===n.toLowerCase())){e.textContent='Cette section existe déjà.';return;}
+     a.sections.push(n);closeModal();afterChange([a.id]);toast(`Section « ${n} » créée`);}}]);
+}
+function renameSection(old){
+  const a=curArmy();
+  openModal('Renommer la section',`<input id="sn" class="ft" type="text" maxlength="60" value="${esc(old)}"><div class="ftres err" id="sne"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Renommer',cls:'pri',fn:()=>{const n=cleanName(mval('sn'),60);const e=document.getElementById('sne');
+     if(!n){e.textContent='Nom requis.';return;}
+     if(n.toLowerCase()!==old.toLowerCase()&&a.sections.some(x=>x.toLowerCase()===n.toLowerCase())){e.textContent='Cette section existe déjà.';return;}
+     a.sections=a.sections.map(x=>x===old?n:x);a.units.forEach(u=>{if(u.cat===old)u.cat=n;});closeModal();afterChange([a.id]);}}]);
+}
+function deleteSection(name){
+  const a=curArmy();if(a.units.some(u=>u.cat===name))return toast('Section non vide : déplacez d\'abord ses unités.');
+  a.sections=a.sections.filter(x=>x!==name);afterChange([a.id]);
+}
+function unitSection(armyId,uidv){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  openModal('Changer de section',`<div class="small" style="margin-bottom:8px">${esc(u.in_.B||'')}</div><select id="us" class="ft">${a.sections.filter(x=>x!=='').map(x=>`<option ${x===u.cat?'selected':''}>${esc(x)}</option>`).join('')}</select><div class="small" style="margin-top:6px">Pour créer une nouvelle section, utilisez « ＋ Section ».</div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Déplacer',cls:'pri',fn:()=>{u.cat=mval('us');closeModal();afterChange([armyId]);}}]);
+}
+function insertUnit(d,u){
+  u.cat=u.cat||'divers';if(!d.sections.includes(u.cat))d.sections.push(u.cat);
+  let idx=-1;d.units.forEach((x,i)=>{if(x.cat===u.cat)idx=i;});
+  d.units.splice(idx<0?d.units.length:idx+1,0,u);
+}
+function newUnit(){
+  const a=curArmy();const cats=a.sections.filter(x=>x!=='');
+  const types=[...new Set(a.units.map(u=>u.in_.D).filter(Boolean).map(x=>String(x).toLowerCase()))];
+  const mv=['m','vs','v','j','s'];
+  const f=(id,lbl,val,t)=>`<label class="fl">${lbl}<input id="${id}" class="ft" type="${t||'text'}" value="${esc(val)}"></label>`;
+  openModal('Nouvelle unité',`<div class="grid2">${f('nu_n','Nom','')}
+   <label class="fl">Section<select id="nu_c" class="ft">${cats.map(c=>`<option>${esc(c)}</option>`).join('')}</select></label>
+   ${f('nu_C','att',1,'number')}<label class="fl">typ attaque<select id="nu_D" class="ft">${(types.length?types:['cc']).map(c=>`<option>${esc(c)}</option>`).join('')}</select></label>
+   ${f('nu_E','dis','')}${f('nu_G','PV',1,'number')}${f('nu_H','A (armure)','','number')}${f('nu_I','dep',3,'number')}
+   <label class="fl">typ dép<select id="nu_K" class="ft">${mv.map(c=>`<option>${c}</option>`).join('')}</select></label>${f('nu_A','Quantité',1,'number')}</div>
+   <div class="small" style="margin-top:6px">Les formules sont copiées d'une unité de l'armée. L'unité rejoint « Non intégré ».</div><div class="ftres err" id="nuerr"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Créer',cls:'pri',fn:()=>{
+     const name=mval('nu_n').trim();const er=document.getElementById('nuerr');if(!name){er.textContent='Nom requis.';return;}
+     const tpl=a.units.find(u=>!u.l2&&String(u.in_.D||'').toLowerCase()==='cc'&&u.fm.F)||a.units.find(u=>!u.l2&&u.fm.F);
+     if(!tpl){er.textContent='Aucune unité modèle dans cette armée.';return;}
+     const num=id=>{const t=mval(id).trim();return t===''?undefined:Number(t);};
+     const n=Math.max(1,num('nu_A')||1);
+     const u={uid:uid(a),cat:mval('nu_c')||tpl.cat,in_:{A:n,B:name,C:num('nu_C')||0,D:mval('nu_D'),G:num('nu_G')||0,I:num('nu_I')||0,K:mval('nu_K')},
+       fm:Object.assign({},tpl.fm),fo:{},v:{},q:{ni:[n,0,0,null,a.defVal,a.defVal]}};
+     u.fm0=Object.assign({},u.fm);
+     if(mval('nu_E').trim()!=='')u.in_.E=isFinite(Number(mval('nu_E')))?Number(mval('nu_E')):mval('nu_E');
+     if(num('nu_H')!==undefined)u.in_.H=num('nu_H');
+     delete u.fm.S;delete u.fm0.S;
+     insertUnit(a,u);closeModal();S.sel='ni';afterChange([a.id]);toast('Unité créée dans « Non intégré »');}}]);
+}
+
+/* ---- légions : créer, modifier, dupliquer, supprimer ---- */
+function nextLegId(a){let n=1;const ids=new Set(a.legions.map(l=>l.id));while(ids.has(String(n)))n++;return String(n);}
+function legForm(l){
+  const f=(id,lbl,val,t,ph)=>`<label class="fl">${lbl}<input id="${id}" class="ft" type="${t||'text'}" value="${esc(val==null?'':val)}" ${ph?`placeholder="${esc(ph)}"`:''}></label>`;
+  return `<div class="grid2">${f('lg_n','Nom (facultatif)',l.name,'text','ex. Garde royale')}${f('lg_t','Étiquette (facultatif)',l.tag)}</div>${f('lg_c','Composition (texte libre)',l.comp)}${f('lg_s','Supplément de points',l.sup||0,'number')}`;
+}
+function readLegForm(l){
+  l.name=cleanName(mval('lg_n'),40)||undefined;if(!l.name)delete l.name;
+  l.tag=cleanName(mval('lg_t'),30)||null;l.comp=cleanName(mval('lg_c'),200)||null;
+  const s=Number(mval('lg_s'));l.sup=isFinite(s)?s:0;
+}
+function createLegion(){
+  const a=curArmy();const l={id:nextLegId(a),kind:'main',figs:0,sup:0,comp:null,tag:null};
+  openModal('Nouvelle légion',legForm(l)+`<div class="small" style="margin-top:6px">La légion sera créée vide (identifiant ${esc(l.id)}). Ajoutez-y ensuite des unités.</div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Créer',cls:'pri',fn:()=>{readLegForm(l);const i=a.legions.findIndex(x=>x.id==='ni');a.legions.splice(i<0?a.legions.length:i,0,l);
+     S.sel=l.id;closeModal();afterChange([a.id]);toast(`${legName(l)} créée`);}}]);
+}
+function editLegion(){
+  const a=curArmy();const l=a.legions.find(x=>x.id===S.sel);if(!l||l.id==='ni')return;
+  openModal('Modifier la légion',legForm(l),[{label:'Annuler',fn:closeModal},{label:'Enregistrer',cls:'pri',fn:()=>{readLegForm(l);closeModal();afterChange([a.id]);}}]);
+}
+function duplicateLegion(){
+  const a=curArmy();const l=a.legions.find(x=>x.id===S.sel);if(!l||l.id==='ni')return;
+  const c=JSON.parse(JSON.stringify(l));c.id=nextLegId(a);c.name=cleanName((l.name||legName(l))+' (copie)',40);
+  const i=a.legions.findIndex(x=>x.id==='ni');a.legions.splice(i<0?a.legions.length:i,0,c);
+  a.units.forEach(u=>{if(u.q[l.id])u.q[c.id]=u.q[l.id].slice();});
+  S.sel=c.id;afterChange([a.id]);toast('Légion dupliquée');
+}
+function deleteLegion(){
+  const a=curArmy();const l=a.legions.find(x=>x.id===S.sel);if(!l||l.id==='ni')return;
+  const o=HOSTED?pickOwner(a.id,l.id):null;
+  openModal('Supprimer la légion ?',`<div>${esc(legName(l))} sera supprimée de ${esc(a.name)}, avec ses quantités. Les unités restent dans l'armée.${o?`<br><br><b>${esc(o)}</b> l'a choisie : son choix sera retiré.`:''}</div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{a.legions=a.legions.filter(x=>x.id!==l.id);a.units.forEach(u=>{delete u.q[l.id];});
+     S.sel=null;S.view='full';closeModal();afterChange([a.id]);toast('Légion supprimée');}}]);
+}
+
+/* ---- formules : page, éditeur et arborescence ---- */
+function famUsageAll(){const m={};Object.keys(FAM).forEach(id=>m[id]=usage(id));return m;}
+function renderFormulas(){
+  const mj=isMJ();const U=famUsageAll();
+  let h='<h1>Formules de calcul</h1><p class="sub">Chaque formule s\'applique aux lignes cochées dans son arborescence (armée › légion › unité).'+(mj?'':' Mode lecture : passez en MJ pour modifier.')+'</p>';
+  if(HOSTED&&mj)h+='<div class="row noprint"><button class="btn" data-a="diag">🔧 Tester l\'enregistrement</button></div>';
+  h+='<div class="card"><div class="small">Syntaxe : <code>C</code> = colonne C de la même ligne · <code>C[+1]</code> = ligne suivante (2ᵉ attaque) · <code>C$19</code> = bonus d\'armée · <code>@nb @c @E</code> = quantité, c, E de la légion · fonctions IF, AND, OR, MIN, MAX, ROUND, ABS, SUM.</div></div>';
+  FAMORDER.forEach(col=>{
+    const fams=Object.values(FAM).filter(f=>f.col===col&&(U[f.id].n>0||f.custom||(f.orig!=null&&f.text!==f.orig))).sort((a,b)=>U[b.id].n-U[a.id].n);
+    if(!fams.length)return;
+    h+=`<h2>${esc(FAMNAME[col])}<span class="colb">${col==='val'?'légions':'col. '+col}</span></h2><p class="sub" style="margin-top:0">${esc(FAMDESC[col])}</p>`;
+    fams.forEach(f=>{const u=U[f.id];const mod=f.orig!=null&&f.text!==f.orig;
+      h+=`<div class="card fam"><div class="famh"><b>${u.n} ligne${u.n>1?'s':''}</b> · ${u.armies} armée${u.armies>1?'s':''}${mod?'<span class="tag">modifiée</span>':''}${f.custom?'<span class="tag">créée</span>':''}</div>`;
+      h+=`<code class="fcode">${esc(f.text)}</code><div class="row" style="margin:8px 0 0"><button class="btn pri" data-a="ft-open" data-fam="${f.id}">${mj?'Modifier · arborescence':'Voir l\'arborescence'}</button>`;
+      if(mj)h+=`<button class="btn" data-a="fam-dup" data-fam="${f.id}">Nouvelle formule à partir de celle-ci</button>`+((f.custom&&u.n===0)?`<button class="btn" data-a="fam-del" data-fam="${f.id}">Supprimer</button>`:'');
+      h+='</div></div>';});
+  });
+  return h;
+}
+function ftBuild(fid){
+  const col=FAM[fid].col;const model=[];
+  ARMIES.forEach(a=>{
+    const groups=[];
+    a.legions.forEach(l=>{
+      const leaves=[];
+      a.units.forEach(u=>{const q=u.q[l.id];if(!q)return;
+        if(col==='val'){const cf=q[4]==null?a.defVal:q[4];leaves.push({key:`q|${a.id}|${u.uid}|${l.id}`,label:u.in_.B||'(sans nom)',qty:q[0],cur:cf||'none',army:a.id,uid:u.uid,wh:'q',lid:l.id});}
+        else{[['u',u],['l2',u.l2]].forEach(([wh,row])=>{if(!row)return;const cf=row.fo[col]!=null?'~':(row.fm[col]||'-');
+          leaves.push({key:`u|${a.id}|${u.uid}|${wh}`,label:(wh==='l2'?'↳ ':'')+(u.in_.B||'(sans nom)')+(wh==='l2'?' (2ᵉ attaque)':''),qty:wh==='u'?q[0]:null,cur:cf,army:a.id,uid:u.uid,wh});});}});
+      if(leaves.length)groups.push({key:`g|${a.id}|${l.id}`,label:legName(l),leaves});
+    });
+    if(col!=='val'){
+      const leaves=[];a.units.filter(u=>!Object.keys(u.q).length).forEach(u=>{[['u',u],['l2',u.l2]].forEach(([wh,row])=>{if(!row)return;const cf=row.fo[col]!=null?'~':(row.fm[col]||'-');
+        leaves.push({key:`u|${a.id}|${u.uid}|${wh}`,label:(wh==='l2'?'↳ ':'')+(u.in_.B||'(sans nom)'),qty:null,cur:cf,army:a.id,uid:u.uid,wh});});});
+      if(leaves.length)groups.push({key:`g|${a.id}|-`,label:'Hors légion',leaves});
+    }
+    model.push({id:a.id,name:a.name,groups});
+  });
+  const sel=new Set();model.forEach(am=>am.groups.forEach(g=>g.leaves.forEach(l=>{if(l.cur===fid)sel.add(l.key);})));
+  return {fid,text:FAM[fid].text,model,sel,open:new Set(),filter:''};
+}
+function ftLeavesOf(k){
+  const f=S.ft,flt=f.filter.trim().toLowerCase();const out=[];
+  const keep=l=>!flt||l.label.toLowerCase().includes(flt);
+  f.model.forEach(am=>am.groups.forEach(g=>g.leaves.forEach(l=>{
+    const hit=k==='*'||k==='a|'+am.id||k===g.key||k===l.key;if(hit&&keep(l))out.push(l.key);})));
+  return [...new Set(out)];
+}
+function ftCb(k,state,dis){return `<input type="checkbox" data-a="ft-tog" data-k="${esc(k)}" ${state===2?'checked':''} ${state===1?'data-ind="1"':''} ${dis?'disabled':''}>`;}
+function ftStateOf(keys){const n=keys.filter(x=>S.ft.sel.has(x)).length;return n===0?0:(n===keys.length?2:1);}
+function ftTreeHtml(){
+  const f=S.ft,mj=isMJ(),flt=f.filter.trim().toLowerCase();let h='';
+  const col=FAM[f.fid].col;
+  f.model.forEach(am=>{
+    const all=[...new Set(am.groups.flatMap(g=>g.leaves.map(l=>l.key)))];if(!all.length)return;
+    const visible=am.groups.map(g=>({g,ls:g.leaves.filter(l=>!flt||l.label.toLowerCase().includes(flt))})).filter(x=>x.ls.length);
+    if(flt&&!visible.length)return;
+    const nsel=all.filter(k=>f.sel.has(k)).length;const openA=f.open.has('a|'+am.id)||!!flt;
+    h+=`<div class="tn"><div class="tr"><button class="tg" data-a="ft-open-node" data-k="a|${esc(am.id)}">${openA?'▾':'▸'}</button>${ftCb('a|'+am.id,ftStateOf(all),!mj)}<b>${esc(am.name)}</b><span class="small">${nsel}/${all.length}</span></div>`;
+    if(openA)visible.forEach(({g,ls})=>{
+      const gk=[...new Set(g.leaves.map(l=>l.key))];const openG=f.open.has(g.key)||!!flt;
+      h+=`<div class="tn l1"><div class="tr"><button class="tg" data-a="ft-open-node" data-k="${esc(g.key)}">${openG?'▾':'▸'}</button>${ftCb(g.key,ftStateOf(gk),!mj)}<span>${esc(g.label)}</span><span class="small">${gk.filter(k=>f.sel.has(k)).length}/${gk.length}</span></div>`;
+      if(openG)ls.forEach(l=>{const on=f.sel.has(l.key);
+        const bd=l.cur===f.fid?'':(l.cur==='~'?'<span class="badge2 ov">formule propre</span>':(l.cur==='-'||l.cur==='none'?'<span class="badge2">valeur saisie</span>':`<span class="badge2" title="${esc(FAM[l.cur]?FAM[l.cur].text:'')}">autre formule</span>`));
+        h+=`<div class="tr leaf l2n"><label>${ftCb(l.key,on?2:0,!mj)}<span>${esc(l.label)}</span></label>${l.qty!=null?`<span class="small">×${l.qty}</span>`:''}${bd}</div>`;});
+      h+='</div>';});
+    h+='</div>';});
+  return h||'<div class="hint">Aucun résultat.</div>';
+}
+function ftRenderTree(){const t=document.getElementById('ftTree');if(!t)return;t.innerHTML=ftTreeHtml();t.querySelectorAll('input[data-ind="1"]').forEach(e=>{e.indeterminate=true;});ftCount();}
+function ftCount(){const e=document.getElementById('ftCount');if(!e)return;const f=S.ft;const total=new Set(f.model.flatMap(am=>am.groups.flatMap(g=>g.leaves.map(l=>l.key)))).size;e.textContent=`${f.sel.size} élément${f.sel.size>1?'s':''} concerné${f.sel.size>1?'s':''} sur ${total}`;}
+function ftMsg(m,err){const e=document.getElementById('ftMsg');if(e){e.textContent=m;e.className='ftres '+(err?'err':'ok');}}
+function openFamEditor(fid){
+  S.ft=ftBuild(fid);const f=FAM[fid];const mj=isMJ();
+  const body=`<div class="small" style="margin-bottom:6px">${esc(FAMNAME[f.col])} · ${f.col==='val'?'légions':'colonne '+f.col}</div>
+   <textarea id="ftText" class="ft" rows="4" spellcheck="false" ${mj?'':'readonly'}>${esc(S.ft.text)}</textarea><div class="ftres" id="ftMsg"></div>
+   <div class="lbl2" style="margin-top:12px">Éléments concernés par cette formule <span id="ftCount" class="small"></span></div>
+   <div class="row" style="margin:6px 0"><input id="ftFilter" type="text" placeholder="Filtrer par nom d'unité…" style="flex:1;min-width:140px">${mj?'<button class="btn" data-a="ft-all" data-m="on">Cocher le résultat</button><button class="btn" data-a="ft-all" data-m="off">Décocher le résultat</button>':''}</div>
+   <div id="ftTree" class="tree"></div>`;
+  const btns=[{label:'Fermer',fn:()=>{S.ft=null;closeModal();}}];
+  if(mj){btns.push({label:'Tester',fn:ftTest});
+    if(f.orig!=null)btns.push({label:'Texte d\'origine',fn:()=>{document.getElementById('ftText').value=f.orig;S.ft.text=f.orig;ftTest();}});
+    btns.push({label:'Appliquer',cls:'pri',fn:ftApply});}
+  openModal('Formule',body,btns);document.getElementById('modal').classList.add('big');
+  const ta=document.getElementById('ftText');ta.addEventListener('input',()=>{S.ft.text=ta.value;});
+  document.getElementById('ftFilter').addEventListener('input',e=>{S.ft.filter=e.target.value;ftRenderTree();});
+  ftRenderTree();
+}
+function ftTest(){const text=S.ft.text.trim().replace(/^=/,'');try{FE.compile(text);ftMsg('Formule valide · '+document.getElementById('ftCount').textContent);}catch(e){ftMsg(e.message,true);}}
+function ftFindUnit(l){const a=getArmy(l.army);return {a,u:a&&a.units.find(x=>x.uid===l.uid)};}
+function ftApply(){
+  const f=S.ft,fid=f.fid,col=FAM[fid].col;const text=f.text.trim().replace(/^=/,'');
+  try{FE.compile(text);}catch(e){return ftMsg(e.message,true);}
+  if(!text)return ftMsg('La formule est vide.',true);
+  const changed=new Set();let add=0,rem=0;const seen=new Set();
+  f.model.forEach(am=>am.groups.forEach(g=>g.leaves.forEach(l=>{
+    if(seen.has(l.key))return;seen.add(l.key);
+    const want=f.sel.has(l.key),now=l.cur===fid;if(want===now)return;
+    const {a,u}=ftFindUnit(l);if(!u)return;
+    if(l.wh==='q'){const q=u.q[l.lid];if(!q)return;
+      if(want){q[4]=fid;add++;}else{const alt=q[5];q[4]=(alt&&alt!==fid&&FAM[alt])?alt:'none';rem++;}
+    }else{const row=l.wh==='l2'?u.l2:u;if(!row)return;
+      if(want){row.fm[col]=fid;delete row.fo[col];delete row.in_[col];add++;}
+      else{const alt=row.fm0&&row.fm0[col];
+        if(alt&&alt!==fid&&FAM[alt])row.fm[col]=alt;
+        else{const v=row.v[col];delete row.fm[col];delete row.fo[col];if(v!=null&&v===v)row.in_[col]=v;}
+        rem++;}}
+    changed.add(a.id);}))); 
+  FAM[fid].text=text;
+  S.ft=null;closeModal();afterChange([...changed],true);
+  toast(`Formule enregistrée · ${add} ajouté${add>1?'s':''}, ${rem} retiré${rem>1?'s':''}`);
+}
+function famDuplicate(fid){
+  const id='m'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  FAM[id]={id,col:FAM[fid].col,text:FAM[fid].text,orig:null,custom:true};saveFams();render();openFamEditor(id);
+}
+function famDelete(fid){if(!FAM[fid]||!FAM[fid].custom||usage(fid).n)return;delete FAM[fid];saveFams();render();}
+
+/* ---- diagnostic de l'enregistrement (MJ, mode hébergé) ---- */
+async function runDiag(){
+  toast('Test en cours…');const r=await hostReq('fiches-diag',{});
+  if(!r.success)return toast(r.message||'Test impossible.');
+  const row=(ok,t)=>`<div style="margin:4px 0">${ok?'✅':'⚠️'} ${t}</div>`;
+  openModal('Test de l\'enregistrement',
+    row(true,`Stockage utilisé : <b>${esc(r.storage)}</b>`)+
+    row(r.writeRead,`Écriture puis relecture d'un document : ${r.writeRead?'réussie':'échec'} (${r.ms} ms)${r.detail?'<br><span class="small">'+esc(r.detail)+'</span>':''}`)+
+    row(true,`Version des fiches : ${esc(r.version)}`)+
+    row(true,`Armées modifiées enregistrées : <b>${r.armiesSaved.length}</b>${r.armiesSaved.length?' ('+esc(r.armiesSaved.join(', '))+')':''}`)+
+    row(true,`Formules : ${r.famSaved?'document présent':'aucune modification enregistrée'} · ${r.customFams} formule(s) créée(s)`)+
+    row(true,`Légions choisies par les joueurs : <b>${r.picks}</b>`)+
+    `<div class="small" style="margin-top:8px">Si le stockage affiché est « fichiers locaux », rien ne survivra à un redéploiement : voir la procédure de vérification Supabase.</div>`,
+    [{label:'Fermer',cls:'pri',fn:closeModal}]);
+}
+
+/* ---- actions supplémentaires ---- */
+function onClick2(e){
+  const el=e.target.closest('[data-a]');if(!el||el.disabled)return;const a=el.dataset.a;const cur=curArmy();
+  switch(a){
+    case 'unpickme':hostReq('fiches-pick',{clear:true}).then(r=>{if(!r.success)return toast(r.message||'Action impossible.');toast('Légion libérée');loadHosted(false);});break;
+    case 'newleg':if(isMJ())createLegion();break;
+    case 'editleg':if(isMJ())editLegion();break;
+    case 'dupleg':if(isMJ())duplicateLegion();break;
+    case 'delleg':if(isMJ())deleteLegion();break;
+    case 'newsec':if(isMJ())addSection();break;
+    case 'rensec':if(isMJ())renameSection(el.dataset.sec);break;
+    case 'delsec':if(isMJ())deleteSection(el.dataset.sec);break;
+    case 'usec':if(isMJ())unitSection(el.dataset.army,el.dataset.uid);break;
+    case 'diag':if(isMJ())runDiag();break;
+    case 'ft-open':openFamEditor(el.dataset.fam);break;
+    case 'fam-dup':if(isMJ())famDuplicate(el.dataset.fam);break;
+    case 'fam-del':if(isMJ())famDelete(el.dataset.fam);break;
+    case 'ft-open-node':{const k=el.dataset.k,o=S.ft.open;o.has(k)?o.delete(k):o.add(k);ftRenderTree();break;}
+    case 'ft-tog':{if(!isMJ())break;const f=S.ft,keys=ftLeavesOf(el.dataset.k);const allOn=keys.length&&keys.every(k=>f.sel.has(k));
+      keys.forEach(k=>allOn?f.sel.delete(k):f.sel.add(k));ftRenderTree();break;}
+    case 'ft-all':{if(!isMJ())break;const f=S.ft,keys=ftLeavesOf('*');keys.forEach(k=>el.dataset.m==='on'?f.sel.add(k):f.sel.delete(k));ftRenderTree();break;}
+  }
+}
+
+/* ---- liaison serveur : chargement, sélection, choix ---- */
+function applyServer(res){
+  S.restricted=res.mode==='own';S.access=!!res.access;S.frozen=!!res.frozen;S.picks=res.picks||{};S.catalog=res.catalog||null;
+  const mine=Object.entries(S.picks).find(([n])=>isMe(n));S.myPick=mine?mine[1]:null;
+  FAM={};(res.families||[]).forEach(f=>{const o=pretty(f.rel);FAM[f.id]={id:f.id,col:f.col,text:o,orig:f.custom?null:o,custom:!!f.custom};});
+  for(const id in (res.famTexts||{}))if(FAM[id]&&!FAM[id].custom)FAM[id].text=res.famTexts[id];
+  ARMIES=JSON.parse(JSON.stringify(res.armies||[]));ARMIES.forEach(prepArmy);ARMIES.forEach(a=>a.legions.forEach(l=>{delete l.val;}));
+  recompute();
+  const sel=document.getElementById('armySel');sel.innerHTML=ARMIES.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
+}
+function fixSelection(first){
+  const okSel=()=>{const a=getArmy(S.army);return !!a&&a.legions.some(l=>l.id===S.sel&&(l.id!=='ni'||!S.restricted));};
+  if(first&&S.myPick&&getArmy(S.myPick.army)){S.army=S.myPick.army;S.sel=S.myPick.legion;S.view='legion';S.tab='army';}
+  else if(S.restricted){if(!okSel()){if(S.myPick&&getArmy(S.myPick.army)){S.army=S.myPick.army;S.sel=S.myPick.legion;}else{S.army=null;S.sel=null;}}S.view='legion';S.tab='army';}
+  else{if(!getArmy(S.army))S.army=ARMIES.length?ARMIES[0].id:null;const a=curArmy();
+    if(a&&!a.legions.some(l=>l.id===S.sel)){S.sel=null;if(S.view==='legion')S.view='full';}}
+  if(S.army)document.getElementById('armySel').value=S.army;
+}
+async function loadHosted(first){
+  const r=await hostReq('fiches-load',{});
+  if(!r.success){S.loaded=true;document.getElementById('view').innerHTML=`<div class="card">${esc(r.message||'Fiches indisponibles.')}</div>`;return;}
+  applyServer(r);S.loaded=true;fixSelection(first);
+  if(S.pendingOpen){const p=S.pendingOpen;S.pendingOpen=null;openFromLink(p.armee||p.army,p.legion);}
+  render();
+}
+async function doPick(armyId,lid){
+  const r=await hostReq('fiches-pick',{army:armyId,legion:lid});
+  if(!r.success){toast(r.message||'Choix impossible.');return loadHosted(false);}
+  toast('Légion choisie');S.army=armyId;S.sel=lid;S.view='legion';await loadHosted(false);
 }
 
 /* ===================== DÉMARRAGE ===================== */
@@ -722,7 +1003,7 @@ function startHosted(init){
   const sel=document.getElementById('armySel');
   sel.innerHTML=ARMIES.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
   sel.addEventListener('change',e=>setArmy(e.target.value,false));
-  document.addEventListener('click',onClick);document.addEventListener('dblclick',onDbl);
+  document.addEventListener('click',onClick);document.addEventListener('click',onClick2);document.addEventListener('dblclick',onDbl);
   document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
   document.getElementById('pseudoOk').addEventListener('click',()=>{const v=document.getElementById('pseudo').value;try{localStorage.setItem('fa2:pseudo',v);}catch(x){}setPseudo(v);});
