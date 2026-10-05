@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fiches d'armée</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--fg:#1f1d1a;--muted:#6b665e;--border:#ddd8cd;--accent:#8a2b1d;--accent-fg:#fff;--hl:#f6e3d8;--head:#ece7db;--cat:#e4ddcc;--stick:#fff;--err:#b3261e;--ok:#2e6b34;--ovc:#c77b00}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#16140f;--card:#201d17;--fg:#ece7da;--muted:#9a9384;--border:#37332a;--accent:#d9795f;--accent-fg:#1a1410;--hl:#3b2a22;--head:#2a261e;--cat:#332e24;--stick:#201d17;--err:#ff8a80;--ok:#8fd19a;--ovc:#ffb74d}}
+:root[data-theme="dark"]{--bg:#16140f;--card:#201d17;--fg:#ece7da;--muted:#9a9384;--border:#37332a;--accent:#d9795f;--accent-fg:#1a1410;--hl:#3b2a22;--head:#2a261e;--cat:#332e24;--stick:#201d17;--err:#ff8a80;--ok:#8fd19a;--ovc:#ffb74d}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Georgia,"Times New Roman",serif;font-size:15px;line-height:1.4}
+.wrap{max-width:1200px;margin:0 auto;padding:12px 12px 60px}
+h1{font-size:22px;margin:4px 0 2px}h2{font-size:17px;margin:22px 0 2px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 12px;font-family:system-ui,sans-serif}
+.small{font:13px system-ui,sans-serif;color:var(--muted)}.up{text-transform:uppercase;letter-spacing:.07em;font-size:12px}
+code{font:12px ui-monospace,Menlo,Consolas,monospace;background:var(--head);padding:1px 5px;border-radius:5px}
+label.lbl,.lbl2{display:block;font:600 12px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:12px 0 6px}
+select,input.ft,textarea.ft,input[type=text],input[type=number]{font:15px system-ui,sans-serif;padding:10px 11px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--fg);width:100%}
+select{font-weight:600;font-size:16px}
+textarea.ft{font:13px ui-monospace,Menlo,Consolas,monospace;resize:vertical;line-height:1.45}
+.top{margin-bottom:6px}
+.tabs{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tab{font:600 14px system-ui,sans-serif;padding:8px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer}
+.tab.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.badge{font:600 11px system-ui,sans-serif;padding:3px 9px;border-radius:999px;border:1px solid var(--border);color:var(--muted);margin-left:auto}
+.badge.mj{margin-left:0;background:var(--accent);color:var(--accent-fg);border-color:var(--accent);display:none}
+.pseudo{display:flex;gap:8px;align-items:center;margin:10px 0 0}
+.pseudo label{font:600 12px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.pseudo input{max-width:200px;padding:8px 10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:500 14px system-ui,sans-serif;text-align:left;padding:9px 12px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer;line-height:1.25}
+.chip small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.chip.sm{padding:6px 9px;font-size:13px}
+.chip.on{border-color:var(--accent);background:var(--hl);box-shadow:inset 0 0 0 1px var(--accent)}
+.chip.on small{color:var(--fg)}.chip:disabled{cursor:default;opacity:.9}
+.btn{font:600 14px system-ui,sans-serif;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}.btn:disabled{opacity:.45;cursor:default}
+.mini{font:13px system-ui,sans-serif;padding:3px 7px;margin:0 1px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin:12px 0}
+.kpis{display:flex;gap:18px;flex-wrap:wrap;margin-top:6px}
+.kpi b{display:block;font:700 20px system-ui,sans-serif}.kpi span{font:12px system-ui,sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.scroll{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--card);-webkit-overflow-scrolling:touch}
+table{border-collapse:separate;border-spacing:0;width:100%;font:14px system-ui,sans-serif}
+th,td{padding:6px 9px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap}
+th{background:var(--head);font-weight:600;font-size:12px}
+th.wrapth{white-space:normal;min-width:62px;max-width:110px}
+td.name,th.name{text-align:left;position:sticky;left:0;z-index:2;background:var(--stick);border-right:1px solid var(--border);font-family:Georgia,serif;min-width:130px;max-width:180px;white-space:normal}
+th.name{background:var(--head);z-index:3}
+tr.cat td{background:var(--cat);text-align:left;font:700 12px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+tr.cat td.name{background:var(--cat)}
+tr.l2 td{background:color-mix(in srgb,var(--head) 40%,transparent);font-size:13px}
+tr.l2 td.name{background:var(--stick);color:var(--muted);font-size:12px;padding-left:18px}
+td.cell.calc{color:var(--muted)}td.cell.ov{box-shadow:inset 0 0 0 1px var(--ovc);color:var(--ovc)}td.cell.bad{color:var(--err);font-weight:700}
+td[data-cell],td[data-lq]{cursor:cell}
+td[data-cell]:hover,td[data-lq]:hover{background:var(--hl)}
+.sep{border-left:3px double var(--border)}.qty{font-weight:700}.dim{color:var(--muted);opacity:.5}
+th.lg{cursor:pointer;min-width:52px}th.lg.on,td.lg.on{background:var(--hl)}th.lg.on{box-shadow:inset 0 -3px 0 var(--accent)}
+td.act{white-space:nowrap}
+tr.total td{font-weight:700;background:var(--head);border-bottom:none}tr.total td.name{background:var(--head)}
+.notes{font:13px system-ui,sans-serif;color:var(--muted);margin-top:10px}
+.tag{display:inline-block;font:600 11px system-ui,sans-serif;background:var(--hl);border:1px solid var(--accent);color:var(--fg);border-radius:20px;padding:2px 9px;margin-left:8px;vertical-align:middle}
+.comp{font:13px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);margin-top:8px;word-break:break-word}
+.hint{font:13px system-ui,sans-serif;color:var(--muted);margin:8px 0}
+.colb{font:600 11px system-ui,sans-serif;background:var(--head);border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:8px;vertical-align:middle;color:var(--muted)}
+.famh{font:13px system-ui,sans-serif;margin-bottom:6px}
+.ftres{font:13px system-ui,sans-serif;margin-top:6px;min-height:0}.ftres.err{color:var(--err)}.ftres.ok{color:var(--ok)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.fl{display:block;font:600 12px system-ui,sans-serif;color:var(--muted)}.fl .ft{margin-top:4px;font-weight:400}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100;padding:0}
+#modal.open{display:flex}
+.sheet{background:var(--card);color:var(--fg);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));max-height:88%;overflow:auto}
+@media(min-width:700px){#modal{align-items:center}.sheet{border-radius:18px}}
+.sh{font:700 17px system-ui,sans-serif;margin-bottom:10px}.sf{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;justify-content:flex-end}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);font:14px system-ui,sans-serif;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:200;max-width:90%}
+.toast.show{opacity:1}
+@media print{:root,:root[data-theme="dark"]{--bg:#fff;--card:#fff;--fg:#000;--muted:#444;--border:#bbb;--head:#eee;--cat:#e6e6e6;--stick:#fff;--hl:#eee;--accent:#000}
+ body{background:#fff;font-size:12px}.noprint,.top,.act,#modal,.toast{display:none!important}.scroll{overflow:visible;border:none}td.name,th.name{position:static}.wrap{padding:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top noprint">
+    <div class="tabs">
+      <button id="tabA" class="tab" data-a="tab-army">Armées</button>
+      <button id="tabF" class="tab" data-a="tab-form">Formules</button>
+      <span id="mjBadge" class="badge mj">MJ</span>
+      <span id="dbBadge" class="badge">local</span>
+    </div>
+    <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
+    <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
+  </div>
+  <div id="view"></div>
+</div>
+<div id="modal"></div>
+<div class="toast" id="toast"></div>
+<script>
+/* ===== Mini-moteur de formules (sous-ensemble d'Excel) ===== */
+const FE=(function(){
+  function fail(m){const e=new Error(m);e.fe=true;throw e;}
+  function tokenize(src){
+    const t=[];let i=0;const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(/\s/.test(ch)){i++;continue;}
+      if(/[0-9.]/.test(ch)){let j=i;while(j<n&&/[0-9.]/.test(src[j]))j++;t.push({k:'n',v:parseFloat(src.slice(i,j))});i=j;continue;}
+      if(ch==='"'){let j=i+1,s='';while(j<n){if(src[j]==='"'){if(src[j+1]==='"'){s+='"';j+=2;continue;}break;}s+=src[j++];}
+        if(j>=n)fail('Guillemet non fermé');t.push({k:'s',v:s});i=j+1;continue;}
+      if(/[@A-Za-z_]/.test(ch)){let j=i+1;while(j<n&&/[A-Za-z_0-9]/.test(src[j]))j++;
+        let id=src.slice(i,j);
+        if(src[j]!=='('){ // référence éventuelle
+          let off=null,abs=null;
+          if(src[j]==='['){const m=/^\[([+-]\d+)\]/.exec(src.slice(j));if(!m)fail('Référence invalide près de '+id);off=parseInt(m[1],10);j+=m[0].length;}
+          else if(src[j]==='$'){const m=/^\$(\d+)/.exec(src.slice(j));if(m){abs=parseInt(m[1],10);j+=m[0].length;}}
+          t.push({k:'r',id,off,abs});i=j;continue;}
+        t.push({k:'f',id:id.toUpperCase()});i=j;continue;}
+      if(ch==='$'){i++;continue;}
+      const two=src.slice(i,i+2);
+      if(two==='<>'||two==='<='||two==='>='){t.push({k:'o',v:two});i+=2;continue;}
+      if('+-*/()=<>,'.includes(ch)){t.push({k:'o',v:ch});i++;continue;}
+      fail('Caractère inattendu « '+ch+' »');
+    }
+    return t;
+  }
+  function parse(src){
+    const t=tokenize(src);let p=0;
+    const peek=()=>t[p],isO=v=>t[p]&&t[p].k==='o'&&t[p].v===v;
+    function expect(v){if(!isO(v))fail('« '+v+' » attendu');p++;}
+    function cmp(){let a=add();while(t[p]&&t[p].k==='o'&&['=','<>','<','>','<=','>='].includes(t[p].v)){const op=t[p++].v;a={t:'c',op,a,b:add()};}return a;}
+    function add(){let a=mul();while(isO('+')||isO('-')){const op=t[p++].v;a={t:'b',op,a,b:mul()};}return a;}
+    function mul(){let a=un();while(isO('*')||isO('/')){const op=t[p++].v;a={t:'b',op,a,b:un()};}return a;}
+    function un(){if(isO('-')){p++;return {t:'u',a:un()};}if(isO('+')){p++;return un();}return prim();}
+    function prim(){
+      const x=t[p];if(!x)fail('Formule incomplète');
+      if(x.k==='n'){p++;return {t:'n',v:x.v};}
+      if(x.k==='s'){p++;return {t:'s',v:x.v};}
+      if(x.k==='r'){p++;
+        if(x.id==='TRUE')return {t:'n',v:true};if(x.id==='FALSE')return {t:'n',v:false};
+        if(/^@(nb|c|E)$/.test(x.id))return {t:'l',name:x.id.slice(1)};
+        if(/^[A-Z]{1,2}$/.test(x.id))return {t:'r',col:x.id,off:x.abs!=null?null:(x.off||0),abs:x.abs};
+        fail('Référence inconnue « '+x.id+' » (colonnes en majuscules)');}
+      if(x.k==='f'){p++;expect('(');const args=[];if(!isO(')')){args.push(cmp());while(isO(',')){p++;args.push(cmp());}}expect(')');
+        if(!['IF','AND','OR','NOT','MIN','MAX','ROUND','ABS','SUM'].includes(x.id))fail('Fonction inconnue '+x.id);return {t:'f',id:x.id,args};}
+      if(isO('(')){p++;const e=cmp();expect(')');return e;}
+      fail('Élément inattendu');
+    }
+    const ast=cmp();if(p<t.length)fail('Texte en trop après la formule');return ast;
+  }
+  function num(v){if(v==null||v==='')return 0;if(typeof v==='boolean')return v?1:0;if(typeof v==='number'){if(v!==v)fail('#ERR');return v;}
+    const f=Number(v);if(!isFinite(f)||String(v).trim()==='')fail('#VALEUR');return f;}
+  function truthy(v){if(typeof v==='string')fail('#VALEUR');return num(v)!==0;}
+  function eq(a,b){
+    if(a==null)a=(typeof b==='string')?'':0; if(b==null)b=(typeof a==='string')?'':0;
+    if(typeof a==='string'&&typeof b==='string')return a.toLowerCase()===b.toLowerCase();
+    if(typeof a==='string'||typeof b==='string')return false;
+    return num(a)===num(b);
+  }
+  function ev(n,cx){
+    switch(n.t){
+      case 'n':return n.v;case 's':return n.v;
+      case 'r':return cx.get(n.col,n.off,n.abs);
+      case 'l':return cx.leg(n.name);
+      case 'u':return -num(ev(n.a,cx));
+      case 'b':{const a=num(ev(n.a,cx)),b=num(ev(n.b,cx));let r;
+        if(n.op==='+')r=a+b;else if(n.op==='-')r=a-b;else if(n.op==='*')r=a*b;else{if(b===0)fail('#DIV/0');r=a/b;}
+        if(!isFinite(r))fail('#ERR');return r;}
+      case 'c':{const a=ev(n.a,cx),b=ev(n.b,cx);
+        if(n.op==='=')return eq(a,b);if(n.op==='<>')return !eq(a,b);
+        const x=num(a),y=num(b);return n.op==='<'?x<y:n.op==='>'?x>y:n.op==='<='?x<=y:x>=y;}
+      case 'f':{const a=n.args;
+        switch(n.id){
+          case 'IF':return truthy(ev(a[0],cx))?(a[1]?ev(a[1],cx):true):(a[2]?ev(a[2],cx):false);
+          case 'AND':return a.every(x=>truthy(ev(x,cx)));
+          case 'OR':return a.some(x=>truthy(ev(x,cx)));
+          case 'NOT':return !truthy(ev(a[0],cx));
+          case 'MIN':return Math.min(...a.map(x=>num(ev(x,cx))));
+          case 'MAX':return Math.max(...a.map(x=>num(ev(x,cx))));
+          case 'SUM':return a.reduce((s,x)=>s+num(ev(x,cx)),0);
+          case 'ABS':return Math.abs(num(ev(a[0],cx)));
+          case 'ROUND':{const d=a[1]?num(ev(a[1],cx)):0,k=Math.pow(10,d);return Math.round(num(ev(a[0],cx))*k)/k;}
+        }}
+    }
+    fail('Nœud inconnu');
+  }
+  const cache=new Map();
+  function compile(src){let c=cache.get(src);if(!c){c=parse(src);if(cache.size>2000)cache.clear();cache.set(src,c);}return c;}
+  function run(src,cx){return ev(compile(src),cx);}
+  return {compile,run,num};
+})();
+
+/* ===== Calcul d'une unité ===== */
+const ORDER=['S','F','J','L','M','Q','R','W','X'];
+function famText(FAM,id){const f=FAM[id];return f?f.text:null;}
+function calcRow(row,next,params,FAM,legCtx){
+  const get=(col,off,abs)=>{
+    if(abs!=null){const v=params[col];return v==null?null:v;}
+    const R=off===0?row:(off===1?next:null);if(!R)return null;
+    if(R.fm[col]||R.fo[col]){const v=R.v[col];if(v!==undefined&&v!==null&&v!==v)FE.num(NaN);return v===undefined?null:v;}
+    const v=R.in_[col];return v===undefined?null:v;
+  };
+  const cx={get,leg:n=>{if(!legCtx)throw Object.assign(new Error('#LEG'),{fe:true});return legCtx[n];}};
+  const ev1=col=>{
+    const f=row.fo[col]||famText(FAM,row.fm[col]);if(f==null)return;
+    try{const v=FE.run(f,cx);row.v[col]=(typeof v==='boolean')?(v?1:0):v;}catch(e){if(!e.fe)throw e;row.v[col]=NaN;row.err=row.err||{};row.err[col]=e.message;}
+  };
+  row.err=null;
+  for(const col of Object.keys(row.fo))if(!ORDER.includes(col))ev1(col);
+  for(const col of ORDER)if(row.fm[col]||row.fo[col])ev1(col);
+}
+function calcUnit(u,army,FAM){
+  const params=army.params||{};
+  if(u.l2)calcRow(u.l2,null,params,FAM,null);
+  calcRow(u,u.l2||null,params,FAM,null);
+  for(const lid in u.q){
+    const q=u.q[lid];const fid=q[4]||army.defVal;const f=famText(FAM,fid);if(!f){continue;}
+    const row=u;
+    const get=(col,off,abs)=>{const f2=row.fm[col]||row.fo[col];const v=f2?row.v[col]:row.in_[col];if(typeof v==='number'&&v!==v)FE.num(NaN);return v===undefined?null:v;};
+    try{const v=FE.run(f,{get,leg:n=>n==='nb'?q[0]:(n==='c'?q[1]:q[2])});q[3]=(typeof v==='boolean')?(v?1:0):v;}catch(e){if(!e.fe)throw e;q[3]=NaN;}
+  }
+}
+function legionValue(army,lid){
+  let s=0,n=0,bad=false;
+  for(const u of army.units){const q=u.q[lid];if(!q)continue;n+=q[0];if(q[3]!==q[3]||q[3]==null)bad=true;else s+=q[3];}
+  const l=army.legions.find(x=>x.id===lid);
+  return {val:s+(l&&l.sup||0),figs:n,bad};
+}
+if(typeof module!=='undefined')module.exports={FE,calcUnit,calcRow,legionValue};
+
+</script>
+<script>
+/* ===================== DONNÉES ===================== */
+const SEED='v18_1-b';
+const COLS='ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
+const SHORT={A:'nb',B:'nom',C:'att',D:'typ att',E:'dis',F:"att'",G:'PV',H:'A',I:'dep',J:"dep'",K:'typ dép',L:"dep''",M:'val brute',N:'T',O:'C',P:'U',Q:'val+bonus',R:'val armée',S:'I',T:'c',U:'E',V:'G',W:'fig',X:'ligne'};
+const LONG={A:'nb : quantité totale de cette unité dans l\'armée',B:'nom de l\'unité',C:'att : attaque',D:'typ : type d\'attaque (cc, ttc, cd2…)',E:'dis : portée / distance de tir',F:"att' : attaque pondérée (calculée)",G:'PV : points de vie',H:'A : armure',I:'dep : déplacement',J:"dep' : déplacement pondéré (calculé)",K:'typ : type de déplacement (m, vs, j…)',L:"dep'' : déplacement avec type (calculé)",M:'val fig sans modif (calculée)',N:'T (modificateur)',O:'C (modificateur)',P:'U (modificateur)',Q:'val fig avec bonus communs et bonus armée (calculée)',R:'valeur fig de base avec bonus armée sans I (calculée)',S:'I (calculée ou saisie)',T:'c : total',U:'E : total',V:'G / S : spécialité',W:'fig : valeur d\'une figurine en points (calculée)',X:'ligne : valeur totale de la ligne = fig × nb (calculée)'};
+const COMPUTED=new Set(['S','F','J','L','M','Q','R','W','X']);
+const DEFCOLS=['B','C','E','G','H','I','K','P','S','U','V','W'];
+const FAMORDER=['S','F','J','L','M','Q','R','W','X','val'];
+const FAMNAME={S:'I (indicateur)',F:"att' (attaque pondérée)",J:"dep' (déplacement)",L:"dep'' (déplacement + type)",M:'val fig sans modif',Q:'val fig avec bonus',R:'val fig avec bonus armée',W:'fig (valeur finale d\'une figurine)',X:'ligne (fig × nb)',val:'val ligne d\'une légion'};
+const FAMDESC={S:'Copie le bonus « I » de l\'armée sur la ligne.',F:'Attaque pondérée selon le type (cc, ttc, cd2…).',J:'Coefficient de déplacement de base.',L:'Coefficient de déplacement ajusté par le type de mouvement.',M:'Valeur brute : attaque, PV, armure × déplacement.',Q:'Ajoute les bonus communs et d\'armée (T, C, U, tir…).',R:'Applique les multiplicateurs d\'armée (portée, PV, déplacement, typ).',W:'Valeur finale d\'une figurine (× 1,2 si colonne I).',X:'Valeur totale de la ligne = fig × nombre.',val:'Points d\'une ligne dans une légion (selon quantité, c et E).'};
+let FAM={},ARMIES=[];
+const HOSTED=(typeof DATA==='undefined');
+const S={restricted:false,admin:false,access:true,picks:{},myPick:null,catalog:null,loaded:!HOSTED,tab:'army',army:null,sel:null,view:'full',cols:new Set(DEFCOLS),pseudo:'',canWrite:null,dbOn:false,showCols:false};
+const isMJ=()=>HOSTED?S.admin:S.pseudo.trim().toLowerCase()==='mj';
+
+const pretty=t=>String(t).replace(/\[\+0\]/g,'');
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fnum(v){if(v==null||v==='')return '';if(typeof v==='number'){if(v!==v)return '#ERR';return Number.isInteger(v)?String(v):(Math.round(v*100)/100).toLocaleString('fr-FR');}return String(v);}
+function pts(v){return (v==null||v!==v)?'–':Math.round(v).toLocaleString('fr-FR');}
+function uid(a){return a.id+'-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';clearTimeout(toast.t);toast.t=setTimeout(()=>t.className='toast',2800);}
+const getArmy=id=>ARMIES.find(a=>a.id===id);
+const curArmy=()=>getArmy(S.army);
+function legName(l){if(l.id==='ni')return 'Non intégré';if(/^\d+$/.test(l.id))return 'Légion '+l.id;if(l.id==='renfort')return 'Renfort';return 'Légion '+l.id;}
+function colLabel(a,c){if(c==='V'&&a.hdr&&a.hdr.V)return String(a.hdr.V);return SHORT[c];}
+
+function prepArmy(a){
+  let n=0;
+  a.units.forEach(u=>{u.uid=u.uid||(a.id+'-'+(++n)+'-'+Math.random().toString(36).slice(2,6));u.fo=u.fo||{};u.fm=u.fm||{};u.v={};delete u.calc;u.err=null;
+    if(u.l2){u.l2.fo=u.l2.fo||{};u.l2.fm=u.l2.fm||{};u.l2.v={};delete u.l2.calc;}});
+  const cnt={};a.units.forEach(u=>Object.values(u.q).forEach(q=>{if(q[4])cnt[q[4]]=(cnt[q[4]]||0)+1;}));
+  const best=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0];
+  if(best)a.defVal=best;
+  if(!S.restricted&&!a.legions.some(l=>l.id==='ni'))a.legions.push({id:'ni',kind:'ni',figs:0,val:0,sup:0,comp:null,tag:null});
+  a.legions.sort((x,y)=>(x.id==='ni')-(y.id==='ni'));
+}
+function recompute(){let dv=null;ARMIES.forEach(a=>{if(a.defVal)dv=dv||a.defVal;});ARMIES.forEach(a=>{if(!a.defVal)a.defVal=dv;a.units.forEach(u=>calcUnit(u,a,FAM));});}
+function initData(){
+  FAM={};DATA.families.forEach(f=>FAM[f.id]={id:f.id,col:f.col,text:pretty(f.rel),orig:pretty(f.rel)});
+  ARMIES=JSON.parse(JSON.stringify(DATA.armies));ARMIES.forEach(prepArmy);
+  ARMIES.forEach(a=>{a.legions.forEach(l=>{delete l.val;});});
+  loadLocal();recompute();
+}
+function usage(fid){let n=0;const ar=new Set();
+  ARMIES.forEach(a=>a.units.forEach(u=>{[u,u.l2].forEach(r=>{if(!r)return;for(const c in r.fm)if(r.fm[c]===fid&&!r.fo[c]){n++;ar.add(a.id);}});
+    for(const l in u.q)if((u.q[l][4]||a.defVal)===fid){n++;ar.add(a.id);}}));return {n,armies:ar.size};}
+function legStats(a,l){const r=legionValue(a,l.id);return {figs:r.figs,val:r.val,bad:r.bad,units:a.units.filter(u=>u.q[l.id]).length};}
+
+/* ===================== PERSISTANCE ===================== */
+let DB=null;const myRevs=new Set();const pending={};let timer=null;
+const akey=id=>'a_'+id.replace(/[^A-Za-z0-9_-]/g,'_');
+const strip=(k,v)=>(k==='v'||k==='err'||k==='_niFigs'||k==='_stats')?undefined:v;
+function ser(key){if(key==='fams'){const o={};for(const id in FAM)o[id]={col:FAM[id].col,text:FAM[id].text};return JSON.stringify(o);}
+  const a=ARMIES.find(x=>akey(x.id)===key);return a?JSON.stringify(a,strip):null;}
+function saveArmy(id){queueSave(akey(id));}
+function saveFams(){queueSave('fams');}
+function queueSave(key){pending[key]=1;clearTimeout(timer);timer=setTimeout(flush,350);}
+async function flush(){const keys=Object.keys(pending);
+  if(HOSTED){if(!keys.length||!S.admin)return;const payload={armies:{},fams:null};
+    keys.forEach(k=>{delete pending[k];if(k==='fams'){payload.fams={};for(const id in FAM)payload.fams[id]=FAM[id].text;}
+      else{const a=ARMIES.find(x=>akey(x.id)===k);if(a)payload.armies[a.id]=JSON.parse(JSON.stringify(a,strip));}});
+    const r=await hostReq('fiches-save',payload);if(!r.success)toast(r.message||'Enregistrement impossible.');return;}
+  for(const k of keys){delete pending[k];const json=ser(k);if(json==null)continue;await writeDoc(k,json);}}
+async function writeDoc(key,json){
+  if(!DB){try{localStorage.setItem('fa2:'+key,json);}catch(e){}return;}
+  const rev=Date.now()+'-'+Math.random().toString(36).slice(2,7);myRevs.add(rev);
+  try{await DB.doc('state/'+key).set({seed:SEED,rev,json});}
+  catch(e){toast("Enregistrement refusé : seul l'éditeur de la page peut enregistrer pour tous.");S.canWrite=false;}
+}
+function loadLocal(){try{
+  const f=localStorage.getItem('fa2:fams');if(f)applyFams(f);
+  ARMIES.forEach((a,i)=>{const s=localStorage.getItem('fa2:'+akey(a.id));if(s)applyArmy(s,false);});}catch(e){}}
+function applyFams(json){try{const o=JSON.parse(json);for(const id in o){if(FAM[id])FAM[id].text=o[id].text;}}catch(e){}}
+function applyArmy(json){try{const a=JSON.parse(json);const i=ARMIES.findIndex(x=>x.id===a.id);if(i<0)return;prepArmy(a);ARMIES[i]=a;}catch(e){}}
+function onSnapshot(snap){
+  let changed=false;
+  snap.docs.forEach(d=>{if(!d.exists)return;const x=d.data();if(!x||x.seed!==SEED||myRevs.has(x.rev))return;
+    if(d.id==='fams')applyFams(x.json);else if(d.id.startsWith('a_'))applyArmy(x.json);changed=true;});
+  if(changed){recompute();if(!document.getElementById('modal').classList.contains('open'))render();}
+}
+
+/* ===================== AFFICHAGE ===================== */
+function visCols(){return ['B'].concat(COLS.filter(c=>c!=='B'&&S.cols.has(c)));}
+function cellRaw(row,c){return (row.fm[c]||row.fo[c])?row.v[c]:row.in_[c];}
+function cellTd(a,u,which,c,extra){
+  const row=which==='l2'?u.l2:u;const v=cellRaw(row,c);const calc=!!(row.fm[c]||row.fo[c]);
+  const ov=row.fo[c]!=null;const bad=typeof v==='number'&&v!==v;
+  const cls=['cell'];if(calc)cls.push('calc');if(ov)cls.push('ov');if(bad)cls.push('bad');
+  const attr=isMJ()?` data-cell="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-w="${which}" data-col="${c}"`:'';
+  const tip=ov?' title="Formule propre à cette cellule"':(bad&&row.err?` title="${esc(Object.values(row.err)[0])}"`:'');
+  return `<td class="${cls.join(' ')}"${attr}${tip}>${esc(fnum(v))}</td>`;
+}
+function nameTd(a,u,which){
+  if(which==='l2')return `<td class="name l2n">↳ 2ᵉ attaque</td>`;
+  const attr=isMJ()?` data-cell="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-w="u" data-col="B"`:'';
+  return `<td class="name"${attr}>${esc(u.in_.B||'')}</td>`;
+}
+function actTd(a,u,which){
+  if(!isMJ())return '';
+  if(which==='l2')return '<td class="act"></td>';
+  return `<td class="act noprint"><button class="mini" data-a="dup" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" title="Dupliquer">⧉</button><button class="mini" data-a="move" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" title="Déplacer vers une autre armée">⇄</button><button class="mini" data-a="del" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" title="Supprimer">✕</button></td>`;
+}
+function colsPanel(a){
+  let h='<div class="card noprint"><div class="chips">';
+  COLS.forEach(c=>{if(c==='B')return;const on=S.cols.has(c);h+=`<button class="chip sm ${on?'on':''}" data-a="col" data-col="${c}" title="${esc(LONG[c])}">${esc(colLabel(a,c))}<small>${c}</small></button>`;});
+  h+='</div><div class="row" style="margin:8px 0 0"><button class="btn" data-a="cols-all">Tout afficher</button><button class="btn" data-a="cols-def">Par défaut</button><button class="btn" data-a="cols-none">Masquer tout</button></div></div>';
+  return h;
+}
+function paramsPanel(a){
+  const P=[['C','att +0,5'],['D','typ +1'],['E','dis ×1,03'],['G','PV ×1,06'],['I','dep ×1,1'],['K','typ dép ×0,97'],['S','colonne I']];
+  let h='<div class="card noprint"><div class="lbl2">Bonus d\'armée</div><div class="chips">';
+  P.forEach(([c,t])=>{const on=a.params&&a.params[c]&&String(a.params[c]).toLowerCase()==='x';
+    h+=`<button class="chip sm ${on?'on':''}" ${isMJ()?`data-a="param" data-col="${c}"`:'disabled'} title="Colonne ${c}">${esc(t)}<small>${on?'actif':'—'}</small></button>`;});
+  return h+'</div></div>';
+}
+function headTh(a,c){return `<th class="${c==='B'?'name':'wrapth'}" title="${esc(LONG[c])}">${esc(c==='B'?'Unité':colLabel(a,c))}</th>`;}
+
+function picksBar(){
+  if(!HOSTED||S.restricted)return '';const names=Object.keys(S.picks||{});
+  if(!names.length)return '<div class="hint noprint">Aucun joueur n\'a encore choisi de légion.</div>';
+  let h='<label class="lbl noprint">Légions choisies par les joueurs</label><div class="chips noprint">';
+  names.sort((x,y)=>x.localeCompare(y,'fr')).forEach(n=>{const p=S.picks[n];const ar=getArmy(p.army);if(!ar)return;const me=n.toLowerCase()===S.pseudo.toLowerCase();
+    h+=`<span class="pk"><button class="chip sm ${me?'on':''}" data-a="openpick" data-army="${esc(p.army)}" data-leg="${esc(p.legion)}">${esc(n)}${me?' (moi)':''}<small>${esc(ar.name)} · ${esc(legName({id:p.legion}))}</small></button>${isMJ()?`<button class="mini" data-a="unpick" data-name="${esc(n)}" title="Retirer ce choix">✕</button>`:''}</span>`;});
+  return h+'</div>';
+}
+function pickBtn(a){
+  if(!HOSTED||S.restricted||isMJ()||!S.sel||S.sel==='ni')return '';
+  const mine=S.myPick&&S.myPick.army===a.id&&S.myPick.legion===S.sel;
+  return mine?'<span class="tag" style="margin:0">Ma légion ✓</span>':`<button class="btn" data-a="pickme">⭐ Choisir cette légion</button>`;
+}
+function renderCatalog(){
+  let h='<h1>Choisissez votre légion</h1><p class="sub">Le MJ a fermé l\'accès aux fiches d\'armée. Choisissez la légion que vous commandez : vous ne verrez ensuite que sa fiche.</p>';
+  (S.catalog||[]).forEach(c=>{if(!c.legions.length)return;h+=`<div class="card"><b>${esc(c.name)}</b><div class="chips" style="margin-top:8px">`;
+    c.legions.forEach(l=>{h+=`<button class="chip" data-a="pickcat" data-army="${esc(c.id)}" data-leg="${esc(l.id)}">${esc(legName(l))}<small>${l.figs} fig${l.comp?' · '+esc(l.comp):''}</small></button>`;});h+='</div></div>';});
+  return h;
+}
+function renderFull(a){
+  const cs=visCols();const mj=isMJ();let h=picksBar();
+  h+='<label class="lbl noprint">Légion</label><div class="chips noprint">';
+  a.legions.forEach(l=>{const st=legStats(a,l);if(l.id==='ni'&&!st.figs&&!mj)return;
+    h+=`<button class="chip ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}">${esc(legName(l))}<small>${st.figs} fig · ${pts(st.val)} pts</small></button>`;});
+  h+='</div>';
+  const cur=a.legions.find(l=>l.id===S.sel);
+  h+=`<div class="row noprint"><button class="btn pri" data-a="mk" ${cur?'':'disabled'}>${cur?('Créer la fiche : '+esc(legName(cur))):'Sélectionnez une légion'}</button>`+pickBtn(a);
+  h+=`<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button>`;
+  if(mj)h+='<button class="btn" data-a="newunit">＋ Nouvelle unité</button>';
+  h+='</div>';
+  if(S.showCols)h+=colsPanel(a);
+  h+=paramsPanel(a);
+  h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c)).join('');
+  a.legions.forEach((l,i)=>{const st=legStats(a,l);if(l.id==='ni'&&!st.figs&&!mj)return;
+    h+=`<th class="lg ${i===0?'sep':''} ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}" title="${esc(legName(l))}">${esc(l.id==='ni'?'non int.':l.id)}</th>`;});
+  if(mj)h+='<th class="noprint"></th>';
+  h+='</tr></thead><tbody>';
+  let last=null;const span=cs.length+a.legions.length+(mj?1:0);
+  a.units.forEach(u=>{
+    if(u.cat!==last){last=u.cat;if(u.cat)h+=`<tr class="cat"><td class="name">${esc(u.cat)}</td><td colspan="${span-1}"></td></tr>`;}
+    [['u'],['l2']].forEach(([w])=>{
+      if(w==='l2'&&!u.l2)return;
+      h+='<tr'+(w==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,w):cellTd(a,u,w,c)).join('');
+      a.legions.forEach((l,i)=>{const st=a._stats?a._stats[l.id]:null;if(l.id==='ni'&&!(a._niFigs||mj))return;
+        const q=w==='u'?u.q[l.id]:null;
+        const attr=(mj&&w==='u')?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="0"`:'';
+        h+=`<td class="lg ${i===0?'sep':''} ${S.sel===l.id?'on':''}"${attr}>${q?'<span class="qty">'+q[0]+'</span>':'<span class="dim">·</span>'}</td>`;});
+      h+=actTd(a,u,w)+'</tr>';});
+  });
+  h+='<tr class="total"><td class="name">Total</td>'+cs.slice(1).map(()=>'<td></td>').join('');
+  a.legions.forEach((l,i)=>{const st=legStats(a,l);if(l.id==='ni'&&!st.figs&&!mj)return;h+=`<td class="lg ${i===0?'sep':''} ${S.sel===l.id?'on':''}">${st.figs}</td>`;});
+  if(mj)h+='<td class="noprint"></td>';
+  h+='</tr></tbody></table></div>';
+  if(a.notes&&a.notes.length)h+='<div class="notes">'+a.notes.map(esc).join('<br>')+'</div>';
+  return h;
+}
+function renderLegion(a){
+  const l=a.legions.find(x=>x.id===S.sel);if(!l){S.view='full';return renderFull(a);}
+  const mj=isMJ();const idx=a.legions.indexOf(l);const cs=visCols();const rows=a.units.filter(u=>u.q[l.id]);
+  const st=legStats(a,l);let h='';
+  const vis=a.legions.filter(x=>x.id!=='ni'||mj||legStats(a,x).figs);const vi=vis.indexOf(l);
+  const nav=(HOSTED&&S.restricted)?'':`<button class="btn" data-a="back">← Armée complète</button><button class="btn" data-a="prev" ${vi<=0?'disabled':''}>◀</button><button class="btn" data-a="next" ${vi>=vis.length-1?'disabled':''}>▶</button>`;
+  h+=`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${pickBtn(a)}</div>`;
+  if(HOSTED&&S.restricted)h+='<div class="hint noprint">Le MJ a fermé l\'accès aux fiches d\'armée : seule la fiche de votre légion est affichée.</div>';
+  if(S.showCols)h+=colsPanel(a);
+  h+=`<div class="card"><div class="sans small up">${esc(a.name)}</div><h1 style="font-size:26px;margin:2px 0">${esc(legName(l))}${l.tag?'<span class="tag">'+esc(l.tag)+'</span>':''}</h1>`;
+  h+=`<div class="kpis"><div class="kpi"><b>${st.figs}</b><span>figurines</span></div><div class="kpi"><b>${pts(st.val)}</b><span>points</span></div><div class="kpi"><b>${rows.length}</b><span>types d'unités</span></div></div>`;
+  if(l.comp)h+=`<div class="comp">Composition : ${esc(l.comp)}</div>`;
+  h+='</div>';
+  if(!rows.length)h+='<div class="hint">Aucune unité dans cette légion.</div>';
+  else{
+    h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c)).join('')+'<th>Qté</th><th title="c de la légion">c lég.</th><th title="E de la légion">E lég.</th><th title="Valeur de la ligne dans cette légion">Pts</th>'+(mj?'<th class="noprint"></th>':'')+'</tr></thead><tbody>';
+    let last=null,sq=0;
+    rows.forEach(u=>{const q=u.q[l.id];sq+=q[0];
+      if(u.cat!==last){last=u.cat;if(u.cat)h+=`<tr class="cat"><td class="name">${esc(u.cat)}</td><td colspan="${cs.length+3+(mj?1:0)}"></td></tr>`;}
+      ['u','l2'].forEach(w=>{if(w==='l2'&&!u.l2)return;
+        h+='<tr'+(w==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,w):cellTd(a,u,w,c)).join('');
+        if(w==='u'){const at=i=>mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${i}"`:'';
+          h+=`<td class="qty"${at(0)}>${q[0]}</td><td${at(1)}>${q[1]||''}</td><td${at(2)}>${q[2]||''}</td><td>${q[3]==null||q[3]!==q[3]?'':Math.round(q[3])}</td>`;}
+        else h+='<td></td><td></td><td></td><td></td>';
+        h+=actTd(a,u,w)+'</tr>';});
+    });
+    h+=`<tr class="total"><td class="name">Total</td>${cs.slice(1).map(()=>'<td></td>').join('')}<td>${sq}</td><td></td><td></td><td>${pts(st.val)}</td>${mj?'<td class="noprint"></td>':''}</tr></tbody></table></div>`;
+  }
+  if(mj){const others=a.units.filter(u=>!u.q[l.id]);
+    h+=`<div class="card noprint"><div class="lbl2">Ajouter une unité à cette légion</div><div class="row" style="margin:6px 0 0"><select id="addUnit" style="flex:1;min-width:160px">${others.map(u=>`<option value="${esc(u.uid)}">${esc(u.in_.B||'')}</option>`).join('')}</select><input id="addQty" type="number" min="1" value="1" style="width:84px"><button class="btn" data-a="addtoleg" ${others.length?'':'disabled'}>Ajouter</button></div></div>`;}
+  if(l.sup&&Math.abs(l.sup)>0.01)h+=`<div class="hint">Le total inclut un supplément de ${pts(l.sup)} pts propre à la fiche d'origine, non ventilé par ligne.</div>`;
+  if(a.notes&&a.notes.length)h+='<div class="notes">'+a.notes.map(esc).join('<br>')+'</div>';
+  h+=`<div class="hint noprint">Source : ${esc(a.file)}</div>`;
+  return h;
+}
+function toText(a,l){
+  const cs=visCols();let t=`${a.name} — ${legName(l)}\n\n`;
+  t+=cs.map(c=>c==='B'?'Unité':colLabel(a,c)).concat(['Qté','c lég','E lég','Pts']).join('\t')+'\n';
+  a.units.filter(u=>u.q[l.id]).forEach(u=>{const q=u.q[l.id];
+    t+=cs.map(c=>fnum(cellRaw(u,c))).concat([q[0],q[1]||'',q[2]||'',q[3]==null?'':Math.round(q[3])]).join('\t')+'\n';
+    if(u.l2)t+=cs.map(c=>c==='B'?'↳ 2e attaque':fnum(cellRaw(u.l2,c))).join('\t')+'\n';});
+  return t;
+}
+
+/* ---- page formules ---- */
+function renderFormulas(){
+  const mj=isMJ();let h='<h1>Formules de calcul</h1><p class="sub">Chaque formule ci-dessous s\'applique à toutes les lignes concernées, dans toutes les armées.'+(mj?'':' Mode lecture : passez en MJ pour modifier.')+'</p>';
+  h+='<div class="card"><div class="small">Syntaxe : <code>C</code> = colonne C de la même ligne · <code>C[+1]</code> = ligne suivante (2ᵉ attaque) · <code>C$19</code> = bonus d\'armée · <code>@nb @c @E</code> = quantité, c, E de la légion · fonctions IF, AND, OR, MIN, MAX, ROUND, ABS, SUM.</div></div>';
+  FAMORDER.forEach(col=>{
+    const fams=Object.values(FAM).filter(f=>f.col===col).map(f=>({f,u:usage(f.id)})).filter(x=>x.u.n>0).sort((a,b)=>b.u.n-a.u.n);
+    if(!fams.length)return;
+    h+=`<h2>${esc(FAMNAME[col])}<span class="colb">${col==='val'?'légions':'col. '+col}</span></h2><p class="sub" style="margin-top:0">${esc(FAMDESC[col])}</p>`;
+    fams.forEach(({f,u})=>{
+      const mod=f.text!==f.orig;
+      h+=`<div class="card fam" data-fam="${f.id}"><div class="famh"><b>${u.n} ligne${u.n>1?'s':''}</b> · ${u.armies} armée${u.armies>1?'s':''}${mod?'<span class="tag">modifiée</span>':''}</div>`;
+      h+=`<textarea class="ft" id="ft_${f.id}" spellcheck="false" ${mj?'':'readonly'} rows="${Math.min(8,Math.ceil(f.text.length/46)+1)}">${esc(f.text)}</textarea><div class="ftres" id="fr_${f.id}"></div>`;
+      if(mj)h+=`<div class="row" style="margin:6px 0 0"><button class="btn" data-a="famtest" data-fam="${f.id}">Tester</button><button class="btn pri" data-a="famapply" data-fam="${f.id}">Appliquer à ${u.n} ligne${u.n>1?'s':''}</button>${mod?`<button class="btn" data-a="famreset" data-fam="${f.id}">Rétablir l'original</button>`:''}<button class="btn" data-a="famunify" data-fam="${f.id}">Étendre à toute la colonne</button></div>`;
+      h+='</div>';});
+  });
+  return h;
+}
+
+function render(){
+  const root=document.getElementById('view');
+  if(HOSTED&&!S.loaded){root.innerHTML='<div class="hint">Chargement des fiches…</div>';return;}
+  if(HOSTED&&S.restricted&&!S.myPick){document.getElementById('mjBadge').style.display='none';document.getElementById('dbBadge').textContent='accès limité';
+    document.getElementById('tabA').style.display='none';document.getElementById('tabF').style.display='none';document.getElementById('armyBar').style.display='none';
+    root.innerHTML=renderCatalog();return;}
+  const a=curArmy();
+  if(HOSTED&&S.restricted){S.tab='army';S.view='legion';}
+  document.getElementById('tabA').style.display=(HOSTED&&S.restricted)?'none':'';
+  document.getElementById('tabF').style.display=(HOSTED&&S.restricted)?'none':'';
+  document.getElementById('tabA').className='tab'+(S.tab==='army'?' on':'');
+  document.getElementById('tabF').className='tab'+(S.tab==='form'?' on':'');
+  document.getElementById('armyBar').style.display=(S.tab==='army'&&S.view==='full')?'block':'none';
+  document.getElementById('mjBadge').style.display=isMJ()?'inline-block':'none';
+  document.getElementById('dbBadge').textContent=HOSTED?(S.restricted?'accès limité':(S.access?'serveur':'fiches fermées aux joueurs')):(S.dbOn?(S.canWrite===false?'partagé · lecture':'partagé'):'local');
+  if(S.tab==='form'){root.innerHTML=renderFormulas();return;}
+  const ni=a.legions.find(l=>l.id==='ni');a._niFigs=ni?legStats(a,ni).figs:0;
+  const head=S.view==='legion'?'':`<div class="sub noprint">${a.legions.filter(l=>l.id!=='ni').length} légions · fiche ${esc(a.version||'')} · ${a.units.length} types d'unités</div>`;
+  root.innerHTML=head+(S.view==='legion'?renderLegion(a):renderFull(a));
+  saveView();
+}
+function saveView(){try{localStorage.setItem('fa2:view',JSON.stringify({army:S.army,sel:S.sel,cols:[...S.cols],pseudo:S.pseudo}));}catch(e){}}
+function loadView(){try{return JSON.parse(localStorage.getItem('fa2:view')||'null');}catch(e){return null;}}
+
+/* ===================== DIALOGUES ===================== */
+function openModal(title,body,buttons){
+  const m=document.getElementById('modal');
+  m.innerHTML=`<div class="sheet"><div class="sh">${esc(title)}</div><div class="sb">${body}</div><div class="sf"></div></div>`;
+  const f=m.querySelector('.sf');
+  buttons.forEach(b=>{const el=document.createElement('button');el.className='btn '+(b.cls||'');el.textContent=b.label;el.addEventListener('click',()=>b.fn());f.appendChild(el);});
+  m.classList.add('open');
+  const first=m.querySelector('input,textarea,select');if(first)setTimeout(()=>{try{first.focus();}catch(e){}},30);
+}
+function closeModal(){const m=document.getElementById('modal');m.classList.remove('open');m.innerHTML='';if(HOSTED&&S.reloadPending){S.reloadPending=false;reloadHosted();}}
+function mval(id){const e=document.getElementById(id);return e?e.value:'';}
+function afterChange(armyIds,fams){recompute();if(fams)saveFams();(armyIds||[]).forEach(saveArmy);render();}
+
+function trial(a,u,which,col,text){
+  const c=structuredClone({fm:u.fm,fo:u.fo,in_:u.in_,q:u.q,l2:u.l2,v:{},err:null});
+  c.l2=u.l2?structuredClone({fm:u.l2.fm,fo:u.l2.fo,in_:u.l2.in_,v:{}}):null;
+  const row=which==='l2'?c.l2:c;row.fo[col]=text;
+  calcUnit(c,a,FAM);return row.v[col];
+}
+function openCell(armyId,uidv,which,col){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  const row=which==='l2'?u.l2:u;const calc=!!(row.fm[col]||row.fo[col]);
+  const famId=row.fm[col];const ftxt=row.fo[col]!=null?row.fo[col]:(famId?FAM[famId].text:null);
+  const cur=calc?'='+ftxt:(row.in_[col]==null?'':String(row.in_[col]));
+  const who=`${a.name} › ${u.in_.B||''}${which==='l2'?' (2ᵉ attaque)':''} › ${LONG[col]}`;
+  const body=`<div class="small" style="margin-bottom:8px">${esc(who)}</div>`+
+   (calc?`<textarea id="cv" class="ft" rows="4" spellcheck="false">${esc(cur)}</textarea>`:`<input id="cv" class="ft" type="text" value="${esc(cur)}" spellcheck="false">`)+
+   `<div class="ftres" id="cvr"></div><div class="small" style="margin-top:6px">Saisissez une valeur, ou une formule commençant par <code>=</code> (ex. <code>=G*2</code>). Valeur actuelle : <b>${esc(fnum(cellRaw(row,col)))}</b></div>`;
+  const parse=()=>{const t=mval('cv').trim();
+    if(t.startsWith('=')){const f=t.slice(1).trim();FE.compile(f);return {f,formula:true};}
+    if(calc){if(t!==''&&isFinite(Number(t)))return {f:t,formula:false};return {f:'"'+t.replace(/"/g,'""')+'"',formula:false};}
+    return {value:t===''?null:(isFinite(Number(t))?Number(t):t)};};
+  const btns=[{label:'Annuler',fn:closeModal}];
+  btns.push({label:'Cette cellule',cls:'pri',fn:()=>{let p;try{p=parse();}catch(e){return showRes(e.message,true);}
+    if(p.f!==undefined){row.fo[col]=p.f;}else{if(p.value==null)delete row.in_[col];else row.in_[col]=p.value;delete row.fo[col];}
+    if(col==='B'&&which==='u'&&p.value!=null)row.in_.B=String(p.value);
+    closeModal();afterChange([armyId]);}});
+  if(calc&&famId)btns.push({label:`Toute la famille (${usage(famId).n})`,fn:()=>{let p;try{p=parse();}catch(e){return showRes(e.message,true);}
+    if(p.f===undefined)return showRes("Entrez une formule ou une valeur.",true);
+    FAM[famId].text=p.f;delete row.fo[col];closeModal();afterChange(ARMIES.map(x=>x.id),true);toast('Formule appliquée à toute la famille');}});
+  if(row.fo[col]!=null&&famId)btns.push({label:'Rétablir',fn:()=>{delete row.fo[col];closeModal();afterChange([armyId]);}});
+  openModal('Modifier la cellule',body,btns);
+  function showRes(m,err){const e=document.getElementById('cvr');if(e){e.textContent=m;e.className='ftres '+(err?'err':'ok');}}
+  const upd=()=>{try{const p=parse();if(p.f!==undefined){const r=trial(a,u,which,col,p.f);showRes('→ '+(typeof r==='number'&&r!==r?'#ERR':fnum(r)));}else showRes('');}catch(e){showRes(e.message,true);}};
+  const inp=document.getElementById('cv');inp.addEventListener('input',upd);upd();
+}
+function openLegQty(armyId,uidv,lid,i){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);const q=u&&u.q[lid];if(!q)return;
+  const nm=['Quantité','c (légion)','E (légion)'][i];
+  openModal('Modifier '+nm,`<div class="small" style="margin-bottom:8px">${esc(a.name)} › ${esc(u.in_.B||'')} › ${esc(legName(a.legions.find(l=>l.id===lid)))}</div><input id="lqv" class="ft" type="number" min="0" value="${q[i]}">${i===0?'<div class="small" style="margin-top:6px">0 retire l\'unité de la légion.</div>':''}`,
+   [{label:'Annuler',fn:closeModal},{label:'Valider',cls:'pri',fn:()=>{const n=Math.max(0,Math.round(Number(mval('lqv'))||0));
+     if(i===0&&n===0)delete u.q[lid];else q[i]=n;closeModal();afterChange([armyId]);}}]);
+}
+function dupUnit(armyId,uidv){
+  const a=getArmy(armyId),k=a.units.findIndex(x=>x.uid===uidv);if(k<0)return;
+  const src=a.units[k];const c=JSON.parse(JSON.stringify(src,strip));c.uid=uid(a);c.in_.B=(c.in_.B||'')+' (copie)';c.v={};if(c.l2)c.l2.v={};
+  const n=c.in_.A||1;c.q={ni:[n,0,0,null,a.defVal]};
+  a.units.splice(k+(src.l2?1:1),0,c);prepArmyUnitFix(c);afterChange([armyId]);toast('Unité dupliquée dans « Non intégré »');
+}
+function prepArmyUnitFix(u){u.fo=u.fo||{};u.fm=u.fm||{};if(u.l2){u.l2.fo=u.l2.fo||{};u.l2.fm=u.l2.fm||{};}}
+function moveUnit(armyId,uidv){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  const opts=ARMIES.filter(x=>x.id!==armyId).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
+  openModal('Déplacer vers une autre armée',`<div class="small" style="margin-bottom:8px">${esc(u.in_.B||'')} (${esc(a.name)})</div><select id="mvd" class="ft">${opts}</select><div class="small" style="margin-top:6px">L'unité quittera ses légions actuelles et rejoindra la légion « Non intégré » de l'armée choisie. Les bonus d'armée de la destination s'appliquent.</div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Déplacer',cls:'pri',fn:()=>{
+     const d=getArmy(mval('mvd'));if(!d)return;
+     a.units.splice(a.units.indexOf(u),1);
+     const n=u.in_.A||Object.values(u.q).reduce((s,q)=>s+q[0],0)||1;
+     u.uid=uid(d);u.q={ni:[n,0,0,null,d.defVal]};u.in_.A=n;u.v={};if(u.l2)u.l2.v={};
+     insertUnit(d,u);closeModal();S.army=d.id;S.sel='ni';S.view='full';
+     document.getElementById('armySel').value=d.id;afterChange([armyId,d.id]);toast(`« ${u.in_.B} » déplacée vers ${d.name} (Non intégré)`);}}]);
+}
+function insertUnit(d,u){
+  let idx=-1;d.units.forEach((x,i)=>{if(x.cat===u.cat)idx=i;});
+  if(idx<0){if(!u.cat)u.cat='divers';idx=d.units.length-1;
+    d.units.forEach((x,i)=>{if(x.cat===u.cat)idx=i;});}
+  d.units.splice(idx+1,0,u);
+}
+function delUnit(armyId,uidv){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  openModal('Supprimer cette unité ?',`<div>${esc(u.in_.B||'')} sera retirée de l'armée ${esc(a.name)} et de toutes ses légions.</div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{a.units.splice(a.units.indexOf(u),1);closeModal();afterChange([armyId]);}}]);
+}
+function newUnit(){
+  const a=curArmy();const cats=[...new Set(a.units.map(u=>u.cat).filter(Boolean))];
+  const types=[...new Set(a.units.map(u=>u.in_.D).filter(Boolean).map(x=>String(x).toLowerCase()))];
+  const mv=['m','vs','v','j','s'];
+  const f=(id,lbl,val,t)=>`<label class="fl">${lbl}<input id="${id}" class="ft" type="${t||'text'}" value="${esc(val)}"></label>`;
+  openModal('Nouvelle unité',`<div class="grid2">${f('nu_n','Nom','')}
+   <label class="fl">Catégorie<select id="nu_c" class="ft">${cats.map(c=>`<option>${esc(c)}</option>`).join('')}</select></label>
+   ${f('nu_C','att',1,'number')}<label class="fl">typ attaque<select id="nu_D" class="ft">${(types.length?types:['cc']).map(c=>`<option>${esc(c)}</option>`).join('')}</select></label>
+   ${f('nu_E','dis','')}${f('nu_G','PV',1,'number')}${f('nu_H','A (armure)','','number')}${f('nu_I','dep',3,'number')}
+   <label class="fl">typ dép<select id="nu_K" class="ft">${mv.map(c=>`<option>${c}</option>`).join('')}</select></label>${f('nu_A','Quantité',1,'number')}</div>
+   <div class="small" style="margin-top:6px">Les formules sont copiées d'une unité de l'armée. L'unité rejoint « Non intégré ».</div><div class="ftres err" id="nuerr"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Créer',cls:'pri',fn:()=>{
+     const name=mval('nu_n').trim();if(!name){const e=document.getElementById('nuerr');e.textContent='Nom requis.';return;}
+     const tpl=a.units.find(u=>!u.l2&&String(u.in_.D||'').toLowerCase()==='cc'&&u.fm.F)||a.units.find(u=>!u.l2&&u.fm.F);
+     if(!tpl){const e=document.getElementById('nuerr');e.textContent='Aucune unité modèle dans cette armée.';return;}
+     const num=id=>{const t=mval(id).trim();return t===''?undefined:Number(t);};
+     const n=Math.max(1,num('nu_A')||1);
+     const u={uid:uid(a),cat:mval('nu_c')||tpl.cat,in_:{A:n,B:name,C:num('nu_C')||0,D:mval('nu_D'),G:num('nu_G')||0,I:num('nu_I')||0,K:mval('nu_K')},
+       fm:Object.assign({},tpl.fm),fo:{},v:{},q:{ni:[n,0,0,null,a.defVal]}};
+     if(mval('nu_E').trim()!=='')u.in_.E=isFinite(Number(mval('nu_E')))?Number(mval('nu_E')):mval('nu_E');
+     if(num('nu_H')!==undefined)u.in_.H=num('nu_H');
+     delete u.fm.S;
+     insertUnit(a,u);closeModal();S.sel='ni';afterChange([a.id]);toast('Unité créée dans « Non intégré »');}}]);
+}
+
+/* ===================== ACTIONS ===================== */
+function setArmy(id,keep){S.army=id;S.view='full';const a=curArmy();if(!keep||!a.legions.some(l=>l.id===S.sel))S.sel=null;document.getElementById('armySel').value=id;S.tab='army';render();}
+function stepLeg(d){const a=curArmy();const mj=isMJ();const vis=a.legions.filter(x=>x.id!=='ni'||mj||legStats(a,x).figs);const i=vis.findIndex(l=>l.id===S.sel);const n=vis[i+d];if(n){S.sel=n.id;render();}}
+function famTest(fid,apply){
+  const ta=document.getElementById('ft_'+fid);const text=ta.value.trim().replace(/^=/,'');const out=document.getElementById('fr_'+fid);
+  try{FE.compile(text);}catch(e){out.className='ftres err';out.textContent=e.message;return null;}
+  const F2=Object.assign({},FAM,{[fid]:{text,col:FAM[fid].col}});let rows=0,changed=0,errs=0;
+  ARMIES.forEach(a=>a.units.forEach(u=>{
+    const uses=[u,u.l2].some(r=>r&&Object.entries(r.fm).some(([c,id])=>id===fid&&!r.fo[c]))||Object.values(u.q).some(q=>(q[4]||a.defVal)===fid);
+    if(!uses)return;rows++;
+    const c=structuredClone({fm:u.fm,fo:u.fo,in_:u.in_,q:u.q,l2:u.l2});c.v={};c.err=null;if(c.l2)c.l2.v={};
+    calcUnit(c,a,F2);
+    const cmp=(r0,r1)=>{for(const k in r1.v){const x=r0.v[k],y=r1.v[k];if(typeof y==='number'&&y!==y){errs++;continue;}if(typeof y==='number'&&typeof x==='number'&&Math.abs(x-y)>1e-6)changed++;}};
+    cmp(u,c);if(u.l2)cmp(u.l2,c.l2);
+    for(const l in u.q){const x=u.q[l][3],y=c.q[l][3];if(typeof y==='number'&&y!==y)errs++;else if(typeof x==='number'&&Math.abs(x-y)>1e-6)changed++;}
+  }));
+  out.className='ftres '+(errs?'err':'ok');out.textContent=`Formule valide · ${rows} unités concernées · ${changed} valeurs changeraient${errs?` · ${errs} erreurs`:''}`;
+  return {text,errs};
+}
+function onClick(e){
+  const el=e.target.closest('[data-a]');if(!el||el.disabled)return;
+  const a=el.dataset.a,cur=curArmy();
+  switch(a){
+    case 'openpick':openFromLink(el.dataset.army,el.dataset.leg);window.scrollTo(0,0);break;
+    case 'pickme':doPick(cur.id,S.sel);break;
+    case 'pickcat':{const ar=(S.catalog||[]).find(c=>c.id===el.dataset.army);const lg=el.dataset.leg,aid=el.dataset.army;
+      openModal('Confirmer votre légion',`<div>${esc(ar?ar.name:'')} · ${esc(legName({id:lg}))}</div><div class="small" style="margin-top:8px">Tant que les fiches sont fermées, seul le MJ pourra changer ce choix.</div>`,
+        [{label:'Annuler',fn:closeModal},{label:'Confirmer',cls:'pri',fn:()=>{closeModal();doPick(aid,lg);}}]);break;}
+    case 'unpick':if(isMJ()){const n=el.dataset.name;hostReq('fiches-pick',{clear:true,name:n}).then(r=>toast(r.success?`Choix de ${n} retiré`:r.message));}break;
+    case 'tab-army':S.tab='army';render();break;
+    case 'tab-form':S.tab='form';render();break;
+    case 'leg':S.sel=el.dataset.leg;render();break;
+    case 'mk':S.view='legion';render();window.scrollTo(0,0);break;
+    case 'back':S.view='full';render();break;
+    case 'prev':stepLeg(-1);break;case 'next':stepLeg(1);break;
+    case 'colstoggle':S.showCols=!S.showCols;render();break;
+    case 'col':{const c=el.dataset.col;S.cols.has(c)?S.cols.delete(c):S.cols.add(c);render();break;}
+    case 'cols-all':COLS.forEach(c=>S.cols.add(c));render();break;
+    case 'cols-def':S.cols=new Set(DEFCOLS);render();break;
+    case 'cols-none':S.cols=new Set();render();break;
+    case 'print':try{window.print();}catch(x){toast('Impression indisponible ici');}break;
+    case 'copy':{const l=cur.legions.find(x=>x.id===S.sel);const txt=toText(cur,l);
+      (async()=>{try{await navigator.clipboard.writeText(txt);toast('Fiche copiée');}catch(x){try{const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();toast('Fiche copiée');}catch(y){toast('Copie indisponible ici');}}})();break;}
+    case 'param':if(isMJ()){const c=el.dataset.col;cur.params=cur.params||{};cur.params[c]=(cur.params[c]&&String(cur.params[c]).toLowerCase()==='x')?null:'x';afterChange([cur.id]);}break;
+    case 'newunit':if(isMJ())newUnit();break;
+    case 'dup':if(isMJ())dupUnit(el.dataset.army,el.dataset.uid);break;
+    case 'move':if(isMJ())moveUnit(el.dataset.army,el.dataset.uid);break;
+    case 'del':if(isMJ())delUnit(el.dataset.army,el.dataset.uid);break;
+    case 'addtoleg':if(isMJ()){const u=cur.units.find(x=>x.uid===mval('addUnit'));const n=Math.max(1,Math.round(Number(mval('addQty'))||1));if(u){u.q[S.sel]=[n,0,0,null,cur.defVal];afterChange([cur.id]);}}break;
+    case 'famtest':famTest(el.dataset.fam);break;
+    case 'famapply':if(isMJ()){const r=famTest(el.dataset.fam);if(r&&!r.errs){FAM[el.dataset.fam].text=r.text;afterChange(ARMIES.map(x=>x.id),true);toast('Formule appliquée à toutes les lignes concernées');}}break;
+    case 'famreset':if(isMJ()){FAM[el.dataset.fam].text=FAM[el.dataset.fam].orig;afterChange(ARMIES.map(x=>x.id),true);}break;
+    case 'famunify':if(isMJ()){const fid=el.dataset.fam,col=FAM[fid].col;const r=famTest(fid);if(!r||r.errs)break;
+      openModal('Étendre à toute la colonne ?',`Toutes les lignes de la colonne « ${esc(FAMNAME[col])} » de toutes les armées utiliseront cette formule (y compris celles qui avaient une formule différente).`,
+      [{label:'Annuler',fn:closeModal},{label:'Étendre',cls:'pri',fn:()=>{FAM[fid].text=r.text;
+        ARMIES.forEach(a=>a.units.forEach(u=>{[u,u.l2].forEach(row=>{if(row&&row.fm[col])row.fm[col]=fid;});if(col==='val')for(const l in u.q)u.q[l][4]=fid;}));
+        if(col==='val')ARMIES.forEach(a=>a.defVal=fid);
+        closeModal();afterChange(ARMIES.map(x=>x.id),true);toast('Formule étendue à toute la colonne');}}]);}break;
+  }
+}
+function onDbl(e){
+  if(!isMJ())return;
+  const c=e.target.closest('[data-cell]');if(c){openCell(c.dataset.army,c.dataset.uid,c.dataset.w,c.dataset.col);return;}
+  const q=e.target.closest('[data-lq]');if(q)openLegQty(q.dataset.army,q.dataset.uid,q.dataset.leg,+q.dataset.i);
+}
+function setPseudo(p,silent){S.pseudo=String(p||'').trim();const el=document.getElementById('pseudo');if(el&&el.value!==S.pseudo)el.value=S.pseudo;render();if(!silent&&isMJ())toast('Mode MJ activé');}
+function openFromLink(armyId,leg){if(!getArmy(armyId))return;S.army=armyId;S.tab='army';document.getElementById('armySel').value=armyId;
+  if(leg&&getArmy(armyId).legions.some(l=>l.id===leg)){S.sel=leg;S.view='legion';}else{S.view='full';}render();}
+
+/* ===================== MODE HÉBERGÉ (dans le projet carte) ===================== */
+const HB={rid:0,wait:new Map()};
+function hostReq(event,payload){return new Promise(res=>{const rid=++HB.rid;
+  const t=setTimeout(()=>{HB.wait.delete(rid);res({success:false,message:'Le serveur ne répond pas.'});},20000);
+  HB.wait.set(rid,r=>{clearTimeout(t);res(r);});
+  parent.postMessage({type:'fiches:req',rid,event,payload},location.origin);});}
+function applyServer(res){
+  S.restricted=res.mode==='own';S.access=!!res.access;S.picks=res.picks||{};S.myPick=res.pick||null;S.catalog=res.catalog||null;
+  if(!S.restricted){const mine=Object.entries(S.picks).find(([n])=>n.toLowerCase()===S.pseudo.toLowerCase());S.myPick=mine?mine[1]:null;}
+  FAM={};(res.families||[]).forEach(f=>FAM[f.id]={id:f.id,col:f.col,text:pretty(f.rel),orig:pretty(f.rel)});
+  for(const id in (res.famTexts||{}))if(FAM[id])FAM[id].text=res.famTexts[id];
+  const list=res.mode==='full'?res.armies:(res.army?[res.army]:[]);
+  ARMIES=JSON.parse(JSON.stringify(list));ARMIES.forEach(prepArmy);ARMIES.forEach(a=>a.legions.forEach(l=>{delete l.val;}));
+  recompute();
+  const sel=document.getElementById('armySel');sel.innerHTML=ARMIES.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
+}
+function fixSelection(first){
+  if(!ARMIES.length){S.army=null;return;}
+  if(S.restricted){S.army=S.myPick.army;S.sel=S.myPick.legion;S.view='legion';S.tab='army';}
+  else{
+    if(first&&S.myPick&&getArmy(S.myPick.army)){S.army=S.myPick.army;S.sel=S.myPick.legion;S.view='legion';S.tab='army';}
+    else{if(!getArmy(S.army))S.army=ARMIES[0].id;if(!curArmy().legions.some(l=>l.id===S.sel)){S.sel=null;if(S.view==='legion')S.view='full';}}
+  }
+  document.getElementById('armySel').value=S.army||'';
+}
+async function loadHosted(first){
+  const r=await hostReq('fiches-load',{});
+  if(!r.success){S.loaded=true;document.getElementById('view').innerHTML=`<div class="card">${esc(r.message||'Fiches indisponibles.')}</div>`;return;}
+  applyServer(r);S.loaded=true;fixSelection(first);render();
+}
+async function reloadHosted(){
+  if(document.getElementById('modal').classList.contains('open')){S.reloadPending=true;return;}
+  if(S.admin)await flush();
+  await loadHosted(false);
+}
+async function doPick(armyId,lid){
+  const r=await hostReq('fiches-pick',{army:armyId,legion:lid});
+  if(!r.success)return toast(r.message||'Choix impossible.');
+  toast('Légion choisie');S.army=armyId;S.sel=lid;S.view='legion';
+}
+function startHosted(init){
+  S.admin=!!init.isAdmin;S.pseudo=init.name||'';S.access=init.access!==false;
+  window.addEventListener('message',ev=>{if(ev.origin!==location.origin||ev.source!==parent)return;const d=ev.data;if(!d||typeof d!=='object')return;
+    if(d.type==='fiches:res'){const f=HB.wait.get(d.rid);if(f){HB.wait.delete(d.rid);f(d.res);}}
+    else if(d.type==='fiches:changed')reloadHosted();
+    else if(d.type==='fiches:reopen'){S.tab='army';loadHosted(true);}
+    else if(d.type==='fiches:ouvrir')openFromLink(d.armee||d.army,d.legion);});
+  loadHosted(true);
+}
+
+/* ===================== DÉMARRAGE ===================== */
+(function init(){
+  if(HOSTED){FAM={};ARMIES=[];}else initData();
+  const sel=document.getElementById('armySel');
+  sel.innerHTML=ARMIES.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
+  sel.addEventListener('change',e=>setArmy(e.target.value,false));
+  document.addEventListener('click',onClick);document.addEventListener('dblclick',onDbl);
+  document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+  document.getElementById('pseudoOk').addEventListener('click',()=>{const v=document.getElementById('pseudo').value;try{localStorage.setItem('fa2:pseudo',v);}catch(x){}setPseudo(v);});
+  document.getElementById('pseudo').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('pseudoOk').click();});
+  if(HOSTED){
+    document.addEventListener('click',()=>{});
+    window.addEventListener('message',function boot(ev){if(ev.origin!==location.origin||ev.source!==parent)return;const d=ev.data;
+      if(d&&d.type==='fiches:init'){window.removeEventListener('message',boot);const v=loadView();if(v&&v.cols&&v.cols.length)S.cols=new Set(v.cols);startHosted(d);}});
+    render();parent.postMessage({type:'fiches:ready'},location.origin);return;
+  }
+  const v=loadView();let army=ARMIES[0].id;
+  if(v){if(getArmy(v.army))army=v.army;if(v.cols&&v.cols.length)S.cols=new Set(v.cols);S.sel=v.sel||null;}
+  S.army=army;sel.value=army;
+  if(!curArmy().legions.some(l=>l.id===S.sel))S.sel=null;
+  let pseudo='';try{pseudo=localStorage.getItem('fa2:pseudo')||'';}catch(e){}
+  const qs=new URLSearchParams(location.search+'&'+(location.hash||'').replace(/^#/,''));
+  if(qs.get('pseudo'))pseudo=qs.get('pseudo');
+  S.pseudo=pseudo;document.getElementById('pseudo').value=pseudo;
+  if(qs.get('armee')||qs.get('army'))openFromLink(qs.get('armee')||qs.get('army'),qs.get('legion'));
+  render();
+  /* liaison avec le projet carte : messages entrants */
+  window.addEventListener('message',ev=>{const d=ev.data;if(!d||typeof d!=='object')return;
+    if(d.type==='fiches:pseudo'||d.type==='pseudo')setPseudo(d.pseudo,true);
+    if(d.type==='fiches:ouvrir')openFromLink(d.armee||d.army,d.legion);});
+  window.FichesArmees={setPseudo:p=>setPseudo(p,true),ouvrir:openFromLink,estMJ:isMJ};
+  /* capacités plateforme (base partagée + identité) */
+  (async()=>{try{
+    if(!window.claude||!window.claude.use)return;
+    const user=await window.claude.use('user');
+    if(user){try{S.canWrite=await user.can('data.write');}catch(e){}}
+    const db=await window.claude.use('db');if(!db)return;
+    DB=db;S.dbOn=true;
+    db.collection('state').onSnapshot(onSnapshot,()=>{});
+    render();
+  }catch(e){}})();
+})();
+
+</script>
+</body>
+</html>
