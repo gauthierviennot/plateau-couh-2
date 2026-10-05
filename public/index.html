@@ -190,6 +190,10 @@
         .fiches-overlay { position: fixed; inset: 0; z-index: 120; background: var(--bg); display: flex; flex-direction: column; padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); }
         .fiches-overlay[hidden] { display: none; }
         .fiches-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: var(--dark); color: #fff; font-size: .85rem; flex-shrink: 0; }
+        .fiches-admin { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+        .fiches-admin [hidden] { display: none; }
+        .obj-option.fiche-btn { font-size: 1.15rem; background: #fff7e0; }
+        .mini-user-item.has-pick { pointer-events: auto; cursor: pointer; text-decoration: underline dotted; }
         .fiches-overlay iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
 
         /* Message d'aide à l'ouverture de la carte */
@@ -240,6 +244,7 @@
      <h2 id="welcomeUser">MJ</h2>
      <div class="header-actions">
       <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
+      <button class="btn btn-secondary" data-fiche="open">📜 Fiches d'armée</button>
       <button id="btnLogout" class="btn btn-secondary">Déconnexion</button>
      </div>
     </div>
@@ -291,8 +296,6 @@
     </button>
     <button id="btnExport" class="btn-round" title="Imprimer (JPEG A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
     <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
-    <button id="btnFichesAccess" class="btn-round admin-only" title="Accès des joueurs aux fiches d'armée" aria-label="Accès des joueurs aux fiches d'armée" hidden>📖</button>
-    <button id="btnFiches" class="btn-round" title="Fiches d'armée" aria-label="Ouvrir les fiches d'armée">📜</button>
     <button id="btnExitMap" class="btn-round quit" title="Quitter" aria-label="Quitter">🚪</button>
    </div>
    <canvas id="hexCanvas" class="board"></canvas>
@@ -381,10 +384,14 @@
     </div>
    </div>
   </div>
+  <div id="pickTip" class="palette-tooltip" hidden></div>
   <div id="fichesOverlay" class="fiches-overlay" hidden>
    <div class="fiches-bar">
-    <b>📜 Fiches d'armée</b>
-    <button id="btnFichesClose" class="btn btn-secondary btn-small">Fermer</button>
+    <b>📜 Fiches d'armée</b> <span class="fiches-admin"> 
+     <button class="btn btn-secondary btn-small" data-fiche="access" data-long="1" hidden></button> 
+     <button class="btn btn-secondary btn-small" data-fiche="freeze" data-long="1" hidden></button> 
+    </span>
+    <button id="btnFichesClose" class="btn btn-secondary btn-small" data-fiche="close">Fermer</button>
    </div>
    <iframe id="fichesFrame" title="Fiches d'armée"></iframe>
   </div>
@@ -661,8 +668,10 @@
                 const mini = document.createElement('div');
                 mini.className = 'mini-user-item';
                 mini.textContent = name;
+                mini.dataset.name = name;
                 el.miniUsers.appendChild(mini);
             }
+            decorateMiniUsers();
 
             const fill = (container, names, isOnline, emptyText) => {
                 container.replaceChildren();
@@ -1266,11 +1275,32 @@
             return canvas;
         }
 
+        // Boutons des fiches d'armée : tout en haut du sélecteur toujours visible (impression, boussole, protection).
+        function fichesButtons() {
+            const make = (kind, label) => {
+                const b = document.createElement('button');
+                b.className = 'obj-option fiche-btn';
+                b.dataset.fiche = kind;
+                b.setAttribute('aria-label', label);
+                b.title = label;
+                return b;
+            };
+            const list = [make('open', 'Fiches d’armée')];
+            list[0].textContent = '📜';
+            if (state.isAdmin) list.push(make('access', 'Accès des joueurs aux fiches'), make('freeze', 'Légions des joueurs'));
+            queueMicrotask(updateFichesAccessUI);
+            return list;
+        }
+
         function renderPalette() {
             hidePaletteTooltip();
             el.palTerrains.replaceChildren();
             el.palObjects.replaceChildren();
             el.palMarks.replaceChildren();
+
+            // Les boutons des fiches se trouvent en haut du sélecteur qui ne se replie jamais.
+            el.palProtect.querySelectorAll('[data-fiche]').forEach((b) => b.remove());
+            el.palProtect.prepend(...fichesButtons());
 
             for (const terrain of TERRAINS) {
                 const button = paletteButton({ kind: 'terrain', id: terrain.id }, 'hex-option', terrain.label, '', 'right');
@@ -2834,30 +2864,36 @@
         /* ============================================================ */
 
         // Le serveur reste seul juge de ce que chacun peut voir ; cette page ne fait que relayer les messages.
-        const FICHES_EVENTS = new Set(['fiches-load', 'fiches-pick', 'fiches-save']);
+        const FICHES_EVENTS = new Set(['fiches-load', 'fiches-pick', 'fiches-save', 'fiches-diag']);
 
         function fichesPost(message) {
             try { $('fichesFrame').contentWindow?.postMessage(message, location.origin); } catch { /* fenêtre fermée */ }
         }
 
         function updateFichesAccessUI() {
-            const btn = $('btnFichesAccess');
             const open = state.fichesAccess !== false;
-            btn.textContent = open ? '📖' : '🚫';
-            btn.classList.toggle('on', open);
-            btn.classList.toggle('off', !open);
-            const label = open
-                ? 'Fiches d’armée ouvertes aux joueurs : toucher pour refuser (ils gardent leur légion)'
-                : 'Fiches d’armée fermées aux joueurs : toucher pour autoriser';
-            btn.title = label;
-            btn.setAttribute('aria-label', label);
+            const frozen = state.fichesFrozen === true;
+            document.querySelectorAll('[data-fiche="access"]').forEach((btn) => {
+                const label = open ? 'Fiches ouvertes aux joueurs : toucher pour refuser (ils gardent les légions choisies)' : 'Fiches fermées aux joueurs : toucher pour autoriser';
+                btn.textContent = (open ? '📖' : '🚫') + (btn.dataset.long ? (open ? ' Fiches ouvertes' : ' Fiches fermées') : '');
+                btn.title = label; btn.setAttribute('aria-label', label); btn.hidden = !state.isAdmin;
+            });
+            document.querySelectorAll('[data-fiche="freeze"]').forEach((btn) => {
+                const label = frozen ? 'Légions figées : les joueurs ne peuvent plus en changer (toucher pour autoriser)' : 'Les joueurs peuvent changer de légion (toucher pour figer)';
+                btn.textContent = (frozen ? '📌' : '🔀') + (btn.dataset.long ? (frozen ? ' Légions figées' : ' Légions modifiables') : '');
+                btn.title = label; btn.setAttribute('aria-label', label); btn.hidden = !state.isAdmin;
+            });
         }
 
-        function openFiches() {
+        function openFiches(target) {
             if (!state.username) return;
             const frame = $('fichesFrame');
             $('fichesOverlay').hidden = false;
-            if (!frame.getAttribute('src')) frame.src = '/fiches.html';
+            updateFichesAccessUI();
+            if (!frame.getAttribute('src')) {
+                state.fichesOpenTarget = target || null;
+                frame.src = '/fiches.html';
+            } else if (target) fichesPost({ type: 'fiches:ouvrir', armee: target.army, legion: target.legion });
             else fichesPost({ type: 'fiches:reopen' }); // rouvre sur la légion choisie par le joueur
         }
 
@@ -2871,28 +2907,78 @@
             $('fichesFrame').removeAttribute('src');
         }
 
+        // Légion choisie par un joueur : nom au survol du pseudo, clic pour ouvrir sa fiche.
+        function pickOf(name) {
+            const labels = state.fichesPickLabels || {};
+            const key = Object.keys(labels).find((n) => n.toLowerCase() === String(name).toLowerCase());
+            return key ? labels[key] : null;
+        }
+
+        function decorateMiniUsers() {
+            for (const item of el.miniUsers.children) {
+                const pick = pickOf(item.dataset.name || item.textContent);
+                item.classList.toggle('has-pick', Boolean(pick));
+                if (pick) item.dataset.pick = pick.text; else delete item.dataset.pick;
+            }
+        }
+
+        function showPickTip(item) {
+            const tip = $('pickTip');
+            if (!item.dataset.pick) return;
+            tip.textContent = item.dataset.pick;
+            tip.hidden = false;
+            const r = item.getBoundingClientRect();
+            tip.style.left = `${r.right + 8}px`;
+            tip.style.top = `${r.top}px`;
+        }
+
+        el.miniUsers.addEventListener('pointerover', (e) => {
+            const item = e.target.closest('.mini-user-item');
+            if (item && e.pointerType === 'mouse') showPickTip(item);
+        });
+        el.miniUsers.addEventListener('pointerout', () => { $('pickTip').hidden = true; });
+        el.miniUsers.addEventListener('click', (e) => {
+            const item = e.target.closest('.mini-user-item');
+            const pick = item && pickOf(item.dataset.name || item.textContent);
+            if (!pick) return;
+            if (e.pointerType !== 'mouse') { showPickTip(item); setTimeout(() => { $('pickTip').hidden = true; }, 2500); }
+            openFiches({ army: pick.army, legion: pick.legion });
+        });
+
         window.addEventListener('message', (ev) => {
             const frame = $('fichesFrame');
             if (ev.origin !== location.origin || !frame || ev.source !== frame.contentWindow) return;
             const data = ev.data;
             if (!data || typeof data !== 'object') return;
             if (data.type === 'fiches:ready') {
-                fichesPost({ type: 'fiches:init', name: state.username, isAdmin: state.isAdmin, access: state.fichesAccess !== false });
+                const open = state.fichesOpenTarget; state.fichesOpenTarget = null;
+                fichesPost({ type: 'fiches:init', name: state.username, isAdmin: state.isAdmin, access: state.fichesAccess !== false, open });
             } else if (data.type === 'fiches:req' && FICHES_EVENTS.has(data.event)) {
                 request(data.event, data.payload, 30000).then((res) => fichesPost({ type: 'fiches:res', rid: data.rid, res }));
             }
         });
 
-        $('btnFiches').addEventListener('click', openFiches);
-        $('btnFichesClose').addEventListener('click', closeFiches);
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('fichesOverlay').hidden) closeFiches(); });
-        $('btnFichesAccess').addEventListener('click', async () => {
-            const res = await request('fiches-access', { allow: state.fichesAccess === false });
-            if (!res.success) return toast(res.message || 'Action impossible.', true);
-            state.fichesAccess = res.allow;
-            updateFichesAccessUI();
-            toast(res.allow ? 'Fiches d’armée ouvertes aux joueurs.' : 'Fiches d’armée fermées : chaque joueur ne voit que sa légion.');
+        document.addEventListener('click', async (e) => {
+            const b = e.target.closest('[data-fiche]');
+            if (!b) return;
+            const kind = b.dataset.fiche;
+            if (kind === 'open') openFiches();
+            else if (kind === 'close') closeFiches();
+            else if (kind === 'access' && state.isAdmin) {
+                const res = await request('fiches-access', { allow: state.fichesAccess === false });
+                if (!res.success) return toast(res.message || 'Action impossible.', true);
+                state.fichesAccess = res.allow;
+                updateFichesAccessUI();
+                toast(res.allow ? 'Fiches ouvertes aux joueurs.' : 'Fiches fermées : chaque joueur ne voit que les légions choisies.');
+            } else if (kind === 'freeze' && state.isAdmin) {
+                const res = await request('fiches-freeze', { freeze: state.fichesFrozen !== true });
+                if (!res.success) return toast(res.message || 'Action impossible.', true);
+                state.fichesFrozen = res.freeze;
+                updateFichesAccessUI();
+                toast(res.freeze ? 'Légions figées : les joueurs ne peuvent plus en changer.' : 'Les joueurs peuvent de nouveau changer de légion.');
+            }
         });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('fichesOverlay').hidden) closeFiches(); });
 
         function attachSocket() {
             socket.on('connect', () => {
@@ -2909,7 +2995,10 @@
                 state.rows = data.config?.rows ?? 8;
                 state.isLocked = Boolean(data.isLocked);
                 state.fichesAccess = data.fichesAccess !== false;
+                state.fichesFrozen = data.fichesFrozen === true;
+                state.fichesPickLabels = data.fichesPickLabels || {};
                 updateFichesAccessUI();
+                decorateMiniUsers();
                 state.terrains = mergeTerrains(data.terrains);
                 updateUsers(data.presence || data.users || []);
                 state.protection = Object.assign(Object.create(null), data.protection);
@@ -2932,8 +3021,17 @@
                 state.fichesAccess = Boolean(allow);
                 updateFichesAccessUI();
                 if (!state.isAdmin) {
-                    toast(allow ? 'Le MJ a ouvert l’accès aux fiches d’armée.' : 'Le MJ a fermé l’accès aux fiches d’armée : votre légion reste consultable.');
+                    toast(allow ? 'Le MJ a ouvert l’accès aux fiches d’armée.' : 'Le MJ a fermé l’accès aux fiches d’armée : les légions choisies restent consultables.');
                 }
+            });
+            socket.on('fiches-freeze', (frozen) => {
+                state.fichesFrozen = Boolean(frozen);
+                updateFichesAccessUI();
+                if (!state.isAdmin) toast(frozen ? 'Le MJ a figé les légions choisies.' : 'Le MJ autorise de nouveau le changement de légion.');
+            });
+            socket.on('fiches-picks', (labels) => {
+                state.fichesPickLabels = labels || {};
+                decorateMiniUsers();
             });
             socket.on('fiches-changed', () => fichesPost({ type: 'fiches:changed' }));
             socket.on('update-protection', (protection) => {
