@@ -54,6 +54,9 @@ const DOCS_DIR = path.join(DATA_DIR, 'docs');
 const FICHES_MAX_BYTES = 800 * 1024;
 const FICHES_MAX_UNITS = 600;
 const DOC_ID = /^[a-z0-9_]{1,64}$/;
+const LEG_ID = /^[A-Za-z0-9_-]{1,12}$/;
+const FAM_ID = /^[a-z0-9_]{1,24}$/;
+const FAM_COLS = new Set(['S', 'F', 'J', 'L', 'M', 'Q', 'R', 'W', 'X', 'val']);
 
 // Terrains : liste fixe, seules les couleurs sont modifiables par l'admin. La plaine est le terrain par défaut.
 const DEFAULT_TERRAINS = [
@@ -249,7 +252,7 @@ function sanitizePicks(raw) {
     for (const [name, pick] of Object.entries(raw).slice(0, 500)) {
         if (name.length > LIMITS.maxName || !pick || typeof pick !== 'object') continue;
         if (typeof pick.army !== 'string' || !DOC_ID.test(pick.army)) continue;
-        if (typeof pick.legion !== 'string' || !/^[A-Za-z0-9_-]{1,12}$/.test(pick.legion)) continue;
+        if (typeof pick.legion !== 'string' || !LEG_ID.test(pick.legion)) continue;
         clean[name] = { army: pick.army, legion: pick.legion };
     }
     return clean;
@@ -263,7 +266,8 @@ function normalizeState(raw) {
         terrainsList: sanitizeTerrains(raw?.terrainsList ?? raw?.terrains),
         isLocked: Boolean(raw?.isLocked),
         protection: sanitizeProtection(raw?.protection),
-        fichesAccess: raw?.fichesAccess !== false, // les joueurs peuvent consulter les fiches d'armée (le MJ peut le refuser)
+        fichesAccess: raw?.fichesAccess !== false, // les joueurs peuvent consulter toutes les fiches d'armée (le MJ peut le refuser)
+        fichesFrozen: raw?.fichesFrozen === true, // légions choisies figées : les joueurs ne peuvent plus en changer
         fichesPicks: sanitizePicks(raw?.fichesPicks)
     };
 }
@@ -640,7 +644,8 @@ const fiches = {
     families: [], // formules d'origine
     seedArmies: new Map(), // id -> armée d'origine
     armies: new Map(), // id -> armée modifiée par le MJ
-    famTexts: {} // id de formule -> texte modifié par le MJ
+    famTexts: {}, // id d'une formule d'origine -> texte modifié par le MJ
+    famCustom: {} // id -> { col, text } : formules créées par le MJ
 };
 
 function loadFichesSeed() {
@@ -666,11 +671,21 @@ async function loadFichesOverrides() {
         if (doc?.version === fiches.version && doc.army?.id === id && Array.isArray(doc.army.units)) fiches.armies.set(id, doc.army);
     }
     const famDoc = await storage.loadDoc('fiches_fams');
-    if (famDoc?.version === fiches.version && famDoc.texts && typeof famDoc.texts === 'object') fiches.famTexts = famDoc.texts;
-    console.log(`📜 ${fiches.armies.size} armée(s) modifiée(s) par le MJ.`);
+    if (famDoc?.version === fiches.version) {
+        if (famDoc.texts && typeof famDoc.texts === 'object') fiches.famTexts = famDoc.texts;
+        if (famDoc.custom && typeof famDoc.custom === 'object') fiches.famCustom = famDoc.custom;
+    }
+    console.log(`📜 ${fiches.armies.size} armée(s) modifiée(s) par le MJ, ${Object.keys(fiches.famCustom).length} formule(s) créée(s).`);
 }
 
 const fichesArmy = (id) => fiches.armies.get(id) || fiches.seedArmies.get(id);
+
+// Formules envoyées au client : celles d'origine puis celles créées par le MJ.
+function fichesFamilies() {
+    const list = fiches.families.map((f) => ({ id: f.id, col: f.col, rel: f.rel }));
+    for (const [id, f] of Object.entries(fiches.famCustom)) list.push({ id, col: f.col, rel: f.text, custom: true });
+    return list;
+}
 
 function legionFigs(army, lid) {
     let total = 0;
@@ -681,33 +696,97 @@ function legionFigs(army, lid) {
     return total;
 }
 
+function legionLabel(army, legion) {
+    if (legion?.name) return String(legion.name);
+    const id = legion?.id ?? '';
+    if (id === 'renfort') return 'Renfort';
+    return `Légion ${id}`;
+}
+
 const validPick = (armyId, lid) => {
     const army = typeof armyId === 'string' ? fichesArmy(armyId) : null;
     return Boolean(army) && typeof lid === 'string' && lid !== 'ni'
         && (army.legions || []).some((l) => l.id === lid) && legionFigs(army, lid) > 0;
 };
 
-// Liste sommaire (sans unités) : uniquement pour choisir sa légion quand les fiches sont fermées.
+// Joueur qui a déjà choisi cette légion (hors lui-même), sinon null.
+function pickTakenBy(armyId, lid, exceptName) {
+    for (const [name, pick] of Object.entries(state.fichesPicks)) {
+        if (name !== exceptName && pick.army === armyId && pick.legion === lid) return name;
+    }
+    return null;
+}
+
+// Supprime les choix qui ne correspondent plus à une légion existante. Renvoie true si quelque chose a changé.
+function pruneFichesPicks() {
+    let changed = false;
+    for (const [name, pick] of Object.entries(state.fichesPicks)) {
+        if (!validPick(pick.army, pick.legion)) { delete state.fichesPicks[name]; changed = true; }
+    }
+    return changed;
+}
+
+// Nom de la légion choisie par chaque joueur : public, c'est ce que voient les joueurs en survolant un pseudo.
+function fichesPickLabels() {
+    const labels = {};
+    for (const [name, pick] of Object.entries(state.fichesPicks)) {
+        const army = fichesArmy(pick.army);
+        const legion = army?.legions?.find((l) => l.id === pick.legion);
+        if (army && legion) labels[name] = { army: pick.army, legion: pick.legion, text: `${army.name} · ${legionLabel(army, legion)}` };
+    }
+    return labels;
+}
+
+// Catalogue sommaire (sans unités) pour choisir une légion quand les fiches sont fermées.
 function fichesCatalog() {
     return [...fiches.seedArmies.keys()].map((id) => {
         const army = fichesArmy(id);
         const legions = (army.legions || [])
             .filter((l) => l.id !== 'ni')
-            .map((l) => ({ id: l.id, figs: legionFigs(army, l.id), comp: l.comp || null }))
+            .map((l) => ({ id: l.id, name: l.name || null, figs: legionFigs(army, l.id), comp: l.comp || null, takenBy: pickTakenBy(id, l.id, null) }))
             .filter((l) => l.figs > 0);
         return { id, name: army.name, legions };
     });
 }
 
-// Armée réduite à une seule légion : c'est tout ce que reçoit un joueur quand l'accès aux fiches est refusé.
-function fichesOwnArmy(pick) {
-    if (!validPick(pick.army, pick.legion)) return null;
-    const army = fichesArmy(pick.army);
-    const legion = army.legions.find((l) => l.id === pick.legion);
-    const units = (army.units || [])
-        .filter((u) => Array.isArray(u.q?.[pick.legion]))
-        .map((u) => ({ ...u, q: { [pick.legion]: u.q[pick.legion] } }));
-    return { ...army, legions: [legion], units };
+// Armées réduites aux seules légions choisies par les joueurs : tout ce que reçoit un joueur quand l'accès est fermé.
+function fichesPickedArmies() {
+    const byArmy = new Map();
+    for (const pick of Object.values(state.fichesPicks)) {
+        if (!validPick(pick.army, pick.legion)) continue;
+        if (!byArmy.has(pick.army)) byArmy.set(pick.army, new Set());
+        byArmy.get(pick.army).add(pick.legion);
+    }
+    return [...byArmy.entries()].map(([armyId, lids]) => {
+        const army = fichesArmy(armyId);
+        const units = (army.units || [])
+            .filter((u) => Object.keys(u.q || {}).some((k) => lids.has(k)))
+            .map((u) => ({ ...u, q: Object.fromEntries(Object.entries(u.q).filter(([k]) => lids.has(k))) }));
+        return { ...army, legions: army.legions.filter((l) => lids.has(l.id)), units };
+    });
+}
+
+// Vérifie une fiche envoyée par le MJ avant de l'enregistrer.
+function checkFichesArmy(id, army) {
+    if (!fiches.seedArmies.has(id) || !army || army.id !== id) return 'armée inconnue';
+    if (!Array.isArray(army.units) || army.units.length > FICHES_MAX_UNITS) return 'liste d’unités invalide';
+    if (!Array.isArray(army.legions) || army.legions.length > 60) return 'liste de légions invalide';
+    const ids = new Set();
+    for (const l of army.legions) {
+        if (!l || typeof l.id !== 'string' || !(LEG_ID.test(l.id)) || ids.has(l.id)) return 'identifiant de légion invalide';
+        ids.add(l.id);
+        if (l.name != null && (typeof l.name !== 'string' || l.name.length > 40)) return 'nom de légion invalide';
+        if (l.comp != null && (typeof l.comp !== 'string' || l.comp.length > 200)) return 'composition invalide';
+        if (l.sup != null && !Number.isFinite(l.sup)) return 'supplément invalide';
+    }
+    for (const u of army.units) {
+        if (!u || typeof u !== 'object' || typeof u.in_ !== 'object' || typeof u.q !== 'object') return 'unité invalide';
+        for (const k of Object.keys(u.q)) if (!ids.has(k)) return `l’unité référence une légion inexistante (${k.slice(0, 12)})`;
+    }
+    if (army.sections != null && (!Array.isArray(army.sections) || army.sections.length > 60
+        || army.sections.some((x) => typeof x !== 'string' || x.length > 80))) return 'sections invalides';
+    if (JSON.stringify(army).length > FICHES_MAX_BYTES) return 'fiche trop volumineuse';
+    return null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -874,6 +953,8 @@ io.on('connection', (socket) => {
         protection: state.protection,
         isLocked: state.isLocked,
         fichesAccess: state.fichesAccess,
+        fichesFrozen: state.fichesFrozen,
+        fichesPickLabels: fichesPickLabels(),
         backgroundVersion: background?.version ?? 0
     });
 
@@ -1054,6 +1135,11 @@ io.on('connection', (socket) => {
 
     /* ---------- Fiches d'armée ---------- */
 
+    const broadcastPicks = () => {
+        io.emit('fiches-picks', fichesPickLabels());
+        io.emit('fiches-changed', { picks: true });
+    };
+
     // Chargement : le serveur décide de ce que le joueur a le droit de voir.
     socket.on('fiches-load', (payload, ack) => {
         if (!fiches.ready) {
@@ -1065,49 +1151,45 @@ io.on('connection', (socket) => {
         const base = {
             success: true,
             access: state.fichesAccess,
+            frozen: state.fichesFrozen,
             version: fiches.version,
-            families: fiches.families,
-            famTexts: fiches.famTexts
+            families: fichesFamilies(),
+            famTexts: fiches.famTexts,
+            picks: { ...state.fichesPicks }
         };
         if (socket.data.isAdmin || state.fichesAccess) {
-            return reply(ack, {
-                ...base,
-                mode: 'full',
-                armies: [...fiches.seedArmies.keys()].map(fichesArmy),
-                picks: { ...state.fichesPicks }
-            });
+            return reply(ack, { ...base, mode: 'full', armies: [...fiches.seedArmies.keys()].map(fichesArmy) });
         }
-        // Accès refusé : seule la légion choisie par le joueur lui est transmise.
-        const pick = state.fichesPicks[name];
-        const army = pick ? fichesOwnArmy(pick) : null;
-        return reply(ack, { ...base, mode: 'own', pick: army ? pick : null, army, catalog: army ? null : fichesCatalog() });
+        // Accès refusé : les légions choisies par les joueurs (la sienne comprise) restent consultables, rien d'autre.
+        return reply(ack, { ...base, mode: 'own', armies: fichesPickedArmies(), pick: state.fichesPicks[name] || null, catalog: fichesCatalog() });
     });
 
-    // Un joueur choisit sa légion. Quand les fiches sont fermées, le choix déjà fait ne peut plus être changé par le joueur.
+    // Un joueur (ou le MJ) choisit sa légion. Une légion ne peut être choisie que par un seul joueur.
     socket.on('fiches-pick', (payload, ack) => {
         const name = socket.data.name;
         if (!name) return reply(ack, { success: false, message: 'Connectez-vous d’abord.' });
+        const admin = socket.data.isAdmin;
 
-        if (socket.data.isAdmin) {
-            const target = cleanText(payload?.name, LIMITS.maxName);
-            if (!payload?.clear || !state.fichesPicks[target]) return reply(ack, { success: false, message: 'Aucun choix à retirer.' });
+        if (payload?.clear) {
+            const target = admin && payload.name ? cleanText(payload.name, LIMITS.maxName) : name;
+            if (!state.fichesPicks[target]) return reply(ack, { success: false, message: 'Aucun choix à retirer.' });
+            if (!admin && state.fichesFrozen) return reply(ack, { success: false, message: 'Le MJ a figé les légions : seul lui peut les modifier.' });
             delete state.fichesPicks[target];
-        } else if (payload?.clear) {
-            if (!state.fichesAccess) return reply(ack, { success: false, message: 'Le MJ a verrouillé les choix de légion.' });
-            delete state.fichesPicks[name];
         } else {
-            if (state.fichesPicks[name] && !state.fichesAccess) {
-                return reply(ack, { success: false, message: 'Votre légion est déjà choisie : seul le MJ peut la modifier.' });
+            if (!validPick(payload?.army, payload?.legion)) return reply(ack, { success: false, message: 'Légion invalide ou vide.' });
+            if (!admin && state.fichesFrozen && state.fichesPicks[name]) {
+                return reply(ack, { success: false, message: 'Le MJ a figé les légions : votre choix ne peut plus changer.' });
             }
-            if (!validPick(payload?.army, payload?.legion)) return reply(ack, { success: false, message: 'Légion invalide.' });
+            const owner = pickTakenBy(payload.army, payload.legion, name);
+            if (owner) return reply(ack, { success: false, message: `Cette légion est déjà choisie par ${owner}.` });
             state.fichesPicks[name] = { army: payload.army, legion: payload.legion };
         }
         scheduleSave();
-        io.emit('fiches-changed', { picks: true });
+        broadcastPicks();
         return reply(ack, { success: true });
     });
 
-    // Le MJ autorise ou refuse l'accès aux fiches d'armée (jamais à la fiche de la légion choisie).
+    // Le MJ autorise ou refuse l'accès à toutes les fiches (les légions choisies restent consultables).
     socket.on('fiches-access', (payload, ack) => {
         if (!requireAdmin(socket, ack)) return;
         state.fichesAccess = Boolean(payload?.allow);
@@ -1117,36 +1199,92 @@ io.on('connection', (socket) => {
         reply(ack, { success: true, allow: state.fichesAccess });
     });
 
-    // Le MJ modifie des armées et/ou des formules : enregistré pour tout le monde.
+    // Le MJ fige les légions choisies, ou laisse les joueurs en changer.
+    socket.on('fiches-freeze', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        state.fichesFrozen = Boolean(payload?.freeze);
+        scheduleSave();
+        io.emit('fiches-freeze', state.fichesFrozen);
+        reply(ack, { success: true, freeze: state.fichesFrozen });
+    });
+
+    // Le MJ modifie des armées (unités, légions, sections) et/ou des formules : enregistré pour tout le monde.
     socket.on('fiches-save', guarded(async (payload, ack) => {
         if (!requireAdmin(socket, ack)) return;
         if (!fiches.ready) return reply(ack, { success: false, message: 'Fiches d’armée indisponibles.' });
 
         const armies = payload?.armies && typeof payload.armies === 'object' ? Object.entries(payload.armies).slice(0, 40) : [];
         for (const [id, army] of armies) {
-            const ok = fiches.seedArmies.has(id) && army && army.id === id
-                && Array.isArray(army.units) && army.units.length <= FICHES_MAX_UNITS && Array.isArray(army.legions);
-            if (!ok) return reply(ack, { success: false, message: `Fiche invalide : ${String(id).slice(0, 30)}` });
-            if (JSON.stringify(army).length > FICHES_MAX_BYTES) return reply(ack, { success: false, message: `Fiche trop volumineuse : ${id}` });
+            const problem = checkFichesArmy(id, army);
+            if (problem) return reply(ack, { success: false, message: `Fiche refusée (${String(id).slice(0, 30)}) : ${problem}.` });
         }
-        let texts = null;
+
+        let famDoc = null;
         if (payload?.fams && typeof payload.fams === 'object') {
-            texts = {};
-            for (const [id, text] of Object.entries(payload.fams)) {
-                if (typeof text === 'string' && text.length <= 2000 && fiches.families.some((f) => f.id === id)) texts[id] = text;
+            const seedCol = new Map(fiches.families.map((f) => [f.id, f]));
+            const texts = {};
+            const custom = {};
+            for (const [id, f] of Object.entries(payload.fams).slice(0, 200)) {
+                if (!f || typeof f.text !== 'string' || f.text.length > 2000 || !FAM_COLS.has(f.col)) continue;
+                const seed = seedCol.get(id);
+                if (seed) { if (seed.col === f.col && f.text !== String(seed.rel).replace(/\[\+0\]/g, '')) texts[id] = f.text; }
+                else if (FAM_ID.test(id) && Object.keys(custom).length < 100) custom[id] = { col: f.col, text: f.text };
             }
+            famDoc = { texts, custom };
         }
 
         for (const [id, army] of armies) {
             await storage.saveDoc(`fiches_a_${id}`, { version: fiches.version, army });
             fiches.armies.set(id, army);
         }
-        if (texts) {
-            await storage.saveDoc('fiches_fams', { version: fiches.version, texts });
-            fiches.famTexts = texts;
+        if (famDoc) {
+            await storage.saveDoc('fiches_fams', { version: fiches.version, ...famDoc });
+            fiches.famTexts = famDoc.texts;
+            fiches.famCustom = famDoc.custom;
         }
-        socket.broadcast.emit('fiches-changed', { armies: armies.map(([id]) => id), fams: Boolean(texts) });
-        reply(ack, { success: true });
+        const pruned = pruneFichesPicks();
+        if (pruned) scheduleSave();
+        socket.broadcast.emit('fiches-changed', { armies: armies.map(([id]) => id), fams: Boolean(famDoc) });
+        if (pruned) broadcastPicks();
+        reply(ack, { success: true, picksChanged: pruned });
+    }));
+
+    // Test du stockage : écrit puis relit un document, et liste ce qui est enregistré pour les fiches.
+    socket.on('fiches-diag', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const started = Date.now();
+        const stamp = `${started}-${Math.random().toString(36).slice(2, 8)}`;
+        let writeRead = false;
+        let detail = '';
+        try {
+            await storage.saveDoc('diag_ping', { stamp });
+            const back = await storage.loadDoc('diag_ping');
+            writeRead = back?.stamp === stamp;
+            if (!writeRead) detail = 'Le document relu ne correspond pas à celui écrit.';
+        } catch (err) {
+            detail = String(err?.message || err).slice(0, 200);
+        }
+        const saved = [];
+        for (const id of fiches.seedArmies.keys()) {
+            try {
+                const doc = await storage.loadDoc(`fiches_a_${id}`);
+                if (doc?.army) saved.push(id);
+            } catch { /* ignoré : simple information */ }
+        }
+        let famSaved = false;
+        try { famSaved = Boolean(await storage.loadDoc('fiches_fams')); } catch { /* ignoré */ }
+        reply(ack, {
+            success: true,
+            storage: storage.label || (process.env.SUPABASE_URL ? 'Supabase' : 'fichiers locaux'),
+            writeRead,
+            detail,
+            ms: Date.now() - started,
+            version: fiches.version,
+            armiesSaved: saved,
+            famSaved,
+            customFams: Object.keys(fiches.famCustom).length,
+            picks: Object.keys(state.fichesPicks).length
+        });
     }));
 
     /* ---------- Protection de ses propres modifications ---------- */
