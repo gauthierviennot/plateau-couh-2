@@ -186,6 +186,12 @@
             .stack-br { flex-direction: row; }
         }
 
+        /* Fiches d'armée : fenêtre plein écran contenant fiches.html */
+        .fiches-overlay { position: fixed; inset: 0; z-index: 120; background: var(--bg); display: flex; flex-direction: column; padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); }
+        .fiches-overlay[hidden] { display: none; }
+        .fiches-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: var(--dark); color: #fff; font-size: .85rem; flex-shrink: 0; }
+        .fiches-overlay iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
+
         /* Message d'aide à l'ouverture de la carte */
         .help-list { padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: .85rem; color: var(--dark); line-height: 1.35; }
         .help-check { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--dark); }
@@ -285,6 +291,8 @@
     </button>
     <button id="btnExport" class="btn-round" title="Imprimer (JPEG A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
     <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
+    <button id="btnFichesAccess" class="btn-round admin-only" title="Accès des joueurs aux fiches d'armée" aria-label="Accès des joueurs aux fiches d'armée" hidden>📖</button>
+    <button id="btnFiches" class="btn-round" title="Fiches d'armée" aria-label="Ouvrir les fiches d'armée">📜</button>
     <button id="btnExitMap" class="btn-round quit" title="Quitter" aria-label="Quitter">🚪</button>
    </div>
    <canvas id="hexCanvas" class="board"></canvas>
@@ -372,6 +380,13 @@
      <button id="btnHelpOk" class="btn btn-primary">Compris</button>
     </div>
    </div>
+  </div>
+  <div id="fichesOverlay" class="fiches-overlay" hidden>
+   <div class="fiches-bar">
+    <b>📜 Fiches d'armée</b>
+    <button id="btnFichesClose" class="btn btn-secondary btn-small">Fermer</button>
+   </div>
+   <iframe id="fichesFrame" title="Fiches d'armée"></iframe>
   </div>
   <div id="closedScreen" hidden>
    <p>L'application est fermée.
@@ -808,6 +823,7 @@
 
         async function logout() {
             await request('logout', {});
+            resetFiches();
             clearSession();
             state.username = '';
             state.isAdmin = false;
@@ -2813,6 +2829,71 @@
         /* Événements serveur                                            */
         /* ============================================================ */
 
+        /* ============================================================ */
+        /* Fiches d'armée (page fiches.html dans une fenêtre plein écran) */
+        /* ============================================================ */
+
+        // Le serveur reste seul juge de ce que chacun peut voir ; cette page ne fait que relayer les messages.
+        const FICHES_EVENTS = new Set(['fiches-load', 'fiches-pick', 'fiches-save']);
+
+        function fichesPost(message) {
+            try { $('fichesFrame').contentWindow?.postMessage(message, location.origin); } catch { /* fenêtre fermée */ }
+        }
+
+        function updateFichesAccessUI() {
+            const btn = $('btnFichesAccess');
+            const open = state.fichesAccess !== false;
+            btn.textContent = open ? '📖' : '🚫';
+            btn.classList.toggle('on', open);
+            btn.classList.toggle('off', !open);
+            const label = open
+                ? 'Fiches d’armée ouvertes aux joueurs : toucher pour refuser (ils gardent leur légion)'
+                : 'Fiches d’armée fermées aux joueurs : toucher pour autoriser';
+            btn.title = label;
+            btn.setAttribute('aria-label', label);
+        }
+
+        function openFiches() {
+            if (!state.username) return;
+            const frame = $('fichesFrame');
+            $('fichesOverlay').hidden = false;
+            if (!frame.getAttribute('src')) frame.src = '/fiches.html';
+            else fichesPost({ type: 'fiches:reopen' }); // rouvre sur la légion choisie par le joueur
+        }
+
+        function closeFiches() {
+            $('fichesOverlay').hidden = true;
+        }
+
+        // À la déconnexion, la page est vidée : le joueur suivant repart de zéro.
+        function resetFiches() {
+            closeFiches();
+            $('fichesFrame').removeAttribute('src');
+        }
+
+        window.addEventListener('message', (ev) => {
+            const frame = $('fichesFrame');
+            if (ev.origin !== location.origin || !frame || ev.source !== frame.contentWindow) return;
+            const data = ev.data;
+            if (!data || typeof data !== 'object') return;
+            if (data.type === 'fiches:ready') {
+                fichesPost({ type: 'fiches:init', name: state.username, isAdmin: state.isAdmin, access: state.fichesAccess !== false });
+            } else if (data.type === 'fiches:req' && FICHES_EVENTS.has(data.event)) {
+                request(data.event, data.payload, 30000).then((res) => fichesPost({ type: 'fiches:res', rid: data.rid, res }));
+            }
+        });
+
+        $('btnFiches').addEventListener('click', openFiches);
+        $('btnFichesClose').addEventListener('click', closeFiches);
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('fichesOverlay').hidden) closeFiches(); });
+        $('btnFichesAccess').addEventListener('click', async () => {
+            const res = await request('fiches-access', { allow: state.fichesAccess === false });
+            if (!res.success) return toast(res.message || 'Action impossible.', true);
+            state.fichesAccess = res.allow;
+            updateFichesAccessUI();
+            toast(res.allow ? 'Fiches d’armée ouvertes aux joueurs.' : 'Fiches d’armée fermées : chaque joueur ne voit que sa légion.');
+        });
+
         function attachSocket() {
             socket.on('connect', () => {
                 // À chaque (re)connexion, on reprend la session enregistrée : plus besoin de se reconnecter à la main.
@@ -2827,6 +2908,8 @@
                 state.cols = data.config?.cols ?? 10;
                 state.rows = data.config?.rows ?? 8;
                 state.isLocked = Boolean(data.isLocked);
+                state.fichesAccess = data.fichesAccess !== false;
+                updateFichesAccessUI();
                 state.terrains = mergeTerrains(data.terrains);
                 updateUsers(data.presence || data.users || []);
                 state.protection = Object.assign(Object.create(null), data.protection);
@@ -2844,6 +2927,15 @@
             });
 
             socket.on('update-users-list', updateUsers);
+
+            socket.on('fiches-access', (allow) => {
+                state.fichesAccess = Boolean(allow);
+                updateFichesAccessUI();
+                if (!state.isAdmin) {
+                    toast(allow ? 'Le MJ a ouvert l’accès aux fiches d’armée.' : 'Le MJ a fermé l’accès aux fiches d’armée : votre légion reste consultable.');
+                }
+            });
+            socket.on('fiches-changed', () => fichesPost({ type: 'fiches:changed' }));
             socket.on('update-protection', (protection) => {
                 state.protection = Object.assign(Object.create(null), protection);
                 updateProtectUI();
@@ -2887,6 +2979,7 @@
             });
 
             socket.on('kicked', (message) => {
+                resetFiches();
                 clearSession();
                 state.username = '';
                 state.isAdmin = false;
