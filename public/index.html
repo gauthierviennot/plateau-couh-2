@@ -190,6 +190,11 @@
         .fiches-overlay { position: fixed; inset: 0; z-index: 120; background: var(--bg); display: flex; flex-direction: column; padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); }
         .fiches-overlay[hidden] { display: none; }
         .fiches-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: var(--dark); color: #fff; font-size: .85rem; flex-shrink: 0; }
+        .fiches-modes { display: flex; gap: 6px; margin-left: auto; }
+        .fiches-overlay.mini { inset: auto; left: 8px; bottom: calc(8px + var(--safe-bottom)); width: min(94vw, 440px); height: 52vh; padding: 0;
+            border: 2px solid var(--dark); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); overflow: hidden; z-index: 90; }
+        .fiches-overlay.mini .fiches-bar { cursor: move; touch-action: none; padding: 4px 8px; flex-wrap: wrap; }
+        .fiches-overlay.mini .fiches-admin { display: none; }
         .fiches-admin { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
         .fiches-admin [hidden] { display: none; }
         .obj-option.fiche-btn { font-size: 1.15rem; background: #fff7e0; }
@@ -387,7 +392,10 @@
   <div id="pickTip" class="palette-tooltip" hidden></div>
   <div id="fichesOverlay" class="fiches-overlay" hidden>
    <div class="fiches-bar">
-    <b>📜 Fiches d'armée</b> <span class="fiches-admin"> 
+    <b id="fichesTitle">📜 Fiches d'armée</b> <span class="fiches-modes"> 
+     <button class="btn btn-secondary btn-small" data-fiche="mini" title="Fenêtre miniature : la carte reste visible" aria-label="Fenêtre miniature">🗗</button> 
+     <button class="btn btn-secondary btn-small" data-fiche="fullscreen" title="Plein écran" aria-label="Plein écran">⛶</button> 
+    </span> <span class="fiches-admin"> 
      <button class="btn btn-secondary btn-small" data-fiche="access" data-long="1" hidden></button> 
      <button class="btn btn-secondary btn-small" data-fiche="freeze" data-long="1" hidden></button> 
     </span>
@@ -2864,7 +2872,7 @@
         /* ============================================================ */
 
         // Le serveur reste seul juge de ce que chacun peut voir ; cette page ne fait que relayer les messages.
-        const FICHES_EVENTS = new Set(['fiches-load', 'fiches-pick', 'fiches-save', 'fiches-diag']);
+        const FICHES_EVENTS = new Set(['fiches-load', 'fiches-pick', 'fiches-save', 'fiches-diag', 'fiches-team', 'fiches-freeze']);
 
         function fichesPost(message) {
             try { $('fichesFrame').contentWindow?.postMessage(message, location.origin); } catch { /* fenêtre fermée */ }
@@ -2898,12 +2906,50 @@
         }
 
         function closeFiches() {
+            if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
             $('fichesOverlay').hidden = true;
         }
+
+        // Miniature : petite fenêtre déplaçable, la carte reste utilisable derrière.
+        function setFichesMini(on) {
+            const box = $('fichesOverlay');
+            if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+            box.classList.toggle('mini', on);
+            box.style.left = box.style.top = box.style.bottom = '';
+            document.querySelector('[data-fiche="mini"]').textContent = on ? '🗖' : '🗗';
+            document.querySelector('[data-fiche="mini"]').title = on ? 'Agrandir' : 'Fenêtre miniature : la carte reste visible';
+        }
+
+        // Plein écran du navigateur (quand il est pris en charge), sinon simple affichage agrandi.
+        async function toggleFichesFullscreen() {
+            const box = $('fichesOverlay');
+            setFichesMini(false);
+            try {
+                if (document.fullscreenElement) await document.exitFullscreen();
+                else if (box.requestFullscreen) await box.requestFullscreen();
+            } catch { /* non pris en charge : l'affichage reste agrandi */ }
+        }
+
+        (function enableFichesDrag() {
+            const box = $('fichesOverlay');
+            box.querySelector('.fiches-bar').addEventListener('pointerdown', (e) => {
+                if (!box.classList.contains('mini') || e.target.closest('button')) return;
+                const r = box.getBoundingClientRect();
+                const dx = e.clientX - r.left, dy = e.clientY - r.top;
+                box.style.bottom = 'auto';
+                const move = (ev) => {
+                    box.style.left = `${Math.max(0, Math.min(innerWidth - 80, ev.clientX - dx))}px`;
+                    box.style.top = `${Math.max(0, Math.min(innerHeight - 40, ev.clientY - dy))}px`;
+                };
+                const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
+                addEventListener('pointermove', move); addEventListener('pointerup', up);
+            });
+        })();
 
         // À la déconnexion, la page est vidée : le joueur suivant repart de zéro.
         function resetFiches() {
             closeFiches();
+            setFichesMini(false);
             $('fichesFrame').removeAttribute('src');
         }
 
@@ -2942,7 +2988,7 @@
             const pick = item && pickOf(item.dataset.name || item.textContent);
             if (!pick) return;
             if (e.pointerType !== 'mouse') { showPickTip(item); setTimeout(() => { $('pickTip').hidden = true; }, 2500); }
-            openFiches({ army: pick.army, legion: pick.legion });
+            if (pick.army) openFiches({ army: pick.army, legion: pick.legion });
         });
 
         window.addEventListener('message', (ev) => {
@@ -2964,6 +3010,8 @@
             const kind = b.dataset.fiche;
             if (kind === 'open') openFiches();
             else if (kind === 'close') closeFiches();
+            else if (kind === 'mini') setFichesMini(!$('fichesOverlay').classList.contains('mini'));
+            else if (kind === 'fullscreen') toggleFichesFullscreen();
             else if (kind === 'access' && state.isAdmin) {
                 const res = await request('fiches-access', { allow: state.fichesAccess === false });
                 if (!res.success) return toast(res.message || 'Action impossible.', true);
