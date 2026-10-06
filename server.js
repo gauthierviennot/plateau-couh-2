@@ -245,6 +245,27 @@ function sanitizeProtection(raw) {
     return clean;
 }
 
+// Équipes gérées par le MJ : noms, appartenance de chaque pseudo, liste des pseudos connus.
+function sanitizeTeams(raw) {
+    const out = { names: { t1: 'Équipe 1', t2: 'Équipe 2' }, members: Object.create(null), roster: [] };
+    if (!raw || typeof raw !== 'object') return out;
+    for (const key of ['t1', 't2']) {
+        const label = raw.names?.[key];
+        if (typeof label === 'string' && label.trim()) out.names[key] = label.trim().slice(0, 30);
+    }
+    if (raw.members && typeof raw.members === 'object') {
+        for (const [name, team] of Object.entries(raw.members).slice(0, 500)) {
+            if (name.length <= LIMITS.maxName && (team === 't1' || team === 't2')) out.members[name] = team;
+        }
+    }
+    if (Array.isArray(raw.roster)) {
+        for (const name of raw.roster.slice(0, 300)) {
+            if (typeof name === 'string' && name && name.length <= LIMITS.maxName && !out.roster.includes(name)) out.roster.push(name);
+        }
+    }
+    return out;
+}
+
 // Légion choisie par chaque joueur : pseudo -> { army, legion }.
 function sanitizePicks(raw) {
     const clean = Object.create(null);
@@ -268,7 +289,8 @@ function normalizeState(raw) {
         protection: sanitizeProtection(raw?.protection),
         fichesAccess: raw?.fichesAccess !== false, // les joueurs peuvent consulter toutes les fiches d'armée (le MJ peut le refuser)
         fichesFrozen: raw?.fichesFrozen === true, // légions choisies figées : les joueurs ne peuvent plus en changer
-        fichesPicks: sanitizePicks(raw?.fichesPicks)
+        fichesPicks: sanitizePicks(raw?.fichesPicks),
+        fichesTeams: sanitizeTeams(raw?.fichesTeams)
     };
 }
 
@@ -726,13 +748,53 @@ function pruneFichesPicks() {
     return changed;
 }
 
+// Pseudos connus : liste du MJ, choix de légion, équipes et joueurs connectés (hors MJ).
+function onlineNames() {
+    const names = [];
+    for (const sock of io.sockets.sockets.values()) {
+        if (sock.data?.name && !sock.data.isAdmin && !names.includes(sock.data.name)) names.push(sock.data.name);
+    }
+    return names;
+}
+function knownNames() {
+    const set = new Set(state.fichesTeams.roster);
+    for (const n of Object.keys(state.fichesPicks)) set.add(n);
+    for (const n of Object.keys(state.fichesTeams.members)) set.add(n);
+    for (const n of onlineNames()) set.add(n);
+    return [...set];
+}
+// Orthographe officielle d'un pseudo (sans tenir compte des majuscules), ou null s'il est inconnu.
+function findName(name) {
+    const low = String(name || '').toLowerCase();
+    return knownNames().find((n) => n.toLowerCase() === low) || null;
+}
+const teamLabelOf = (name) => {
+    const team = state.fichesTeams.members[name];
+    return team ? state.fichesTeams.names[team] : null;
+};
+function renamePseudo(from, to) {
+    const t = state.fichesTeams;
+    t.roster = t.roster.map((n) => (n === from ? to : n));
+    if (!t.roster.includes(to)) t.roster.push(to);
+    if (t.members[from]) { t.members[to] = t.members[from]; delete t.members[from]; }
+    if (state.fichesPicks[from]) { state.fichesPicks[to] = state.fichesPicks[from]; delete state.fichesPicks[from]; }
+}
+
 // Nom de la légion choisie par chaque joueur : public, c'est ce que voient les joueurs en survolant un pseudo.
 function fichesPickLabels() {
     const labels = {};
     for (const [name, pick] of Object.entries(state.fichesPicks)) {
         const army = fichesArmy(pick.army);
         const legion = army?.legions?.find((l) => l.id === pick.legion);
-        if (army && legion) labels[name] = { army: pick.army, legion: pick.legion, text: `${army.name} · ${legionLabel(army, legion)}` };
+        if (army && legion) {
+            const team = teamLabelOf(name);
+            labels[name] = { army: pick.army, legion: pick.legion, team, text: `${army.name} · ${legionLabel(army, legion)}${team ? ` · ${team}` : ''}` };
+        }
+    }
+    // Joueurs d'une équipe sans légion choisie : l'info-bulle indique seulement l'équipe.
+    for (const name of Object.keys(state.fichesTeams.members)) {
+        const team = teamLabelOf(name);
+        if (team && !labels[name]) labels[name] = { army: null, legion: null, team, text: team };
     }
     return labels;
 }
@@ -783,6 +845,12 @@ function checkFichesArmy(id, army) {
         if (!u || typeof u !== 'object' || typeof u.in_ !== 'object' || typeof u.q !== 'object') return 'unité invalide';
         for (const k of Object.keys(u.q)) if (!ids.has(k)) return `l’unité référence une légion inexistante (${k.slice(0, 12)})`;
     }
+    if (army.bonuses != null && (!Array.isArray(army.bonuses) || army.bonuses.length > 30
+        || army.bonuses.some((b) => !b || typeof b.key !== 'string' || !/^[A-Z]{1,2}\d{0,2}$/.test(b.key)
+            || typeof b.label !== 'string' || b.label.length > 40))) return 'bonus invalides';
+    if (army.params != null && (typeof army.params !== 'object' || Array.isArray(army.params)
+        || Object.entries(army.params).some(([k, v]) => !/^[A-Z]{1,2}\d{0,2}$/.test(k)
+            || !(v == null || typeof v === 'number' || (typeof v === 'string' && v.length <= 20))))) return 'paramètres de bonus invalides';
     if (army.sections != null && (!Array.isArray(army.sections) || army.sections.length > 60
         || army.sections.some((x) => typeof x !== 'string' || x.length > 80))) return 'sections invalides';
     if (JSON.stringify(army).length > FICHES_MAX_BYTES) return 'fiche trop volumineuse';
@@ -1155,35 +1223,87 @@ io.on('connection', (socket) => {
             version: fiches.version,
             families: fichesFamilies(),
             famTexts: fiches.famTexts,
-            picks: { ...state.fichesPicks }
+            picks: { ...state.fichesPicks },
+            teams: { names: { ...state.fichesTeams.names }, members: { ...state.fichesTeams.members } }
         };
+        if (socket.data.isAdmin) { base.roster = [...state.fichesTeams.roster]; base.online = onlineNames(); }
         if (socket.data.isAdmin || state.fichesAccess) {
             return reply(ack, { ...base, mode: 'full', armies: [...fiches.seedArmies.keys()].map(fichesArmy) });
         }
         // Accès refusé : les légions choisies par les joueurs (la sienne comprise) restent consultables, rien d'autre.
-        return reply(ack, { ...base, mode: 'own', armies: fichesPickedArmies(), pick: state.fichesPicks[name] || null, catalog: fichesCatalog() });
+        return reply(ack, { ...base, mode: 'own', armies: fichesPickedArmies(), pick: state.fichesPicks[findName(name) || name] || null, catalog: fichesCatalog() });
     });
 
-    // Un joueur (ou le MJ) choisit sa légion. Une légion ne peut être choisie que par un seul joueur.
+    // Un joueur (ou le MJ) choisit une légion. Une légion ne peut être choisie que par un seul joueur.
+    // Le MJ peut aussi choisir ou retirer la légion d'un autre pseudo (payload.name).
     socket.on('fiches-pick', (payload, ack) => {
         const name = socket.data.name;
         if (!name) return reply(ack, { success: false, message: 'Connectez-vous d’abord.' });
         const admin = socket.data.isAdmin;
+        const me = findName(name) || name;
+        let target = me;
+        if (admin && payload?.name) {
+            target = findName(cleanText(payload.name, LIMITS.maxName));
+            if (!target) return reply(ack, { success: false, message: 'Pseudo inconnu : ajoutez-le d’abord.' });
+        }
 
         if (payload?.clear) {
-            const target = admin && payload.name ? cleanText(payload.name, LIMITS.maxName) : name;
             if (!state.fichesPicks[target]) return reply(ack, { success: false, message: 'Aucun choix à retirer.' });
-            if (!admin && state.fichesFrozen) return reply(ack, { success: false, message: 'Le MJ a figé les légions : seul lui peut les modifier.' });
+            if (!admin && state.fichesFrozen) return reply(ack, { success: false, message: 'Le MJ a verrouillé les légions : seul lui peut les modifier.' });
             delete state.fichesPicks[target];
         } else {
             if (!validPick(payload?.army, payload?.legion)) return reply(ack, { success: false, message: 'Légion invalide ou vide.' });
-            if (!admin && state.fichesFrozen && state.fichesPicks[name]) {
-                return reply(ack, { success: false, message: 'Le MJ a figé les légions : votre choix ne peut plus changer.' });
+            if (!admin && state.fichesFrozen && state.fichesPicks[target]) {
+                return reply(ack, { success: false, message: 'Le MJ a verrouillé les légions : votre choix ne peut plus changer.' });
             }
-            const owner = pickTakenBy(payload.army, payload.legion, name);
+            const owner = pickTakenBy(payload.army, payload.legion, target);
             if (owner) return reply(ack, { success: false, message: `Cette légion est déjà choisie par ${owner}.` });
-            state.fichesPicks[name] = { army: payload.army, legion: payload.legion };
+            state.fichesPicks[target] = { army: payload.army, legion: payload.legion };
         }
+        scheduleSave();
+        broadcastPicks();
+        return reply(ack, { success: true });
+    });
+
+    // Le MJ gère les pseudos et les équipes : ajouter, supprimer, renommer, affecter, nommer une équipe.
+    socket.on('fiches-team', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const t = state.fichesTeams;
+        const op = payload?.op;
+        const clean = (v) => cleanText(v, LIMITS.maxName);
+
+        if (op === 'add') {
+            const name = clean(payload.name);
+            if (!name) return reply(ack, { success: false, message: 'Pseudo vide.' });
+            if (findName(name)) return reply(ack, { success: false, message: 'Ce pseudo existe déjà.' });
+            if (t.roster.length >= 300) return reply(ack, { success: false, message: 'Liste pleine.' });
+            t.roster.push(name);
+        } else if (op === 'remove') {
+            const name = findName(clean(payload.name));
+            if (!name) return reply(ack, { success: false, message: 'Pseudo inconnu.' });
+            t.roster = t.roster.filter((n) => n !== name);
+            delete t.members[name];
+            delete state.fichesPicks[name];
+        } else if (op === 'rename') {
+            const from = findName(clean(payload.name));
+            const to = clean(payload.to);
+            if (!from || !to) return reply(ack, { success: false, message: 'Pseudo invalide.' });
+            const clash = findName(to);
+            if (clash && clash !== from) return reply(ack, { success: false, message: 'Ce pseudo existe déjà.' });
+            renamePseudo(from, to);
+        } else if (op === 'assign') {
+            const name = findName(clean(payload.name));
+            if (!name) return reply(ack, { success: false, message: 'Pseudo inconnu.' });
+            if (payload.team === 't1' || payload.team === 't2') t.members[name] = payload.team;
+            else delete t.members[name];
+            if (!t.roster.includes(name)) t.roster.push(name);
+        } else if (op === 'teamname') {
+            if (payload.team !== 't1' && payload.team !== 't2') return reply(ack, { success: false, message: 'Équipe invalide.' });
+            t.names[payload.team] = cleanText(payload.label, 30) || (payload.team === 't1' ? 'Équipe 1' : 'Équipe 2');
+        } else {
+            return reply(ack, { success: false, message: 'Action inconnue.' });
+        }
+        pruneFichesPicks();
         scheduleSave();
         broadcastPicks();
         return reply(ack, { success: true });
