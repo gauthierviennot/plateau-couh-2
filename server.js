@@ -857,6 +857,90 @@ function checkFichesArmy(id, army) {
     return null;
 }
 
+
+/* ---- Sauvegardes nommées des fiches d'armée (analogue aux cartes) ---- */
+
+const SNAP_ID = /^s[a-z0-9]{3,40}$/;
+const SNAPS_INDEX = 'fiches_snaps';
+const MAX_SNAPS = 30;
+const MAX_AUTO_SNAPS = 5;
+
+async function loadSnapIndex() {
+    const doc = await storage.loadDoc(SNAPS_INDEX);
+    return Array.isArray(doc?.list) ? doc.list.filter((m) => m && SNAP_ID.test(m.id)) : [];
+}
+async function saveSnapIndex(list) {
+    await storage.saveDoc(SNAPS_INDEX, { list });
+}
+
+// État actuel des fiches : uniquement ce que le MJ a modifié (le reste vient de fiches-seed.json).
+function currentFichesFile(name) {
+    const armies = {};
+    for (const [id, army] of fiches.armies) armies[id] = army;
+    return {
+        kind: 'fiches-armees',
+        format: 1,
+        version: fiches.version,
+        name,
+        savedAt: Date.now(),
+        armies,
+        fams: { texts: fiches.famTexts, custom: fiches.famCustom }
+    };
+}
+
+// Vérifie un fichier de fiches (sauvegarde ou fichier importé) ; renvoie un message d'erreur ou null.
+function checkFichesFile(file) {
+    if (!file || typeof file !== 'object' || file.kind !== 'fiches-armees') return 'ce fichier n’est pas une sauvegarde de fiches d’armée';
+    if (file.version !== fiches.version) return `version incompatible (fichier ${String(file.version).slice(0, 20)}, serveur ${fiches.version})`;
+    if (!file.armies || typeof file.armies !== 'object') return 'armées manquantes';
+    const entries = Object.entries(file.armies);
+    if (entries.length > 40) return 'trop d’armées';
+    for (const [id, army] of entries) {
+        const problem = checkFichesArmy(id, army);
+        if (problem) return `armée ${String(id).slice(0, 20)} : ${problem}`;
+    }
+    const f = file.fams;
+    if (f != null) {
+        if (typeof f !== 'object') return 'formules invalides';
+        const seed = new Map(fiches.families.map((x) => [x.id, x]));
+        for (const [id, text] of Object.entries(f.texts || {})) if (!seed.has(id) || typeof text !== 'string' || text.length > 2000) return 'formule invalide';
+        for (const [id, c] of Object.entries(f.custom || {})) {
+            if (!FAM_ID.test(id) || !c || typeof c.text !== 'string' || c.text.length > 2000 || !FAM_COLS.has(c.col)) return 'formule créée invalide';
+        }
+    }
+    return null;
+}
+
+async function putSnapshot(id, file, author, auto = false) {
+    await storage.saveDoc(`fiches_snap_${id}`, file);
+    const list = await loadSnapIndex();
+    const meta = { id, name: file.name, savedAt: file.savedAt || Date.now(), author, auto, armies: Object.keys(file.armies).length, customFams: Object.keys(file.fams?.custom || {}).length };
+    const i = list.findIndex((m) => m.id === id);
+    if (i >= 0) list[i] = meta; else list.push(meta);
+    const autos = list.filter((m) => m.auto).sort((a, b) => a.savedAt - b.savedAt);
+    while (autos.length > MAX_AUTO_SNAPS) { const old = autos.shift(); list.splice(list.findIndex((m) => m.id === old.id), 1); }
+    await saveSnapIndex(list);
+    return meta;
+}
+
+// Remplace l'état courant des fiches par celui d'un fichier déjà vérifié.
+async function applyFichesFile(file) {
+    for (const id of fiches.seedArmies.keys()) {
+        const army = file.armies[id];
+        if (army) {
+            await storage.saveDoc(`fiches_a_${id}`, { version: fiches.version, army });
+            fiches.armies.set(id, army);
+        } else if (fiches.armies.has(id)) {
+            await storage.saveDoc(`fiches_a_${id}`, { version: fiches.version, army: null }); // retour à la version d'origine
+            fiches.armies.delete(id);
+        }
+    }
+    fiches.famTexts = { ...(file.fams?.texts || {}) };
+    fiches.famCustom = { ...(file.fams?.custom || {}) };
+    await storage.saveDoc('fiches_fams', { version: fiches.version, texts: fiches.famTexts, custom: fiches.famCustom });
+    pruneFichesPicks();
+}
+
 /* ------------------------------------------------------------------ */
 /* Serveur HTTP + Socket.IO                                            */
 /* ------------------------------------------------------------------ */
@@ -1407,6 +1491,97 @@ io.on('connection', (socket) => {
         });
     }));
 
+    /* ---------- Sauvegardes, exports et imports des fiches (MJ) ---------- */
+
+    socket.on('fiches-snaps', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const list = (await loadSnapIndex()).sort((a, b) => b.savedAt - a.savedAt);
+        reply(ack, { success: true, list, current: { armies: fiches.armies.size, customFams: Object.keys(fiches.famCustom).length } });
+    }));
+
+    socket.on('fiches-snap-save', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const name = cleanText(payload?.name, LIMITS.maxMapName);
+        if (!name) return reply(ack, { success: false, message: 'Donnez un nom à la sauvegarde.' });
+        const list = await loadSnapIndex();
+        let id = null;
+        const same = list.find((m) => !m.auto && m.name.toLowerCase() === name.toLowerCase());
+        if (payload?.id) {
+            id = String(payload.id);
+            if (!list.some((m) => m.id === id)) return reply(ack, { success: false, message: 'Sauvegarde introuvable.' });
+        } else if (same) {
+            return reply(ack, { success: false, code: 'exists', id: same.id });
+        }
+        if (!id && list.filter((m) => !m.auto).length >= MAX_SNAPS) return reply(ack, { success: false, message: `Limite de ${MAX_SNAPS} sauvegardes atteinte : supprimez-en une.` });
+        id = id || `s${crypto.randomBytes(8).toString('hex')}`;
+        await putSnapshot(id, currentFichesFile(name), socket.data.name);
+        reply(ack, { success: true, message: `Sauvegarde « ${name} » enregistrée.` });
+    }));
+
+    socket.on('fiches-snap-load', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const id = String(payload?.id ?? '');
+        if (!SNAP_ID.test(id)) return reply(ack, { success: false, message: 'Sauvegarde introuvable.' });
+        const file = await storage.loadDoc(`fiches_snap_${id}`);
+        const problem = checkFichesFile(file);
+        if (problem) return reply(ack, { success: false, message: `Sauvegarde illisible : ${problem}.` });
+        await putSnapshot(`s${crypto.randomBytes(8).toString('hex')}`, currentFichesFile(`Sauvegarde auto (avant chargement) ${new Date().toLocaleString('fr-FR')}`), socket.data.name, true);
+        await applyFichesFile(file);
+        io.emit('fiches-changed', { armies: [...fiches.seedArmies.keys()], fams: true });
+        broadcastPicks();
+        reply(ack, { success: true, message: `Fiches « ${file.name} » chargées pour tous les joueurs.` });
+    }));
+
+    socket.on('fiches-snap-rename', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const id = String(payload?.id ?? '');
+        const name = cleanText(payload?.name, LIMITS.maxMapName);
+        if (!SNAP_ID.test(id) || !name) return reply(ack, { success: false, message: 'Nom ou sauvegarde invalide.' });
+        const file = await storage.loadDoc(`fiches_snap_${id}`);
+        if (!file) return reply(ack, { success: false, message: 'Sauvegarde introuvable.' });
+        await putSnapshot(id, { ...file, name }, socket.data.name);
+        reply(ack, { success: true, message: 'Sauvegarde renommée.' });
+    }));
+
+    socket.on('fiches-snap-delete', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const id = String(payload?.id ?? '');
+        if (!SNAP_ID.test(id)) return reply(ack, { success: false, message: 'Sauvegarde introuvable.' });
+        const list = (await loadSnapIndex()).filter((m) => m.id !== id);
+        await saveSnapIndex(list);
+        await storage.saveDoc(`fiches_snap_${id}`, { kind: 'supprimee' }); // le contenu n'est plus lisible
+        reply(ack, { success: true, message: 'Sauvegarde supprimée.' });
+    }));
+
+    // Export : l'état actuel des fiches, ou une sauvegarde, sous forme de fichier à télécharger.
+    socket.on('fiches-export', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        let file;
+        if (payload?.id) {
+            const id = String(payload.id);
+            if (!SNAP_ID.test(id)) return reply(ack, { success: false, message: 'Sauvegarde introuvable.' });
+            file = await storage.loadDoc(`fiches_snap_${id}`);
+            if (checkFichesFile(file)) return reply(ack, { success: false, message: 'Sauvegarde illisible.' });
+        } else {
+            file = currentFichesFile('Fiches d’armée (état actuel)');
+        }
+        reply(ack, { success: true, file });
+    }));
+
+    // Import : un fichier exporté devient une sauvegarde de la liste (il n'écrase rien tant qu'on ne le charge pas).
+    socket.on('fiches-import', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const file = payload?.file;
+        const problem = checkFichesFile(file);
+        if (problem) return reply(ack, { success: false, message: `Fichier refusé : ${problem}.` });
+        const list = await loadSnapIndex();
+        if (list.filter((m) => !m.auto).length >= MAX_SNAPS) return reply(ack, { success: false, message: `Limite de ${MAX_SNAPS} sauvegardes atteinte : supprimez-en une.` });
+        const name = cleanText(file.name, LIMITS.maxMapName) || 'Fiches importées';
+        const clean = { kind: file.kind, format: 1, version: file.version, name: `${name} (importé)`.slice(0, LIMITS.maxMapName), savedAt: Date.now(), armies: file.armies, fams: file.fams || { texts: {}, custom: {} } };
+        await putSnapshot(`s${crypto.randomBytes(8).toString('hex')}`, clean, socket.data.name);
+        reply(ack, { success: true, message: 'Fichier importé : retrouvez-le dans la liste des sauvegardes.' });
+    }));
+
     /* ---------- Protection de ses propres modifications ---------- */
 
     // Activer / désactiver : les autres joueurs doivent-ils confirmer avant de modifier mes tuiles ?
@@ -1517,6 +1692,49 @@ io.on('connection', (socket) => {
         io.emit('update-terrains', state.terrainsList);
         broadcastMaps();
         reply(ack, { success: true, message: `Carte « ${map.name} » chargée.` });
+    }));
+
+    // Export d'une carte (ou de la carte en cours) vers un fichier local.
+    socket.on('export-map', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        let map;
+        if (payload?.id) {
+            const id = String(payload.id);
+            if (!MAP_ID.test(id) || !mapsIndex.has(id)) return reply(ack, { success: false, message: 'Carte introuvable.' });
+            map = await storage.getMap(id);
+        } else {
+            map = { name: 'Carte en cours', config: state.config, terrainsList: state.terrainsList, gridData: state.gridData };
+        }
+        if (!map) return reply(ack, { success: false, message: 'Carte introuvable.' });
+        reply(ack, { success: true, file: { kind: 'carte', format: 1, name: map.name, savedAt: Date.now(), config: map.config, terrainsList: map.terrainsList, gridData: map.gridData } });
+    }));
+
+    // Import d'une carte depuis un fichier local : elle s'ajoute à la liste, sans toucher au plateau en cours.
+    socket.on('import-map', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const file = payload?.file;
+        if (!file || file.kind !== 'carte') return reply(ack, { success: false, message: 'Ce fichier n’est pas une carte exportée.' });
+        const config = sanitizeConfig(file.config);
+        if (!config) return reply(ack, { success: false, message: 'Carte illisible (dimensions invalides).' });
+        const gridData = sanitizeGrid(file.gridData, config);
+        const terrains = sanitizeTerrains(file.terrainsList) || state.terrainsList;
+        const manual = [...mapsIndex.values()].filter((m) => !m.auto).length;
+        if (manual >= 200) return reply(ack, { success: false, message: 'Trop de cartes enregistrées : supprimez-en.' });
+        const name = cleanText(file.name, LIMITS.maxMapName - 10) || 'Carte importée';
+        const map = {
+            id: crypto.randomUUID(),
+            name: `${name} (importée)`,
+            auto: false,
+            author: socket.data.name,
+            savedAt: Date.now(),
+            config,
+            terrainsList: terrains.map((t) => ({ ...t })),
+            gridData
+        };
+        await storage.putMap(map);
+        mapsIndex.set(map.id, metaOf(map));
+        broadcastMaps();
+        reply(ack, { success: true, message: `Carte « ${map.name} » importée.` });
     }));
 
     socket.on('rename-map', guarded(async (payload, ack) => {
