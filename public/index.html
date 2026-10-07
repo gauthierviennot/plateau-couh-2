@@ -1,18 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-    <title>Couhé Warhamer Battlefield</title>
-    <meta name="theme-color" content="#2c3e50">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Plateau">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="icon" type="image/png" href="/icon-192.png">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <script>
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>Couhé Warhamer Battlefield</title>
+  <meta name="theme-color" content="#2c3e50">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Plateau">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <script>
         // Diagnostic : si le script principal ne démarre pas (fichier incomplet, erreur), un bandeau rouge l'indique.
         (function () {
             var errors = [];
@@ -30,8 +30,8 @@
             });
         })();
     </script>
-    <script src="/socket.io/socket.io.js" defer></script>
-    <style>
+  <script src="/socket.io/socket.io.js" defer></script>
+  <style>
         :root {
             --bg: #f0f2f5;
             --dark: #2c3e50;
@@ -195,6 +195,26 @@
             border: 2px solid var(--dark); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); overflow: hidden; z-index: 90; }
         .fiches-overlay.mini .fiches-bar { cursor: move; touch-action: none; padding: 4px 8px; flex-wrap: wrap; }
         .fiches-overlay.mini .fiches-admin { display: none; }
+        .landing-panel { position: fixed; left: 8px; right: 8px; bottom: calc(76px + var(--safe-bottom)); max-width: 460px; max-height: 46vh; overflow: auto; z-index: 90; background: #fff; border-radius: 12px; padding: 10px 12px; box-shadow: 0 4px 18px rgba(0,0,0,.35); font-size: .85rem; }
+        .landing-panel[hidden], .unit-bar[hidden] { display: none; }
+        .lp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .lp-phase { flex: 1; color: #666; font-size: .75rem; }
+        .lp-x { border: none; background: #eee; border-radius: 8px; width: 30px; height: 28px; cursor: pointer; }
+        .lp-hint { color: #555; margin: 6px 0; font-size: .8rem; line-height: 1.35; }
+        .lp-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; flex-wrap: wrap; }
+        .lp-grow { flex: 1; min-width: 70px; }
+        .lp-zone { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #e01b1b; background: #fff; font-weight: 700; cursor: pointer; }
+        .lp-seg { border: 1px solid #ccc; background: #f4f4f4; border-radius: 8px; padding: 6px 8px; cursor: pointer; font-size: .78rem; }
+        .lp-seg.on { background: #222; color: #fff; border-color: #222; }
+        .lp-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .lp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+        .unit-bar { position: fixed; left: 8px; right: 8px; bottom: calc(8px + var(--safe-bottom)); z-index: 95; background: rgba(255,255,255,.96); border-radius: 12px; padding: 6px 8px; box-shadow: 0 4px 18px rgba(0,0,0,.35); touch-action: pan-x; }
+        .ub-title { font-size: .72rem; color: #555; margin-bottom: 4px; }
+        .ub-list { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+        .ub-chip { flex: none; border: 3px solid #555; border-radius: 10px; padding: 6px 9px; background: #fff; font-size: .8rem; font-weight: 600; cursor: grab; touch-action: pan-x; user-select: none; -webkit-user-select: none; }
+        .ub-chip.done { opacity: .6; }
+        .land-ghost { position: fixed; z-index: 400; transform: translate(-50%, -50%); background: #fff; border: 3px solid #555; border-radius: 10px; padding: 6px 10px; font: 700 .85rem system-ui, sans-serif; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+        [data-land="toggle"].on { box-shadow: 0 0 0 3px #1f78ff inset; }
         .fiches-admin { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
         .fiches-admin [hidden] { display: none; }
         .obj-option.fiche-btn { font-size: 1.15rem; background: #fff7e0; }
@@ -224,228 +244,211 @@
         .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; max-width: 90vw; padding: 10px 16px; border-radius: 8px; background: var(--dark); color: #fff; font-size: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,.3); pointer-events: none; text-align: center; }
         .toast.error { background: var(--red); }
     </style>
-</head>
-<body>
-
-    <!-- Connexion -->
-    <main id="pageLogin" class="page active">
-        <button id="btnClose" class="btn-close" title="Fermer" aria-label="Fermer l'application">✖</button>
-        <div class="login-card">
-            <h1>Couhé Warhamer Battlefield</h1>
-            <input type="text" id="usernameInput" placeholder="Entrez votre pseudo" maxlength="15" autocomplete="off" autofocus>
-            <input type="password" id="passwordInput" placeholder="Code secret" autocomplete="current-password" hidden>
-            <p id="loginError" class="error" role="alert" hidden></p>
-            <button id="btnLogin" class="btn btn-primary">Rejoindre</button>
-            <button id="btnInstall" class="btn btn-dark" hidden>📲 Installer sur l'écran d'accueil</button>
-            <p id="iosHint" class="install-hint" hidden>Sur iPhone : touchez « Partager » puis « Sur l'écran d'accueil » pour installer l'application en plein écran.</p>
-            <div class="presence">
-                <div class="presence-title">En ligne</div>
-                <div id="presenceOnline" class="presence-list"></div>
-                <div class="presence-title">Hors ligne · ont modifié la carte</div>
-                <div id="presenceOffline" class="presence-list"></div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Tableau de bord : réservé au MJ -->
-    <main id="pageDashboard" class="page">
-        <div class="dashboard-card">
-            <div class="dashboard-header">
-                <h2 id="welcomeUser">MJ</h2>
-                <div class="header-actions">
-                    <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
-                    <button class="btn btn-secondary" data-fiche="open">📜 Fiches d'armée</button>
-                    <button id="btnLogout" class="btn btn-secondary">Déconnexion</button>
-                </div>
-            </div>
-
-            <div class="section-title">Couleurs des terrains</div>
-            <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain. Les objets se posent sur le terrain : forêt, tours fortes, murs de fortification, maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
-            <div id="terrainContainer" class="terrain-palette"></div>
-
-            <div class="section-title">Image de fond de la page de connexion</div>
-            <p class="hint">Elle sera visible par tous les joueurs sur la première page.</p>
-            <div class="add-row">
-                <button id="btnPickBackground" class="btn btn-primary">🖼️ Choisir une image</button>
-                <button id="btnClearBackground" class="btn btn-secondary">Retirer</button>
-                <input type="file" id="backgroundInput" accept="image/*" hidden>
-            </div>
-
-            <button id="btnGo" class="btn-go">🚀 Ouvrir la carte</button>
-        </div>
-    </main>
-
-    <!-- Carte -->
-    <main id="pageMap" class="page">
-        <div id="miniOnlineUsers" class="mini-user-list" aria-label="Personnes connectées"></div>
-        <div id="palTerrains" class="pal pal-terrains" role="toolbar" aria-label="Terrains"></div>
-        <div id="palObjects" class="pal pal-objects" role="toolbar" aria-label="Objets"></div>
-        <div id="palMarks" class="pal pal-marks admin-only" role="toolbar" aria-label="Marqueurs" hidden></div>
-        <div id="palTools" class="pal pal-tools admin-only" role="toolbar" aria-label="Outils du MJ" hidden>
-            <button id="btnSelect" class="btn-round" title="Sélectionner une zone" aria-label="Sélectionner une zone avec un rectangle">⛶</button>
-            <button id="btnErase" class="btn-round" title="Supprimer des tuiles" aria-label="Supprimer des tuiles">✂️</button>
-            <button id="btnRestore" class="btn-tile-add" title="Ajouter des tuiles" aria-label="Ajouter des tuiles">★</button>
-            <div id="selectionInfo" class="selection-info" hidden>
-                <span id="selectionCount"></span>
-                <button id="btnSelClear" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
-            </div>
-        </div>
-        <div id="palHistory" class="pal pal-history" role="toolbar" aria-label="Annuler et rétablir">
-            <button id="btnUndo" class="btn-round" title="Annuler" aria-label="Annuler ma dernière modification">↶</button>
-            <button id="btnRedo" class="btn-round" title="Rétablir" aria-label="Rétablir la modification annulée">↷</button>
-        </div>
-        <div id="palProtect" class="pal pal-protect" role="toolbar" aria-label="Protection de mes modifications">
-            <button id="btnProtect" class="btn-round on" title="Protection active" aria-label="Protection de mes modifications">🛡️</button>
-            <button id="btnRelease" class="btn-round" title="Libérer définitivement mes modifications" aria-label="Libérer définitivement mes modifications">🏳️</button>
-        </div>
-
-        <div id="printBanner" class="print-banner" hidden>
-            <span>Tracez la zone à imprimer</span>
-            <button id="btnPrintBannerCancel" class="btn btn-secondary btn-small">Annuler</button>
-        </div>
-
-        <div id="stackBr" class="stack-br">
-            <button id="btnCompass" class="btn-compass" title="Boussole : toucher pour pivoter de 90°, maintenir pour remettre le nord en haut" aria-label="Boussole : pivoter la carte de 90 degrés">
-                <svg id="compassDial" viewBox="0 0 48 48" aria-hidden="true">
-                    <circle cx="24" cy="24" r="21" fill="#ffffff" stroke="#2c3e50" stroke-width="2.5"/>
-                    <text x="24" y="12" font-size="9" font-weight="700" text-anchor="middle" fill="#2c3e50">N</text>
-                    <polygon points="24,15 29,25 19,25" fill="#e74c3c"/>
-                    <polygon points="24,35 29,25 19,25" fill="#7f8c8d"/>
-                    <circle cx="24" cy="25" r="2" fill="#2c3e50"/>
-                </svg>
-            </button>
-            <button id="btnExport" class="btn-round" title="Imprimer (JPEG A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
-            <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
-            <button id="btnExitMap" class="btn-round quit" title="Quitter" aria-label="Quitter">🚪</button>
-        </div>
-
-        <canvas id="hexCanvas" class="board"></canvas>
-
-        <div id="overrideModal" class="modal-overlay" hidden>
-            <div class="modal-content">
-                <h3>Remplacer ?</h3>
-                <p id="overrideMessage"></p>
-                <div class="modal-actions">
-                    <button id="btnCancelOverride" class="btn btn-secondary">Annuler</button>
-                    <button id="btnConfirmOverride" class="btn btn-danger">Confirmer</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="paletteTooltip" class="palette-tooltip" hidden></div>
-    </main>
-
-    <!-- Impression -->
-    <div id="printModal" class="modal-overlay" hidden>
-        <div class="modal-content">
-            <h3>Imprimer en JPEG (A4)</h3>
-            <p>Quelle partie de la carte voulez-vous exporter ?</p>
-            <div class="stack">
-                <button id="btnPrintAll" class="btn btn-primary">🗺️ Carte complète</button>
-                <button id="btnPrintZone" class="btn btn-dark">▭ Zone à définir (rectangle)</button>
-            </div>
-            <div class="modal-actions">
-                <button id="btnPrintCancel" class="btn btn-secondary">Annuler</button>
-            </div>
-        </div>
+ </head>
+ <body>
+  <!-- Connexion -->
+  <main id="pageLogin" class="page active">
+   <button id="btnClose" class="btn-close" title="Fermer" aria-label="Fermer l'application">✖</button>
+   <div class="login-card">
+    <h1>Couhé Warhamer Battlefield</h1>
+    <input type="text" id="usernameInput" placeholder="Entrez votre pseudo" maxlength="15" autocomplete="off" autofocus> <input type="password" id="passwordInput" placeholder="Code secret" autocomplete="current-password" hidden>
+    <p id="loginError" class="error" role="alert" hidden></p>
+    <button id="btnLogin" class="btn btn-primary">Rejoindre</button>
+    <button id="btnInstall" class="btn btn-dark" hidden>📲 Installer sur l'écran d'accueil</button>
+    <p id="iosHint" class="install-hint" hidden>Sur iPhone : touchez « Partager » puis « Sur l'écran d'accueil » pour installer l'application en plein écran.</p>
+    <div class="presence">
+     <div class="presence-title">En ligne</div>
+     <div id="presenceOnline" class="presence-list"></div>
+     <div class="presence-title">Hors ligne · ont modifié la carte</div>
+     <div id="presenceOffline" class="presence-list"></div>
     </div>
-
-    <div id="exportViewer" class="modal-overlay" hidden>
-        <div class="modal-content modal-wide export-viewer">
-            <h3>Image prête (A4, 300 dpi)</h3>
-            <img id="exportImage" alt="Aperçu de la carte à imprimer">
-            <p>Touchez « Enregistrer / Partager », ou maintenez le doigt sur l'image puis choisissez « Enregistrer l'image ».</p>
-            <div class="modal-actions">
-                <button id="btnExportClose" class="btn btn-secondary">Fermer</button>
-                <button id="btnExportShare" class="btn btn-primary">📤 Enregistrer / Partager</button>
-            </div>
-        </div>
+   </div>
+  </main>
+  <!-- Tableau de bord : réservé au MJ -->
+  <main id="pageDashboard" class="page">
+   <div class="dashboard-card">
+    <div class="dashboard-header">
+     <h2 id="welcomeUser">MJ</h2>
+     <div class="header-actions">
+      <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
+      <button class="btn btn-secondary" data-fiche="open">📜 Fiches d'armée</button>
+      <button id="btnLogout" class="btn btn-secondary">Déconnexion</button>
+     </div>
     </div>
-
-    <!-- Cartes enregistrées et nouvelle carte (MJ) -->
-    <div id="mapsModal" class="modal-overlay" hidden>
-        <div class="modal-content modal-wide">
-            <h3>Cartes</h3>
-            <div class="map-actions-top">
-                <button id="btnNewMap" class="btn btn-danger">＋ Nouvelle carte</button>
-            </div>
-            <div class="map-actions-top">
-                <button id="btnExportMapNow" class="btn btn-dark" title="Télécharger la carte en cours sur cet appareil">⬇️ Exporter la carte en cours</button>
-                <button id="btnImportMap" class="btn btn-dark" title="Ajouter une carte depuis un fichier de cet appareil">⬆️ Importer une carte</button>
-                <input type="file" id="importMapFile" accept=".json,application/json" hidden>
-            </div>
-            <div class="map-save">
-                <input type="text" id="mapNameInput" placeholder="Nom pour enregistrer la carte en cours" maxlength="60" autocomplete="off">
-                <button id="btnSaveMap" class="btn btn-primary">💾 Enregistrer</button>
-            </div>
-            <div id="mapList" class="map-list"></div>
-            <div class="modal-actions">
-                <button id="btnCloseMaps" class="btn btn-secondary">Fermer</button>
-            </div>
-        </div>
+    <div class="section-title">Couleurs des terrains</div>
+    <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain. Les objets se posent sur le terrain : forêt, tours fortes, murs de fortification, maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
+    <div id="terrainContainer" class="terrain-palette"></div>
+    <div class="section-title">Image de fond de la page de connexion</div>
+    <p class="hint">Elle sera visible par tous les joueurs sur la première page.</p>
+    <div class="add-row">
+     <button id="btnPickBackground" class="btn btn-primary">🖼️ Choisir une image</button>
+     <button id="btnClearBackground" class="btn btn-secondary">Retirer</button>
+     <input type="file" id="backgroundInput" accept="image/*" hidden>
     </div>
-
-    <div id="newMapModal" class="modal-overlay" hidden>
-        <div class="modal-content">
-            <h3>Nouvelle carte</h3>
-            <div class="control-group">
-                <label for="cols">Colonnes (largeur)</label>
-                <input type="number" id="cols" value="150" min="2" max="300">
-            </div>
-            <div class="control-group">
-                <label for="rows">Lignes (longueur)</label>
-                <input type="number" id="rows" value="100" min="2" max="300">
-            </div>
-            <p>La carte en cours est sauvegardée automatiquement, puis remplacée par une carte vierge : toutes les cases sont des plaines.</p>
-            <div class="modal-actions">
-                <button id="btnCancelNewMap" class="btn btn-secondary">Annuler</button>
-                <button id="btnCreateMap" class="btn btn-danger">Créer</button>
-            </div>
-        </div>
+    <button id="btnGo" class="btn-go">🚀 Ouvrir la carte</button>
+   </div>
+  </main>
+  <!-- Carte -->
+  <main id="pageMap" class="page">
+   <div id="miniOnlineUsers" class="mini-user-list" aria-label="Personnes connectées"></div>
+   <div id="palTerrains" class="pal pal-terrains" role="toolbar" aria-label="Terrains"></div>
+   <div id="palObjects" class="pal pal-objects" role="toolbar" aria-label="Objets"></div>
+   <div id="palMarks" class="pal pal-marks admin-only" role="toolbar" aria-label="Marqueurs" hidden></div>
+   <div id="palTools" class="pal pal-tools admin-only" role="toolbar" aria-label="Outils du MJ" hidden>
+    <button id="btnSelect" class="btn-round" title="Sélectionner une zone" aria-label="Sélectionner une zone avec un rectangle">⛶</button>
+    <button id="btnErase" class="btn-round" title="Supprimer des tuiles" aria-label="Supprimer des tuiles">✂️</button>
+    <button id="btnRestore" class="btn-tile-add" title="Ajouter des tuiles" aria-label="Ajouter des tuiles">★</button>
+    <div id="selectionInfo" class="selection-info" hidden>
+     <span id="selectionCount"></span>
+     <button id="btnSelClear" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
     </div>
-
-    <div id="helpModal" class="modal-overlay" hidden>
-        <div class="modal-content">
-            <h3>Gestes sur la carte</h3>
-            <ul class="help-list">
-                <li><strong>Appui long sur la carte</strong> en mode déplacer : les sélecteurs se déplient et le mode peindre s'active. Un nouvel appui long en mode peindre les replie et ramène au mode déplacer.</li>
-                <li><strong>Double toucher</strong> sur un objet orienté (pont, muret, mur de fortification), en mode déplacer ou peindre : il pivote d'un sixième de tour et le mode peindre s'active.</li>
-                <li><strong>Appui long sur un sélecteur</strong>, puis glisser : le poser où vous voulez sur un bord de l'écran.</li>
-                <li><strong>Annuler / rétablir</strong> forment un sélecteur à part, qui se déplie avec les sélecteurs de peinture. Le bouclier est vert à l'ouverture de la carte : les autres doivent confirmer pour modifier vos tuiles.</li>
-            </ul>
-            <label class="help-check"><input type="checkbox" id="helpNever"> Ne plus afficher ce message</label>
-            <div class="modal-actions"><button id="btnHelpOk" class="btn btn-primary">Compris</button></div>
-        </div>
+   </div>
+   <div id="palHistory" class="pal pal-history" role="toolbar" aria-label="Annuler et rétablir">
+    <button id="btnUndo" class="btn-round" title="Annuler" aria-label="Annuler ma dernière modification">↶</button>
+    <button id="btnRedo" class="btn-round" title="Rétablir" aria-label="Rétablir la modification annulée">↷</button>
+   </div>
+   <div id="palProtect" class="pal pal-protect" role="toolbar" aria-label="Protection de mes modifications">
+    <button id="btnProtect" class="btn-round on" title="Protection active" aria-label="Protection de mes modifications">🛡️</button>
+    <button id="btnRelease" class="btn-round" title="Libérer définitivement mes modifications" aria-label="Libérer définitivement mes modifications">🏳️</button>
+   </div>
+   <div id="printBanner" class="print-banner" hidden>
+    <span>Tracez la zone à imprimer</span>
+    <button id="btnPrintBannerCancel" class="btn btn-secondary btn-small">Annuler</button>
+   </div>
+   <div id="stackBr" class="stack-br">
+    <button id="btnCompass" class="btn-compass" title="Boussole : toucher pour pivoter de 90°, maintenir pour remettre le nord en haut" aria-label="Boussole : pivoter la carte de 90 degrés">
+     <svg id="compassDial" viewBox="0 0 48 48" aria-hidden="true">
+      <circle cx="24" cy="24" r="21" fill="#ffffff" stroke="#2c3e50" stroke-width="2.5" /> <text x="24" y="12" font-size="9" font-weight="700" text-anchor="middle" fill="#2c3e50">N</text> <polygon points="24,15 29,25 19,25" fill="#e74c3c" /> <polygon points="24,35 29,25 19,25" fill="#7f8c8d" /> <circle cx="24" cy="25" r="2" fill="#2c3e50" />
+     </svg>
+    </button>
+    <button id="btnExport" class="btn-round" title="Imprimer (JPEG A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
+    <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
+    <button id="btnExitMap" class="btn-round quit" title="Quitter" aria-label="Quitter">🚪</button>
+   </div>
+   <canvas id="hexCanvas" class="board"></canvas>
+   <div id="overrideModal" class="modal-overlay" hidden>
+    <div class="modal-content">
+     <h3>Remplacer ?</h3>
+     <p id="overrideMessage"></p>
+     <div class="modal-actions">
+      <button id="btnCancelOverride" class="btn btn-secondary">Annuler</button>
+      <button id="btnConfirmOverride" class="btn btn-danger">Confirmer</button>
+     </div>
     </div>
-
-    <div id="pickTip" class="palette-tooltip" hidden></div>
-    <div id="fichesOverlay" class="fiches-overlay" hidden>
-        <div class="fiches-bar">
-            <b id="fichesTitle">📜 Fiches d'armée</b>
-            <span class="fiches-modes">
-                <button class="btn btn-secondary btn-small" data-fiche="mini" title="Fenêtre miniature : la carte reste visible" aria-label="Fenêtre miniature">🗗</button>
-                <button class="btn btn-secondary btn-small" data-fiche="bar" title="Réduire en barre" aria-label="Réduire en barre">—</button>
-                <button class="btn btn-secondary btn-small" data-fiche="fullscreen" title="Plein écran" aria-label="Plein écran">⛶</button>
-            </span>
-            <span class="fiches-admin">
-                <button class="btn btn-secondary btn-small" data-fiche="access" data-long="1" hidden></button>
-                <button class="btn btn-secondary btn-small" data-fiche="freeze" data-long="1" hidden></button>
-            </span>
-            <button id="btnFichesClose" class="btn btn-secondary btn-small" data-fiche="close">Fermer</button>
-        </div>
-        <iframe id="fichesFrame" title="Fiches d'armée"></iframe>
+   </div>
+   <div id="paletteTooltip" class="palette-tooltip" hidden></div>
+  </main>
+  <!-- Impression -->
+  <div id="printModal" class="modal-overlay" hidden>
+   <div class="modal-content">
+    <h3>Imprimer en JPEG (A4)</h3>
+    <p>Quelle partie de la carte voulez-vous exporter ?</p>
+    <div class="stack">
+     <button id="btnPrintAll" class="btn btn-primary">🗺️ Carte complète</button>
+     <button id="btnPrintZone" class="btn btn-dark">▭ Zone à définir (rectangle)</button>
     </div>
-
-    <div id="closedScreen" hidden>
-        <p>L'application est fermée.<br>Vous pouvez quitter cet onglet ou revenir à l'écran d'accueil.</p>
-        <button id="btnReopen" class="btn btn-primary">Rouvrir</button>
+    <div class="modal-actions">
+     <button id="btnPrintCancel" class="btn btn-secondary">Annuler</button>
     </div>
-
-    <div id="safeProbe" aria-hidden="true"></div>
-
-    <div id="toast" class="toast" role="status" hidden></div>
-
-    <script>
+   </div>
+  </div>
+  <div id="exportViewer" class="modal-overlay" hidden>
+   <div class="modal-content modal-wide export-viewer">
+    <h3>Image prête (A4, 300 dpi)</h3>
+    <img id="exportImage" alt="Aperçu de la carte à imprimer">
+    <p>Touchez « Enregistrer / Partager », ou maintenez le doigt sur l'image puis choisissez « Enregistrer l'image ».</p>
+    <div class="modal-actions">
+     <button id="btnExportClose" class="btn btn-secondary">Fermer</button>
+     <button id="btnExportShare" class="btn btn-primary">📤 Enregistrer / Partager</button>
+    </div>
+   </div>
+  </div>
+  <!-- Cartes enregistrées et nouvelle carte (MJ) -->
+  <div id="mapsModal" class="modal-overlay" hidden>
+   <div class="modal-content modal-wide">
+    <h3>Cartes</h3>
+    <div class="map-actions-top">
+     <button id="btnNewMap" class="btn btn-danger">＋ Nouvelle carte</button>
+    </div>
+    <div class="map-actions-top">
+     <button id="btnExportMapNow" class="btn btn-dark" title="Télécharger la carte en cours sur cet appareil">⬇️ Exporter la carte en cours</button>
+     <button id="btnImportMap" class="btn btn-dark" title="Ajouter une carte depuis un fichier de cet appareil">⬆️ Importer une carte</button>
+     <input type="file" id="importMapFile" accept=".json,application/json" hidden>
+    </div>
+    <div class="map-save">
+     <input type="text" id="mapNameInput" placeholder="Nom pour enregistrer la carte en cours" maxlength="60" autocomplete="off">
+     <button id="btnSaveMap" class="btn btn-primary">💾 Enregistrer</button>
+    </div>
+    <div id="mapList" class="map-list"></div>
+    <div class="modal-actions">
+     <button id="btnCloseMaps" class="btn btn-secondary">Fermer</button>
+    </div>
+   </div>
+  </div>
+  <div id="newMapModal" class="modal-overlay" hidden>
+   <div class="modal-content">
+    <h3>Nouvelle carte</h3>
+    <div class="control-group">
+     <label for="cols">Colonnes (largeur)</label> <input type="number" id="cols" value="150" min="2" max="300">
+    </div>
+    <div class="control-group">
+     <label for="rows">Lignes (longueur)</label> <input type="number" id="rows" value="100" min="2" max="300">
+    </div>
+    <p>La carte en cours est sauvegardée automatiquement, puis remplacée par une carte vierge : toutes les cases sont des plaines.</p>
+    <div class="modal-actions">
+     <button id="btnCancelNewMap" class="btn btn-secondary">Annuler</button>
+     <button id="btnCreateMap" class="btn btn-danger">Créer</button>
+    </div>
+   </div>
+  </div>
+  <div id="helpModal" class="modal-overlay" hidden>
+   <div class="modal-content">
+    <h3>Gestes sur la carte</h3>
+    <ul class="help-list">
+     <li><strong>Appui long sur la carte</strong> en mode déplacer : les sélecteurs se déplient et le mode peindre s'active. Un nouvel appui long en mode peindre les replie et ramène au mode déplacer.</li>
+     <li><strong>Double toucher</strong> sur un objet orienté (pont, muret, mur de fortification), en mode déplacer ou peindre : il pivote d'un sixième de tour et le mode peindre s'active.</li>
+     <li><strong>Appui long sur un sélecteur</strong>, puis glisser : le poser où vous voulez sur un bord de l'écran.</li>
+     <li><strong>Annuler / rétablir</strong> forment un sélecteur à part, qui se déplie avec les sélecteurs de peinture. Le bouclier est vert à l'ouverture de la carte : les autres doivent confirmer pour modifier vos tuiles.</li>
+    </ul>
+    <label class="help-check"><input type="checkbox" id="helpNever"> Ne plus afficher ce message</label>
+    <div class="modal-actions">
+     <button id="btnHelpOk" class="btn btn-primary">Compris</button>
+    </div>
+   </div>
+  </div>
+  <div id="pickTip" class="palette-tooltip" hidden></div>
+  <div id="landingPanel" class="landing-panel" hidden></div>
+  <div id="unitBar" class="unit-bar" hidden></div>
+  <div id="landingModal" class="modal-overlay" hidden>
+   <div class="modal-content">
+    <h3 id="landingModalTitle"></h3>
+    <div id="landingModalBody"></div>
+    <div class="modal-actions" id="landingModalActions"></div>
+   </div>
+  </div>
+  <div id="fichesOverlay" class="fiches-overlay" hidden>
+   <div class="fiches-bar">
+    <b id="fichesTitle">📜 Fiches d'armée</b> <span class="fiches-modes"> 
+     <button class="btn btn-secondary btn-small" data-fiche="mini" title="Fenêtre miniature : la carte reste visible" aria-label="Fenêtre miniature">🗗</button> 
+     <button class="btn btn-secondary btn-small" data-fiche="bar" title="Réduire en barre" aria-label="Réduire en barre">—</button> 
+     <button class="btn btn-secondary btn-small" data-fiche="fullscreen" title="Plein écran" aria-label="Plein écran">⛶</button> 
+    </span> <span class="fiches-admin"> 
+     <button class="btn btn-secondary btn-small" data-fiche="access" data-long="1" hidden></button> 
+     <button class="btn btn-secondary btn-small" data-fiche="freeze" data-long="1" hidden></button> 
+    </span>
+    <button id="btnFichesClose" class="btn btn-secondary btn-small" data-fiche="close">Fermer</button>
+   </div>
+   <iframe id="fichesFrame" title="Fiches d'armée"></iframe>
+  </div>
+  <div id="closedScreen" hidden>
+   <p>L'application est fermée.
+    <br>
+    Vous pouvez quitter cet onglet ou revenir à l'écran d'accueil.</p>
+   <button id="btnReopen" class="btn btn-primary">Rouvrir</button>
+  </div>
+  <div id="safeProbe" aria-hidden="true"></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script>
     (() => {
         'use strict';
 
@@ -1183,7 +1186,7 @@
         }
 
         // Marqueur rouge plein, toujours droit. Plus petit dans un coin si la case porte un objet.
-        function drawMark(c, x, y, mark, rotation, small, R = HEX_RADIUS) {
+        function drawMark(c, x, y, mark, rotation, small, R = HEX_RADIUS, color = MARK_COLOR) {
             const s = R * (small ? 0.17 : 0.3);
 
             c.save();
@@ -1221,7 +1224,7 @@
                 default:
                     break;
             }
-            c.fillStyle = MARK_COLOR;
+            c.fillStyle = color;
             c.fill();
             c.strokeStyle = '#ffffff';
             c.lineWidth = R * 0.05;
@@ -1330,8 +1333,13 @@
             const list = [make('open', 'Fiches d’armée'), make('teams', state.isAdmin ? 'Équipes et joueurs (modifiable)' : 'Tableau des équipes')];
             list[0].textContent = '📜';
             list[1].textContent = '👥';
+            const land = make('land', 'Débarquement');
+            land.dataset.land = 'toggle';
+            land.textContent = '⚔️';
+            list.push(land);
             if (state.isAdmin) list.push(make('access', 'Accès des joueurs aux fiches'), make('freeze', 'Légions des joueurs'));
             queueMicrotask(updateFichesAccessUI);
+            queueMicrotask(updateLandingUI);
             return list;
         }
 
@@ -2263,6 +2271,7 @@
                 selection: state.selection,
                 minLinePx: 0
             });
+            drawLanding(ctx);
 
             if (dragRect) {
                 // Rectangle de sélection, tracé en coordonnées d'écran.
@@ -2835,6 +2844,652 @@
             return { x: e.clientX - rect.left, y: e.clientY - rect.top };
         }
 
+        /* ============================================================ */
+        /* Débarquement : zones, choix, dépôt des unités                  */
+        /* ============================================================ */
+
+        const LAND = { view: { phase: 'off' }, open: false, hover: null, preview: null, hits: [], press: null, drag: null, lastTap: null, tap: null, prevPhase: 'off' };
+        const TEAM_COL = { t1: '#8e24aa', t2: '#00897b' };
+        const GROUP_COL = { A: '#1f78ff', B: '#ff9800' };
+        const ciEq = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+        const landOn = () => LAND.view.phase !== 'off';
+        const landEmit = (event, payload) => request(event, payload).then((r) => { if (!r.success && r.message && r.code !== 'missing') toast(r.message, true); return r; });
+        const teamName = (t) => LAND.view.teamNames?.[t] || (t === 't1' ? 'Équipe 1' : 'Équipe 2');
+        const myUnits = () => (LAND.view.units || []).filter((u) => ciEq(u.owner, state.username));
+        const canMove = () => LAND.view.phase === 'place';
+
+        function landNeighbors(col, row) {
+            const dirs = row % 2 === 1
+                ? [[1, 0], [-1, 0], [0, -1], [1, -1], [0, 1], [1, 1]]
+                : [[1, 0], [-1, 0], [-1, -1], [0, -1], [-1, 1], [0, 1]];
+            return dirs.map(([dc, dr]) => [col + dc, row + dr]);
+        }
+
+        function worldToScreen(x, y) {
+            const cos = Math.cos(view.rotation);
+            const sin = Math.sin(view.rotation);
+            return { x: view.panX + (x * cos - y * sin) * view.scale, y: view.panY + (x * sin + y * cos) * view.scale };
+        }
+
+        function hexPathAt(c, x, y, r) {
+            c.beginPath();
+            for (let k = 0; k < 6; k++) {
+                const a = Math.PI / 6 + (k * Math.PI) / 3;
+                const px = x + r * Math.cos(a);
+                const py = y + r * Math.sin(a);
+                if (k === 0) c.moveTo(px, py); else c.lineTo(px, py);
+            }
+            c.closePath();
+        }
+
+        function roundRectPath(c, x, y, w, h, r) {
+            c.beginPath();
+            c.moveTo(x + r, y);
+            c.arcTo(x + w, y, x + w, y + h, r);
+            c.arcTo(x + w, y + h, x, y + h, r);
+            c.arcTo(x, y + h, x, y, r);
+            c.arcTo(x, y, x + w, y, r);
+            c.closePath();
+        }
+
+        const keyToHex = (key) => key.split(',').map(Number);
+        const shortName = (t, n = 13) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
+
+        // Portée de déplacement : le tableau des cases où l'unité peut s'arrêter et celles qu'elle ne peut que traverser.
+        function computeRange(unit) {
+            const dep = Math.max(0, Math.floor(unit.dep || 0));
+            const [sc, sr] = keyToHex(unit.tile);
+            const blocked = (tile) => Boolean(tile?.removed) || tile?.mark === 'disc';
+            const canEnd = (tile) => {
+                if (blocked(tile)) return false;
+                const terrain = tile?.terrain ?? 'plain';
+                if (terrain === 'mountain') return false;
+                if (terrain === 'water') return unit.army === 'saurus' || tile?.object === 'bridge';
+                return true;
+            };
+            const dist = new Map([[unit.tile, 0]]);
+            let frontier = [unit.tile];
+            for (let step = 1; step <= dep; step++) {
+                const next = [];
+                for (const key of frontier) {
+                    const [c0, r0] = keyToHex(key);
+                    for (const [nc, nr] of landNeighbors(c0, r0)) {
+                        if (nc < 0 || nr < 0 || nc >= state.cols || nr >= state.rows) continue;
+                        const nk = `${nc},${nr}`;
+                        if (dist.has(nk) || blocked(state.gridData[nk])) continue; // un marqueur « . » ne peut être ni atteint ni traversé
+                        dist.set(nk, step);
+                        next.push(nk);
+                    }
+                }
+                frontier = next;
+            }
+            const end = [];
+            const pass = [];
+            for (const [key] of dist) {
+                if (key === unit.tile) continue;
+                (canEnd(state.gridData[key]) ? end : pass).push(key);
+            }
+            return { dep, start: unit.tile, end, pass, sc, sr };
+        }
+
+        function drawLanding(c) {
+            const v = LAND.view;
+            LAND.hits = [];
+            if (v.phase === 'off') return;
+            const R = HEX_RADIUS;
+            const showLetters = v.admin || v.phase !== 'zones';
+
+            for (const zone of v.zones || []) {
+                const col = zone.group ? GROUP_COL[zone.group] : MARK_COLOR;
+                let sx = 0;
+                let sy = 0;
+                for (const key of zone.tiles) {
+                    const [cc, rr] = keyToHex(key);
+                    const { x, y } = hexCenter(cc, rr);
+                    sx += x; sy += y;
+                    hexPathAt(c, x, y, R * 0.94);
+                    c.fillStyle = `${col}30`;
+                    c.fill();
+                    c.lineWidth = R * 0.09;
+                    c.strokeStyle = col;
+                    c.stroke();
+                    const tile = state.gridData[key];
+                    if (tile?.mark) drawMark(c, x, y, tile.mark, view.rotation, Boolean(tile.object), R, col);
+                }
+                if (!showLetters) continue;
+                const cx = sx / zone.tiles.length;
+                const cy = sy / zone.tiles.length;
+                const who = Object.entries(v.choices || {}).filter(([, z]) => z === zone.id).map(([n]) => n);
+                c.save();
+                c.translate(cx, cy);
+                c.rotate(-view.rotation);
+                c.beginPath();
+                c.arc(0, 0, R * 0.5, 0, Math.PI * 2);
+                c.fillStyle = '#ffffff';
+                c.fill();
+                c.lineWidth = R * 0.1;
+                c.strokeStyle = col;
+                c.stroke();
+                c.fillStyle = '#1b1b1b';
+                c.font = `700 ${R * 0.62}px system-ui, sans-serif`;
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillText(zone.id.toUpperCase(), 0, R * 0.02);
+                if (who.length) {
+                    c.font = `600 ${R * 0.34}px system-ui, sans-serif`;
+                    const text = shortName(who.join(', '), 22);
+                    const w = c.measureText(text).width + R * 0.3;
+                    roundRectPath(c, -w / 2, R * 0.58, w, R * 0.5, R * 0.12);
+                    c.fillStyle = 'rgba(255,255,255,0.92)';
+                    c.fill();
+                    c.fillStyle = '#1b1b1b';
+                    c.fillText(text, 0, R * 0.84);
+                }
+                c.restore();
+            }
+
+            // Case survolée pendant un glisser-déposer.
+            if (LAND.hover) {
+                const [hc, hr] = keyToHex(LAND.hover.key);
+                const { x, y } = hexCenter(hc, hr);
+                hexPathAt(c, x, y, R * 0.94);
+                c.fillStyle = LAND.hover.ok ? 'rgba(46,160,67,0.45)' : 'rgba(224,27,27,0.35)';
+                c.fill();
+            }
+
+            // Prévisualisation de la portée de déplacement.
+            if (LAND.preview) {
+                const p = LAND.preview;
+                for (const key of p.pass) {
+                    const [pc, pr] = keyToHex(key);
+                    const { x, y } = hexCenter(pc, pr);
+                    hexPathAt(c, x, y, R * 0.9);
+                    c.fillStyle = 'rgba(255,152,0,0.38)';
+                    c.fill();
+                }
+                for (const key of p.end) {
+                    const [pc, pr] = keyToHex(key);
+                    const { x, y } = hexCenter(pc, pr);
+                    hexPathAt(c, x, y, R * 0.9);
+                    c.fillStyle = 'rgba(46,160,67,0.5)';
+                    c.fill();
+                    c.lineWidth = R * 0.05;
+                    c.strokeStyle = 'rgba(20,110,40,0.9)';
+                    c.stroke();
+                }
+                const [sc, sr] = keyToHex(p.start);
+                const s = hexCenter(sc, sr);
+                hexPathAt(c, s.x, s.y, R * 0.98);
+                c.lineWidth = R * 0.12;
+                c.strokeStyle = '#111';
+                c.stroke();
+            }
+
+            // Unités posées : une pastille par unité ; plusieurs unités sur une tuile sont listées à côté avec une flèche.
+            const byTile = new Map();
+            for (const u of v.units || []) {
+                if (!u.tile) continue;
+                if (!byTile.has(u.tile)) byTile.set(u.tile, []);
+                byTile.get(u.tile).push(u);
+            }
+            // Les pastilles gardent une taille lisible même quand la carte est très dézoomée.
+            const boost = Math.max(1, 17 / (R * 0.62 * view.scale));
+            const chipH = R * 0.62 * boost;
+            const unitW = R * 1.9 * boost;
+            for (const [key, list] of byTile) {
+                const [tc, tr] = keyToHex(key);
+                const { x, y } = hexCenter(tc, tr);
+                const sp = worldToScreen(x, y);
+                const side = sp.x > viewW * 0.62 ? -1 : 1;
+                c.save();
+                c.translate(x, y);
+                c.rotate(-view.rotation);
+                const place = (u, ox, oy, w) => {
+                    const dim = LAND.drag?.unit.id === u.id;
+                    const mine = ciEq(u.owner, state.username);
+                    c.globalAlpha = dim ? 0.3 : 1;
+                    roundRectPath(c, ox - w / 2, oy - chipH / 2, w, chipH, chipH * 0.3);
+                    c.fillStyle = 'rgba(255,255,255,0.95)';
+                    c.fill();
+                    c.lineWidth = mine ? R * 0.12 : R * 0.07;
+                    c.strokeStyle = TEAM_COL[u.team] || '#555';
+                    c.stroke();
+                    c.fillStyle = '#1b1b1b';
+                    c.font = `600 ${chipH * 0.5}px system-ui, sans-serif`;
+                    c.textAlign = 'center';
+                    c.textBaseline = 'middle';
+                    c.fillText(`${shortName(u.name, 11)} ×${u.qty}`, ox, oy + chipH * 0.03);
+                    c.globalAlpha = 1;
+                    LAND.hits.push({ unit: u, x: sp.x + (ox - w / 2) * view.scale, y: sp.y + (oy - chipH / 2) * view.scale, w: w * view.scale, h: chipH * view.scale });
+                };
+                if (list.length === 1) {
+                    place(list[0], 0, 0, unitW);
+                } else {
+                    const w = unitW;
+                    const gap = chipH * 1.12;
+                    const colX = side * (R * 1.15 + w / 2);
+                    const top = -((list.length - 1) * gap) / 2;
+                    // pastille de comptage sur la tuile
+                    c.beginPath();
+                    c.arc(0, 0, R * 0.3, 0, Math.PI * 2);
+                    c.fillStyle = '#222';
+                    c.fill();
+                    c.fillStyle = '#fff';
+                    c.font = `700 ${R * 0.36}px system-ui, sans-serif`;
+                    c.textAlign = 'center';
+                    c.textBaseline = 'middle';
+                    c.fillText(String(list.length), 0, R * 0.02);
+                    // accolade verticale + flèche vers la tuile
+                    const bx = colX - side * (w / 2 + R * 0.14);
+                    c.strokeStyle = '#222';
+                    c.lineWidth = R * 0.07;
+                    c.beginPath();
+                    c.moveTo(bx, top - chipH * 0.5);
+                    c.lineTo(bx, top + (list.length - 1) * gap + chipH * 0.5);
+                    c.stroke();
+                    const ax = R * 0.36 * side;
+                    c.beginPath();
+                    c.moveTo(bx, 0);
+                    c.lineTo(ax, 0);
+                    c.stroke();
+                    c.beginPath();
+                    c.moveTo(ax, 0);
+                    c.lineTo(ax + side * R * 0.2, -R * 0.14);
+                    c.lineTo(ax + side * R * 0.2, R * 0.14);
+                    c.closePath();
+                    c.fillStyle = '#222';
+                    c.fill();
+                    list.forEach((u, i) => place(u, colX, top + i * gap, w));
+                }
+                c.restore();
+            }
+        }
+
+        function tokenAt(sx, sy) {
+            for (let i = LAND.hits.length - 1; i >= 0; i--) {
+                const h = LAND.hits[i];
+                if (sx >= h.x && sx <= h.x + h.w && sy >= h.y && sy <= h.y + h.h) return h.unit;
+            }
+            return null;
+        }
+
+        function zoneAtKey(key) {
+            return (LAND.view.zones || []).find((z) => z.tiles.includes(key)) ?? null;
+        }
+
+        function hoverFor(clientX, clientY, unit) {
+            const key = tileKeyAt(clientX, clientY);
+            if (!key) return null;
+            const zone = (LAND.view.zones || []).find((z) => z.id === LAND.view.myZone);
+            return { key, ok: Boolean(zone && zone.tiles.includes(key)) && ciEq(unit.owner, state.username) };
+        }
+
+        function makeGhost(unit) {
+            const g = document.createElement('div');
+            g.className = 'land-ghost';
+            g.textContent = `${shortName(unit.name, 16)} ×${unit.qty}`;
+            g.style.borderColor = TEAM_COL[unit.team] || '#555';
+            document.body.appendChild(g);
+            return g;
+        }
+
+        function moveGhost(e) {
+            if (!LAND.drag) return;
+            LAND.drag.ghost.style.left = `${e.clientX}px`;
+            LAND.drag.ghost.style.top = `${e.clientY - 28}px`;
+            const over = document.elementFromPoint(e.clientX, e.clientY);
+            if (over && over.closest('#unitBar')) { if (LAND.hover) { LAND.hover = null; requestDraw(); } return; }
+            const h = hoverFor(e.clientX, e.clientY, LAND.drag.unit);
+            if (JSON.stringify(h) !== JSON.stringify(LAND.hover)) { LAND.hover = h; requestDraw(); }
+        }
+
+        function endDrag(e, cancelled) {
+            const d = LAND.drag;
+            if (!d) return;
+            LAND.drag = null;
+            d.ghost.remove();
+            LAND.hover = null;
+            requestDraw();
+            if (cancelled) return;
+            const over = document.elementFromPoint(e.clientX, e.clientY);
+            if (over && over.closest('#unitBar')) {
+                if (d.unit.tile) landEmit('landing-place', { unit: d.unit.id, tile: null });
+                return;
+            }
+            const rect = el.canvas.getBoundingClientRect();
+            if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
+            const key = tileKeyAt(e.clientX, e.clientY);
+            if (!key) return;
+            const h = hoverFor(e.clientX, e.clientY, d.unit);
+            if (!h || !h.ok) return toast('Déposez l’unité sur une tuile de votre zone de débarquement.', true);
+            if (d.unit.tile !== key) landEmit('landing-place', { unit: d.unit.id, tile: key });
+        }
+
+        function startDrag(unit, e) {
+            if (!canMove() || !ciEq(unit.owner, state.username)) return false;
+            LAND.drag = { unit, ghost: makeGhost(unit) };
+            LAND.preview = null;
+            moveGhost(e);
+            requestDraw();
+            return true;
+        }
+
+        function showPreview(unit) {
+            if (!unit.tile) return toast('Cette unité n’est pas encore sur la carte.');
+            const r = computeRange(unit);
+            if (!r.dep) { LAND.preview = null; requestDraw(); return toast(`${unit.name} : portée de déplacement nulle.`); }
+            LAND.preview = { ...r, unit };
+            requestDraw();
+            toast(`${unit.name} · portée ${r.dep} tuile${r.dep > 1 ? 's' : ''} · ${r.end.length} case${r.end.length > 1 ? 's' : ''} possibles`);
+        }
+
+        function openUnitInfo(unit) {
+            openFiches({ unit: { army: unit.army, legion: unit.legion, uid: unit.uid, owner: unit.owner } });
+        }
+
+        // Capture : les gestes sur une unité sont traités ici ; le reste de la carte (déplacement, zoom, peinture) garde son comportement.
+        el.canvas.addEventListener('pointerdown', (e) => {
+            if (!landOn() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+            const rect = el.canvas.getBoundingClientRect();
+            const unit = tokenAt(e.clientX - rect.left, e.clientY - rect.top);
+            if (!unit) {
+                if (LAND.preview) { LAND.preview = null; requestDraw(); }
+                LAND.tap = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
+                return;
+            }
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            el.canvas.setPointerCapture(e.pointerId);
+            LAND.tap = null;
+            const now = performance.now();
+            if (LAND.lastTap && LAND.lastTap.id === unit.id && now - LAND.lastTap.t < 380) {
+                LAND.lastTap = null;
+                LAND.press = null;
+                openUnitInfo(unit);
+                return;
+            }
+            if (LAND.preview) { LAND.preview = null; requestDraw(); }
+            const press = { unit, x: e.clientX, y: e.clientY, pid: e.pointerId, moved: false, long: false, timer: null };
+            press.timer = setTimeout(() => {
+                if (LAND.press === press && !press.moved && !LAND.drag) { press.long = true; showPreview(unit); }
+            }, 450);
+            LAND.press = press;
+        }, true);
+
+        el.canvas.addEventListener('pointermove', (e) => {
+            const p = LAND.press;
+            if (!p || e.pointerId !== p.pid) return;
+            if (!p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) {
+                p.moved = true;
+                clearTimeout(p.timer);
+                if (!p.long) startDrag(p.unit, e);
+            }
+            if (LAND.drag) moveGhost(e);
+        }, true);
+
+        function finishPress(e, cancelled) {
+            const p = LAND.press;
+            if (p && e.pointerId === p.pid) {
+                clearTimeout(p.timer);
+                LAND.press = null;
+                if (LAND.drag) endDrag(e, cancelled);
+                else if (!p.moved && !p.long && !cancelled) LAND.lastTap = { id: p.unit.id, t: performance.now() };
+                if (el.canvas.hasPointerCapture(e.pointerId)) el.canvas.releasePointerCapture(e.pointerId);
+                return;
+            }
+            // Simple toucher sur une zone (sans déplacement) : regroupement (MJ) ou choix de zone (joueur).
+            const t = LAND.tap;
+            LAND.tap = null;
+            if (!t || cancelled || t.id !== e.pointerId) return;
+            if (Math.hypot(e.clientX - t.x, e.clientY - t.y) > 10 || performance.now() - t.t > 500) return;
+            const key = tileKeyAt(e.clientX, e.clientY);
+            const zone = key && zoneAtKey(key);
+            if (!zone) return;
+            if (state.isAdmin && LAND.view.phase === 'zones' && state.mode === 'move') openZoneDialog(zone.id);
+            else if (!state.isAdmin && LAND.view.phase === 'choose') chooseZone(zone.id);
+            else if (state.isAdmin && LAND.view.phase === 'choose') { LAND.open = true; renderLandingPanel(); }
+        }
+        el.canvas.addEventListener('pointerup', (e) => finishPress(e, false), true);
+        el.canvas.addEventListener('pointercancel', (e) => finishPress(e, true), true);
+
+        // Glisser depuis le sélecteur d'unités.
+        document.addEventListener('pointerdown', (e) => {
+            const chip = e.target.closest?.('#unitBar [data-unit]');
+            if (!chip || (e.pointerType === 'mouse' && e.button !== 0)) return;
+            const unit = (LAND.view.units || []).find((u) => u.id === chip.dataset.unit);
+            if (!unit) return;
+            if (e.pointerType !== 'touch') e.preventDefault();
+            chip.setPointerCapture(e.pointerId);
+            const start = { x: e.clientX, y: e.clientY };
+            const move = (ev) => {
+                const dx = Math.abs(ev.clientX - start.x);
+                const dy = Math.abs(ev.clientY - start.y);
+                // Au doigt : un geste horizontal fait défiler la liste, un geste vertical saisit l'unité.
+                const grab = ev.pointerType === 'touch' ? dy > 8 && dy >= dx : Math.hypot(dx, dy) > 6;
+                if (!LAND.drag && grab) startDrag(unit, ev);
+                if (LAND.drag) moveGhost(ev);
+            };
+            const up = (ev) => {
+                chip.removeEventListener('pointermove', move);
+                chip.removeEventListener('pointerup', up);
+                chip.removeEventListener('pointercancel', cancel);
+                if (LAND.drag) endDrag(ev, false);
+                else toast('Maintenez et glissez l’unité sur une tuile de votre zone.');
+            };
+            const cancel = (ev) => { chip.removeEventListener('pointermove', move); chip.removeEventListener('pointerup', up); chip.removeEventListener('pointercancel', cancel); if (LAND.drag) endDrag(ev, true); };
+            chip.addEventListener('pointermove', move);
+            chip.addEventListener('pointerup', up);
+            chip.addEventListener('pointercancel', cancel);
+        });
+
+        // Lecture seule : permet de contrôler l'affichage (tests, assistance).
+        window.__landDebug = {
+            view: () => LAND.view,
+            preview: () => (LAND.preview ? { end: LAND.preview.end, pass: LAND.preview.pass, dep: LAND.preview.dep } : null),
+            range: (unit) => { const r = computeRange(unit); return { end: r.end, pass: r.pass, dep: r.dep }; },
+            hits: () => LAND.hits.map((h) => ({ id: h.unit.id, x: h.x + el.canvas.getBoundingClientRect().left + h.w / 2, y: h.y + el.canvas.getBoundingClientRect().top + h.h / 2 })),
+            tileScreen: (key) => {
+                const [c, r] = keyToHex(key);
+                const p = hexCenter(c, r);
+                const sp = worldToScreen(p.x, p.y);
+                const rect = el.canvas.getBoundingClientRect();
+                return { x: rect.left + sp.x, y: rect.top + sp.y };
+            }
+        };
+
+        /* ---------- Fenêtres et panneau ---------- */
+
+        function landingDialog(title, bodyHtml, buttons) {
+            $('landingModalTitle').textContent = title;
+            $('landingModalBody').innerHTML = bodyHtml;
+            const actions = $('landingModalActions');
+            actions.replaceChildren();
+            for (const b of buttons) {
+                const btn = document.createElement('button');
+                btn.className = `btn ${b.cls || 'btn-dark'}`;
+                btn.textContent = b.label;
+                btn.addEventListener('click', () => { if (!b.keep) $('landingModal').hidden = true; b.fn?.(); });
+                actions.appendChild(btn);
+            }
+            $('landingModal').hidden = false;
+        }
+
+        function openZoneDialog(id) {
+            const z = (LAND.view.zones || []).find((x) => x.id === id);
+            if (!z) return;
+            const set = (g) => landEmit('landing-group', { zone: id, group: g });
+            landingDialog(`Zone ${id.toUpperCase()} · ${z.tiles.length} tuiles`, `<p>Dans quel groupe d’entrées placer cette zone ?</p><p>Actuellement : <b>${z.group ? `Entrées ${z.group}` : 'aucune entrée'}</b></p>`, [
+                { label: 'Entrées A', cls: 'btn-primary', fn: () => set('A') },
+                { label: 'Entrées B', cls: 'btn-primary', fn: () => set('B') },
+                { label: 'Aucune', fn: () => set(null) }
+            ]);
+        }
+
+        function chooseZone(id) {
+            const mine = (LAND.view.zones || []).find((z) => z.id === id);
+            if (!mine) return;
+            landingDialog(`Zone ${id.toUpperCase()}`, `<p>Débarquer votre légion dans la zone <b>${id.toUpperCase()}</b> (${mine.tiles.length} tuiles) ?</p>`, [
+                { label: 'Choisir cette zone', cls: 'btn-primary', fn: () => landEmit('landing-choose', { zone: id }).then((r) => { if (r.success) toast(`Zone ${id.toUpperCase()} choisie.`); }) },
+                { label: 'Annuler' }
+            ]);
+        }
+
+        function focusZone(id) {
+            const z = (LAND.view.zones || []).find((x) => x.id === id);
+            if (!z) return;
+            let sx = 0;
+            let sy = 0;
+            for (const key of z.tiles) { const [c, r] = keyToHex(key); const p = hexCenter(c, r); sx += p.x; sy += p.y; }
+            const cx = sx / z.tiles.length;
+            const cy = sy / z.tiles.length;
+            const cos = Math.cos(view.rotation);
+            const sin = Math.sin(view.rotation);
+            view.panX = viewW / 2 - (cx * cos - cy * sin) * view.scale;
+            view.panY = viewH / 3 - (cx * sin + cy * cos) * view.scale;
+            requestDraw();
+        }
+
+        function assignTeamsDialog() {
+            const t = (k) => teamName(k);
+            landingDialog('Affecter les équipes aux entrées', `<p>Quelle équipe débarque aux <b>entrées A</b> (zones bleues) ? L’autre équipe débarque aux entrées B (zones orange).</p>`, [
+                { label: `${t('t1')} → A · ${t('t2')} → B`, cls: 'btn-primary', fn: () => landEmit('landing-teams', { A: 't1' }) },
+                { label: `${t('t2')} → A · ${t('t1')} → B`, cls: 'btn-primary', fn: () => landEmit('landing-teams', { A: 't2' }) },
+                { label: 'Annuler' }
+            ]);
+        }
+
+        async function adminStep(event, payload, confirmText) {
+            const r = await landEmit(event, payload);
+            if (r.code === 'missing') {
+                landingDialog('Attention', `<p>${r.message}</p>${r.missing ? `<p>${r.missing.map((n) => `• ${n}`).join('<br>')}</p>` : ''}<p>Continuer quand même ?</p>`, [
+                    { label: confirmText || 'Continuer', cls: 'btn-danger', fn: () => landEmit(event, { ...payload, force: true }) },
+                    { label: 'Attendre' }
+                ]);
+            }
+        }
+
+        const PHASE_NAME = { zones: '1 · Regroupement des zones', choose: '3 · Choix des zones', place: '4 · Dépôt des unités', locked: '5 · Placements verrouillés' };
+
+        function renderLandingPanel() {
+            const panel = $('landingPanel');
+            const v = LAND.view;
+            if (!landOn() || !LAND.open) { panel.hidden = true; return; }
+            const admin = state.isAdmin;
+            let h = `<div class="lp-head"><b>⚔️ Débarquement</b><span class="lp-phase">${PHASE_NAME[v.phase] || ''}</span><button class="lp-x" data-land="close" aria-label="Fermer">✕</button></div>`;
+            if (admin) {
+                if (v.phase === 'zones') {
+                    h += `<p class="lp-hint">Touchez une zone sur la carte, ou utilisez la liste, pour la rattacher aux <b style="color:${GROUP_COL.A}">entrées A</b> ou aux <b style="color:${GROUP_COL.B}">entrées B</b>. Les marqueurs changent de couleur (rouge : aucune entrée).</p>`;
+                    for (const z of v.zones || []) {
+                        h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${z.group ? GROUP_COL[z.group] : '#e01b1b'}">${z.id.toUpperCase()}</button><span class="lp-grow">${z.tiles.length} tuiles</span>`
+                            + ['A', 'B', null].map((g) => `<button class="lp-seg ${z.group === g ? 'on' : ''}" data-land="group" data-zone="${z.id}" data-group="${g ?? ''}">${g ? `Entrées ${g}` : 'Aucune'}</button>`).join('') + '</div>';
+                    }
+                    const ready = v.groupCount?.A > 0 && v.groupCount?.B > 0;
+                    h += `<div class="lp-actions"><button class="btn btn-dark" data-land="refresh">↻ Recalculer les zones</button>${ready ? '<button class="btn btn-primary" data-land="teams">Affecter les équipes aux entrées →</button>' : '<span class="lp-hint">Il faut au moins une zone en A et une en B.</span>'}</div>`;
+                } else if (v.phase === 'choose') {
+                    h += `<p class="lp-hint">Équipe 1 (${teamName('t1')}) → entrées ${v.teamEntry?.t1} · ${teamName('t2')} → entrées ${v.teamEntry?.t2}. Chaque joueur choisit une zone de ses entrées.</p>`;
+                    h += playersTable(v.players || []);
+                    h += `<div class="lp-actions"><button class="btn btn-primary" data-land="freeze">Figer les affectations →</button></div>`;
+                } else if (v.phase === 'place') {
+                    h += `<p class="lp-hint">Les joueurs déposent leurs unités sur leur zone. Vous voyez tout.</p>`;
+                    h += (v.progress || []).map((p) => `<div class="lp-row"><span class="lp-dot" style="background:${TEAM_COL[p.team] || '#888'}"></span><span class="lp-grow">${p.name}</span><b>${p.placed}/${p.total}</b></div>`).join('');
+                    h += `<div class="lp-actions"><button class="btn btn-primary" data-land="lock">🔒 Verrouiller les placements</button></div>`;
+                } else if (v.phase === 'locked') {
+                    h += '<p class="lp-hint">Placements verrouillés : tous les joueurs voient toutes les unités.</p>';
+                }
+                if (v.phase !== 'zones') h += '<div class="lp-actions"><button class="btn btn-dark" data-land="back">◀ Étape précédente</button></div>';
+                h += '<div class="lp-actions"><button class="btn btn-dark" data-land="stop">Arrêter le débarquement</button></div>';
+            } else {
+                if (v.phase === 'zones') h += '<p class="lp-hint">Le MJ prépare les zones de débarquement…</p>';
+                else if (!v.myTeam) h += '<p class="lp-hint">Vous n’êtes dans aucune équipe : vous suivez le débarquement en spectateur.</p>';
+                else if (v.phase === 'choose') {
+                    h += `<p class="lp-hint">Votre équipe (<b>${teamName(v.myTeam)}</b>) débarque aux <b>entrées ${v.myGroup}</b>. Choisissez votre zone de débarquement (touchez la zone sur la carte ou ici). Les choix de l’autre équipe sont cachés.</p>`;
+                    for (const z of v.zones || []) {
+                        const who = Object.entries(v.choices || {}).filter(([, id]) => id === z.id).map(([n]) => n);
+                        h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${GROUP_COL[z.group]}">${z.id.toUpperCase()}</button><span class="lp-grow">${who.length ? who.join(', ') : 'libre'}</span><button class="lp-seg ${v.myZone === z.id ? 'on' : ''}" data-land="choose" data-zone="${z.id}">${v.myZone === z.id ? 'Choisie ✓' : 'Choisir'}</button></div>`;
+                    }
+                    h += playersTable(v.players || []);
+                } else if (v.phase === 'place') {
+                    const units = myUnits();
+                    h += `<p class="lp-hint">Glissez chacune de vos unités depuis le sélecteur du bas vers une tuile de votre zone <b>${(v.myZone || '?').toUpperCase()}</b>. Vous pouvez les déplacer ensuite. Vos coéquipiers voient vos unités en direct. ${units.filter((u) => u.tile).length}/${units.length} placées.</p>`;
+                } else if (v.phase === 'locked') {
+                    h += '<p class="lp-hint">Les placements sont verrouillés : vous voyez toutes les unités. Appui long sur une unité : portée de déplacement. Double toucher : sa fiche.</p>';
+                }
+            }
+            panel.innerHTML = h;
+            panel.hidden = false;
+        }
+
+        function playersTable(players) {
+            if (!players.length) return '<p class="lp-hint">Aucun joueur dans une équipe.</p>';
+            return players.map((p) => `<div class="lp-row"><span class="lp-dot" style="background:${TEAM_COL[p.team] || '#888'}"></span><span class="lp-grow">${p.name}${p.pick ? '' : ' <i>(sans légion)</i>'}</span><b>${p.zone ? 'zone ' + p.zone.toUpperCase() : '—'}</b></div>`).join('');
+        }
+
+        function renderUnitBar() {
+            const bar = $('unitBar');
+            const units = myUnits();
+            if (LAND.view.phase !== 'place' || !units.length) { bar.hidden = true; return; }
+            bar.innerHTML = `<div class="ub-title">Vos unités · ${units.filter((u) => u.tile).length}/${units.length} placées — glissez vers votre zone ${(LAND.view.myZone || '').toUpperCase()}</div><div class="ub-list">${units.map((u) => `<div class="ub-chip ${u.tile ? 'done' : ''}" data-unit="${u.id}" style="border-color:${TEAM_COL[u.team] || '#555'}">${u.tile ? '✓ ' : ''}${shortName(u.name, 16)} ×${u.qty}</div>`).join('')}</div>`;
+            bar.hidden = false;
+        }
+
+        function updateLandingUI() {
+            const btn = document.querySelector('[data-land="toggle"]');
+            if (btn) {
+                btn.hidden = !landOn() && !state.isAdmin;
+                btn.classList.toggle('on', LAND.open);
+                btn.title = state.isAdmin ? 'Débarquement (MJ)' : 'Débarquement';
+            }
+            renderLandingPanel();
+            renderUnitBar();
+        }
+
+        function onLandingView(next) {
+            const prev = LAND.view.phase;
+            LAND.view = next || { phase: 'off' };
+            if (LAND.preview && !(LAND.view.units || []).some((u) => u.id === LAND.preview.unit.id && u.tile === LAND.preview.start)) LAND.preview = null;
+            if (next && next.phase !== prev) {
+                const msgs = {
+                    zones: state.isAdmin ? 'Débarquement lancé : regroupez les zones.' : null,
+                    choose: 'Choisissez votre zone de débarquement.',
+                    place: 'Déposez vos unités sur votre zone.',
+                    locked: 'Placements verrouillés : toutes les unités sont visibles.',
+                    off: prev !== 'off' ? 'Le débarquement est terminé.' : null
+                };
+                if (msgs[next.phase] && !(next.phase === 'choose' && !next.myTeam && !state.isAdmin)) toast(msgs[next.phase]);
+                if (next.phase !== 'off' && (next.phase !== 'zones' || state.isAdmin)) LAND.open = true;
+                if (next.phase === 'off') LAND.open = false;
+            }
+            updateLandingUI();
+            requestDraw();
+        }
+
+        document.addEventListener('click', async (e) => {
+            const b = e.target.closest('[data-land]');
+            if (!b) return;
+            const k = b.dataset.land;
+            if (k === 'toggle') {
+                if (!landOn() && state.isAdmin) {
+                    const r = await landEmit('landing-start', {});
+                    if (r.success) { LAND.open = true; updateLandingUI(); }
+                } else { LAND.open = !LAND.open; updateLandingUI(); }
+            } else if (k === 'close') { LAND.open = false; updateLandingUI(); }
+            else if (k === 'focus') focusZone(b.dataset.zone);
+            else if (k === 'group' && state.isAdmin) landEmit('landing-group', { zone: b.dataset.zone, group: b.dataset.group || null });
+            else if (k === 'refresh' && state.isAdmin) landEmit('landing-refresh', {}).then((r) => { if (r.success) toast('Zones recalculées.'); });
+            else if (k === 'teams' && state.isAdmin) assignTeamsDialog();
+            else if (k === 'choose') chooseZone(b.dataset.zone);
+            else if (k === 'freeze' && state.isAdmin) adminStep('landing-freeze', {}, 'Figer quand même');
+            else if (k === 'lock' && state.isAdmin) adminStep('landing-lock', {}, 'Verrouiller quand même');
+            else if (k === 'back' && state.isAdmin) {
+                const prev = { choose: 'zones', place: 'choose', locked: 'place' }[LAND.view.phase];
+                if (prev) landEmit('landing-goto', { phase: prev });
+            } else if (k === 'stop' && state.isAdmin) {
+                landingDialog('Arrêter le débarquement ?', '<p>Les zones, les choix et les unités posées seront effacés.</p>', [
+                    { label: 'Arrêter', cls: 'btn-danger', fn: () => landEmit('landing-goto', { phase: 'off' }) }, { label: 'Annuler' }
+                ]);
+            }
+        });
+
         el.canvas.addEventListener('pointerdown', (e) => {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             el.canvas.setPointerCapture(e.pointerId);
@@ -2972,11 +3627,12 @@
             if (!state.username) return;
             const frame = $('fichesFrame');
             $('fichesOverlay').hidden = false;
+            if (target?.unit) setFichesMini(true);
             updateFichesAccessUI();
             if (!frame.getAttribute('src')) {
                 state.fichesOpenTarget = target || null;
                 frame.src = '/fiches.html';
-            } else if (target) fichesPost({ type: 'fiches:ouvrir', armee: target.army, legion: target.legion, tab: target.tab });
+            } else if (target) fichesPost({ type: 'fiches:ouvrir', armee: target.army, legion: target.legion, tab: target.tab, unit: target.unit });
             else fichesPost({ type: 'fiches:reopen' }); // rouvre sur la légion choisie par le joueur
         }
 
@@ -3200,6 +3856,7 @@
                 state.fichesAccess = data.fichesAccess !== false;
                 state.fichesFrozen = data.fichesFrozen === true;
                 state.fichesPickLabels = data.fichesPickLabels || {};
+                onLandingView(data.landing);
                 updateFichesAccessUI();
                 decorateMiniUsers();
                 state.terrains = mergeTerrains(data.terrains);
@@ -3227,6 +3884,7 @@
                     toast(allow ? 'Le MJ a ouvert l’accès aux fiches d’armée.' : 'Le MJ a fermé l’accès aux fiches d’armée : les légions choisies restent consultables.');
                 }
             });
+            socket.on('landing', onLandingView);
             socket.on('fiches-freeze', (frozen) => {
                 state.fichesFrozen = Boolean(frozen);
                 updateFichesAccessUI();
@@ -3321,5 +3979,5 @@
         window.__hexReady = true;
     })();
     </script>
-</body>
+ </body>
 </html>
