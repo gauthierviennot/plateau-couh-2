@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fiches d'armée</title>
-<style>
+ <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fiches d'armée</title>
+  <style>
 :root{--bg:#f6f4ef;--card:#fff;--fg:#1f1d1a;--muted:#6b665e;--border:#ddd8cd;--accent:#8a2b1d;--accent-fg:#fff;--hl:#f6e3d8;--head:#ece7db;--cat:#e4ddcc;--stick:#fff;--err:#b3261e;--ok:#2e6b34;--ovc:#c77b00}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#16140f;--card:#201d17;--fg:#ece7da;--muted:#9a9384;--border:#37332a;--accent:#d9795f;--accent-fg:#1a1410;--hl:#3b2a22;--head:#2a261e;--cat:#332e24;--stick:#201d17;--err:#ff8a80;--ok:#8fd19a;--ovc:#ffb74d}}
 :root[data-theme="dark"]{--bg:#16140f;--card:#201d17;--fg:#ece7da;--muted:#9a9384;--border:#37332a;--accent:#d9795f;--accent-fg:#1a1410;--hl:#3b2a22;--head:#2a261e;--cat:#332e24;--stick:#201d17;--err:#ff8a80;--ok:#8fd19a;--ovc:#ffb74d}
@@ -124,27 +124,31 @@ td.name{z-index:3}
 #modal.fsc .sheet{max-width:none;width:100%;height:100%;max-height:100%;border-radius:0}
 .scroll{max-height:72vh}
 </style>
-</head>
-<body>
-<div class="wrap">
-  <div class="top noprint">
+ </head>
+ <body>
+  <div class="wrap">
+   <div class="top noprint">
     <div class="tabs">
-      <button id="tabA" class="tab" data-a="tab-army">Armées</button>
-      <button id="tabF" class="tab" data-a="tab-form">Formules</button>
-      <button id="tabP" class="tab" data-a="tab-players" style="display:none">Équipes</button>
-      <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
-      <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
-      <span id="mjBadge" class="badge mj">MJ</span>
-      <span id="dbBadge" class="badge">local</span>
+     <button id="tabA" class="tab" data-a="tab-army">Armées</button>
+     <button id="tabF" class="tab" data-a="tab-form">Formules</button>
+     <button id="tabP" class="tab" data-a="tab-players" style="display:none">Équipes</button>
+     <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
+     <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
+     <span id="mjBadge" class="badge mj">MJ</span> <span id="dbBadge" class="badge">local</span>
     </div>
-    <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
-    <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
+    <div class="pseudo" style="display:none">
+     <label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo">
+     <button id="pseudoOk" class="btn">OK</button>
+    </div>
+    <div id="armyBar">
+     <label class="lbl" for="armySel">Armée</label><select id="armySel"></select>
+    </div>
+   </div>
+   <div id="view"></div>
   </div>
-  <div id="view"></div>
-</div>
-<div id="modal"></div>
-<div class="toast" id="toast"></div>
-<script>
+  <div id="modal"></div>
+  <div class="toast" id="toast"></div>
+  <script>
 /* ===== Mini-moteur de formules (sous-ensemble d'Excel) ===== */
 const FE=(function(){
   function fail(m){const e=new Error(m);e.fe=true;throw e;}
@@ -277,7 +281,7 @@ function legionValue(army,lid){
 if(typeof module!=='undefined')module.exports={FE,calcUnit,calcRow,legionValue};
 
 </script>
-<script>
+  <script>
 /* ===================== DONNÉES ===================== */
 const SEED='v18_1-b';
 const COLS='ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
@@ -517,7 +521,7 @@ function startHosted(init){
     if(d.type==='fiches:res'){const f=HB.wait.get(d.rid);if(f){HB.wait.delete(d.rid);f(d.res);}}
     else if(d.type==='fiches:changed')reloadHosted();
     else if(d.type==='fiches:reopen'){S.tab=d.tab||'army';loadHosted(true).then(()=>mjHelp());}
-    else if(d.type==='fiches:ouvrir'){if(!S.loaded)S.pendingOpen=d;else if(d.tab){S.tab=d.tab;render();}else{openFromLink(d.armee||d.army,d.legion);}mjHelp();}});
+    else if(d.type==='fiches:ouvrir'){if(!S.loaded)S.pendingOpen=d;else if(d.unit)showUnitCard(d.unit);else if(d.tab){S.tab=d.tab;render();}else{openFromLink(d.armee||d.army,d.legion);}if(!d.unit)mjHelp();}});
   loadHosted(true).then(()=>mjHelp());
 }
 
@@ -527,7 +531,7 @@ function legShort(l){return l.id==='ni'?'non int.':(l.name?l.name:l.id);}
 
 function prepArmy(a){
   let n=0;
-  a.units.forEach(u=>{u.uid=u.uid||(a.id+'-'+(++n)+'-'+Math.random().toString(36).slice(2,6));u.fo=u.fo||{};u.fm=u.fm||{};u.v={};delete u.calc;u.err=null;
+  a.units.forEach(u=>{u.uid=u.uid||(u.row!=null?`${a.id}-r${u.row}`:(a.id+'-'+(++n)+'-'+Math.random().toString(36).slice(2,6)));u.fo=u.fo||{};u.fm=u.fm||{};u.v={};delete u.calc;u.err=null;
     u.cat=u.cat||'';if(!u.fm0)u.fm0=Object.assign({},u.fm);
     Object.values(u.q).forEach(q=>{if(q[5]===undefined)q[5]=q[4]||null;});
     if(u.l2){u.l2.fo=u.l2.fo||{};u.l2.fm=u.l2.fm||{};u.l2.v={};delete u.l2.calc;if(!u.l2.fm0)u.l2.fm0=Object.assign({},u.l2.fm);}});
@@ -976,7 +980,7 @@ async function loadHosted(first){
   const r=await hostReq('fiches-load',{});
   if(!r.success){S.loaded=true;document.getElementById('view').innerHTML=`<div class="card">${esc(r.message||'Fiches indisponibles.')}</div>`;return;}
   applyServer(r);S.loaded=true;fixSelection(first);
-  if(S.pendingOpen){const p=S.pendingOpen;S.pendingOpen=null;if(p.tab){S.tab=p.tab;}else openFromLink(p.armee||p.army,p.legion);}
+  if(S.pendingOpen){const p=S.pendingOpen;S.pendingOpen=null;if(p.unit){S.noHelp=true;render();showUnitCard(p.unit);return;}if(p.tab){S.tab=p.tab;}else openFromLink(p.armee||p.army,p.legion);}
   render();
 }
 async function doPick(armyId,lid){
@@ -1309,6 +1313,7 @@ document.addEventListener('change',async e=>{
 /* ---- rappel destiné au MJ à l'ouverture des fiches ---- */
 function mjHelp(force){
   if(!HOSTED||!isMJ())return;
+  if(S.noHelp&&!force){S.noHelp=false;return;}
   let off=false;try{off=localStorage.getItem('fa2:nohelp')==='1';}catch(e){}
   if(off&&!force)return;
   const li=t=>`<li>${t}</li>`;
@@ -1330,6 +1335,23 @@ function mjHelp(force){
    <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input id="nohelp" type="checkbox" style="width:18px;height:18px"> Ne plus afficher à l'ouverture (le bouton ℹ️ reste disponible)</label></div>`,
    [{label:'Compris',cls:'pri',fn:()=>{const c=document.getElementById('nohelp');try{if(c&&c.checked)localStorage.setItem('fa2:nohelp','1');else if(!force)localStorage.removeItem('fa2:nohelp');}catch(e){}closeModal();}}]);
   document.getElementById('modal').classList.add('big');
+}
+
+/* ---- fiche d'une unité posée sur la carte (fenêtre contextuelle) ---- */
+function showUnitCard(t){
+  const a=getArmy(t.army);const u=a&&a.units.find(x=>x.uid===t.uid);
+  if(!u){openModal('Unité introuvable',`<div class="small">Cette unité n'est plus disponible dans les fiches.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
+  ensureBonuses(a);
+  const lg=a.legions.find(l=>l.id===t.legion);const q=u.q[t.legion];
+  const cols=COLS.filter(c=>c!=='B'&&c!=='A'&&cellRaw(u,c)!=null&&cellRaw(u,c)!=='');
+  const row=(lab,val)=>`<tr><th style="text-align:left;white-space:normal">${esc(lab)}</th><td style="text-align:right">${esc(val)}</td></tr>`;
+  let h=`<div class="small" style="margin-bottom:6px">${esc(a.name)}${lg?' · '+esc(legName(lg)):''}${t.owner?' · '+esc(t.owner):''}</div>`;
+  if(q)h+=`<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${q[0]}</b><span>quantité</span></div>${q[1]?`<div class="kpi"><b>${q[1]}</b><span>c</span></div>`:''}${q[2]?`<div class="kpi"><b>${q[2]}</b><span>E</span></div>`:''}${q[3]===q[3]&&q[3]!=null?`<div class="kpi"><b>${Math.round(q[3])}</b><span>points</span></div>`:''}</div>`;
+  h+='<div class="scroll" style="max-height:34vh"><table style="width:100%">'+cols.map(c=>row(LONG[c]||c,fnum(cellRaw(u,c)))).join('')+'</table></div>';
+  if(u.l2){const c2=['C','E'].filter(c=>u.l2.in_[c]!=null);if(c2.length)h+=`<div class="lbl2" style="margin-top:8px">2ᵉ attaque</div><table style="width:100%">${c2.map(c=>row(LONG[c]||c,fnum(u.l2.in_[c]))).join('')}</table>`;}
+  const act=a.bonuses.filter(b=>bonusOn(a,b.key));
+  h+=`<div class="lbl2" style="margin-top:10px">Bonus d'armée actifs</div>`+(act.length?`<div class="chips">${act.map(b=>`<span class="chip sm on" style="cursor:default">${esc(b.label)}</span>`).join('')}</div>`:'<div class="small">Aucun.</div>');
+  openModal(u.in_.B||'Unité',h,[{label:'Fermer',cls:'pri',fn:closeModal}]);
 }
 
 /* ===================== DÉMARRAGE ===================== */
@@ -1377,5 +1399,5 @@ function mjHelp(force){
 })();
 
 </script>
-</body>
+ </body>
 </html>
