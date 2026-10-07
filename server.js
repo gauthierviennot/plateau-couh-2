@@ -279,6 +279,42 @@ function sanitizePicks(raw) {
     return clean;
 }
 
+/* ------------------------------------------------------------------ */
+/* Débarquement : état persistant                                      */
+/* ------------------------------------------------------------------ */
+
+const LANDING_PHASES = ['off', 'zones', 'choose', 'place', 'locked'];
+const ZONE_ID = /^[a-z]$/;
+const TEAM_IDS = ['t1', 't2'];
+
+function defaultLanding() {
+    return { phase: 'off', zones: [], groups: {}, teamEntry: null, choices: {}, roster: {}, placed: {} };
+}
+
+// Reconstruit l'état depuis le disque en ne gardant que des valeurs bien formées.
+function normalizeLanding(raw) {
+    const out = defaultLanding();
+    if (!raw || typeof raw !== 'object') return out;
+    if (LANDING_PHASES.includes(raw.phase)) out.phase = raw.phase;
+    if (Array.isArray(raw.zones)) {
+        out.zones = raw.zones.slice(0, 26).filter((z) => z && ZONE_ID.test(z.id) && Array.isArray(z.tiles))
+            .map((z) => ({ id: z.id, tiles: z.tiles.filter((t) => /^\d{1,3},\d{1,3}$/.test(t)).slice(0, 400) }));
+    }
+    const ids = new Set(out.zones.map((z) => z.id));
+    for (const [z, g] of Object.entries(raw.groups || {})) if (ids.has(z) && (g === 'A' || g === 'B')) out.groups[z] = g;
+    if (raw.teamEntry && TEAM_IDS.every((t) => raw.teamEntry[t] === 'A' || raw.teamEntry[t] === 'B')) out.teamEntry = { t1: raw.teamEntry.t1, t2: raw.teamEntry.t2 };
+    for (const [name, z] of Object.entries(raw.choices || {})) if (name.length <= LIMITS.maxName && ids.has(z)) out.choices[name] = z;
+    for (const [name, list] of Object.entries(raw.roster || {}).slice(0, 200)) {
+        if (name.length > LIMITS.maxName || !Array.isArray(list)) continue;
+        out.roster[name] = list.slice(0, 80).filter((u) => u && typeof u.id === 'string' && u.id.length <= 120).map((u) => ({
+            id: u.id, name: String(u.name || '').slice(0, 60), qty: Number.isFinite(u.qty) ? u.qty : 1, dep: Number.isFinite(u.dep) ? u.dep : 0,
+            army: String(u.army || '').slice(0, 40), legion: String(u.legion || '').slice(0, 12), uid: String(u.uid || '').slice(0, 100)
+        }));
+    }
+    for (const [id, tile] of Object.entries(raw.placed || {}).slice(0, 4000)) if (typeof tile === 'string' && /^\d{1,3},\d{1,3}$/.test(tile)) out.placed[id] = tile;
+    return out;
+}
+
 function normalizeState(raw) {
     const config = sanitizeConfig(raw?.config) || { cols: 150, rows: 100 };
     return {
@@ -290,7 +326,8 @@ function normalizeState(raw) {
         fichesAccess: raw?.fichesAccess !== false, // les joueurs peuvent consulter toutes les fiches d'armée (le MJ peut le refuser)
         fichesFrozen: raw?.fichesFrozen === true, // légions choisies figées : les joueurs ne peuvent plus en changer
         fichesPicks: sanitizePicks(raw?.fichesPicks),
-        fichesTeams: sanitizeTeams(raw?.fichesTeams)
+        fichesTeams: sanitizeTeams(raw?.fichesTeams),
+        landing: normalizeLanding(raw?.landing)
     };
 }
 
@@ -942,6 +979,145 @@ async function applyFichesFile(file) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Débarquement                                                        */
+/* ------------------------------------------------------------------ */
+
+const ci = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+const keyOf = (obj, name) => Object.keys(obj).find((k) => ci(k, name)) ?? null;
+
+// Voisins d'une case (lignes impaires décalées vers la droite, comme le dessin de la carte).
+function hexNeighbors(col, row) {
+    const odd = row % 2 === 1;
+    const dirs = odd
+        ? [[1, 0], [-1, 0], [0, -1], [1, -1], [0, 1], [1, 1]]
+        : [[1, 0], [-1, 0], [-1, -1], [0, -1], [-1, 1], [0, 1]];
+    return dirs.map(([dc, dr]) => [col + dc, row + dr]);
+}
+
+// Zones de débarquement : groupes d'au moins 2 cases voisines portant un losange ou un triangle.
+function computeZones() {
+    const marked = new Set();
+    for (const [key, tile] of Object.entries(state.gridData)) {
+        if (!tile?.removed && (tile?.mark === 'diamond' || tile?.mark === 'triangle')) marked.add(key);
+    }
+    const seen = new Set();
+    const comps = [];
+    for (const start of marked) {
+        if (seen.has(start)) continue;
+        const comp = [];
+        const stack = [start];
+        seen.add(start);
+        while (stack.length) {
+            const key = stack.pop();
+            comp.push(key);
+            const [c, r] = key.split(',').map(Number);
+            for (const [nc, nr] of hexNeighbors(c, r)) {
+                const nk = `${nc},${nr}`;
+                if (marked.has(nk) && !seen.has(nk)) { seen.add(nk); stack.push(nk); }
+            }
+        }
+        if (comp.length >= 2) comps.push(comp);
+    }
+    const minOf = (comp) => comp.map((k) => k.split(',').map(Number)).reduce((m, [c, r]) => (r < m[1] || (r === m[1] && c < m[0]) ? [c, r] : m), [1e9, 1e9]);
+    comps.sort((a, b) => { const x = minOf(a); const y = minOf(b); return x[1] - y[1] || x[0] - y[0]; });
+    return comps.slice(0, 26).map((tiles, i) => ({ id: String.fromCharCode(97 + i), tiles: tiles.sort() }));
+}
+
+// Recalcule les zones en conservant le groupe des zones qui se recouvrent.
+function refreshZones() {
+    const L = state.landing;
+    const old = L.zones;
+    const next = computeZones();
+    const groups = {};
+    for (const z of next) {
+        const best = old.map((o) => ({ o, n: o.tiles.filter((t) => z.tiles.includes(t)).length })).sort((a, b) => b.n - a.n)[0];
+        if (best && best.n > 0 && L.groups[best.o.id]) groups[z.id] = L.groups[best.o.id];
+    }
+    L.zones = next;
+    L.groups = groups;
+    const ids = new Set(next.map((z) => z.id));
+    for (const [n, z] of Object.entries(L.choices)) if (!ids.has(z)) delete L.choices[n];
+}
+
+const unitKey = (armyId, u) => u.uid || `${armyId}-r${u.row}`;
+
+// Les unités d'un joueur : une ligne de sa légion = une unité sur la carte.
+function rosterFor(name) {
+    const pickKey = keyOf(state.fichesPicks, name);
+    if (!pickKey) return [];
+    const pick = state.fichesPicks[pickKey];
+    const army = fichesArmy(pick.army);
+    if (!army) return [];
+    return army.units.filter((u) => Array.isArray(u.q?.[pick.legion]) && u.q[pick.legion][0] > 0).map((u) => ({
+        id: `${name}|${unitKey(army.id, u)}`.slice(0, 120),
+        name: String(u.in_?.B || 'unité').slice(0, 60),
+        qty: u.q[pick.legion][0],
+        dep: Number.isFinite(Number(u.in_?.I)) ? Math.floor(Number(u.in_.I)) : 0,
+        army: army.id,
+        legion: pick.legion,
+        uid: unitKey(army.id, u)
+    }));
+}
+
+const teamOfName = (name) => {
+    const k = keyOf(state.fichesTeams.members, name);
+    return k ? state.fichesTeams.members[k] : null;
+};
+const groupOfTeam = (team) => state.landing.teamEntry?.[team] ?? null;
+const zoneById = (id) => state.landing.zones.find((z) => z.id === id);
+
+// Ce que chaque personne a le droit de voir : jamais les choix ni les unités de l'autre équipe avant le verrouillage.
+function landingViewFor(socket) {
+    const L = state.landing;
+    const name = socket.data.name;
+    const admin = Boolean(socket.data.isAdmin);
+    const base = { phase: L.phase, admin, teamNames: { ...state.fichesTeams.names } };
+    if (L.phase === 'off') return base;
+
+    const players = Object.keys(state.fichesTeams.members).filter((n) => state.fichesTeams.members[n]);
+    const teamOf = (n) => state.fichesTeams.members[keyOf(state.fichesTeams.members, n)];
+    const allUnits = [];
+    for (const [owner, list] of Object.entries(L.roster)) {
+        for (const u of list) allUnits.push({ ...u, owner, team: teamOf(owner) ?? null, tile: L.placed[u.id] ?? null });
+    }
+    const myTeam = name ? teamOfName(name) : null;
+    const myGroup = myTeam ? groupOfTeam(myTeam) : null;
+    const everything = admin || L.phase === 'locked';
+
+    const view = { ...base, myTeam, myGroup, teamEntry: everything ? L.teamEntry : (myTeam && myGroup ? { [myTeam]: myGroup } : null) };
+    if (admin && L.phase === 'zones') {
+        view.zones = L.zones.map((z) => ({ id: z.id, tiles: z.tiles, group: L.groups[z.id] ?? null }));
+        view.groupCount = { A: Object.values(L.groups).filter((g) => g === 'A').length, B: Object.values(L.groups).filter((g) => g === 'B').length };
+        return view;
+    }
+    if (L.phase === 'zones') return base;
+
+    // Zones visibles : toutes pour le MJ et après verrouillage, sinon uniquement celles de son équipe.
+    const visibleZones = L.zones.filter((z) => everything || (myGroup && L.groups[z.id] === myGroup));
+    view.zones = visibleZones.map((z) => ({ id: z.id, tiles: z.tiles, group: L.groups[z.id] ?? null }));
+    const visibleChoices = {};
+    for (const [n, z] of Object.entries(L.choices)) if (everything || (myTeam && teamOf(n) === myTeam)) visibleChoices[n] = z;
+    view.choices = visibleChoices;
+    view.myZone = name && keyOf(L.choices, name) ? L.choices[keyOf(L.choices, name)] : null;
+    if (L.phase === 'choose' || L.phase === 'place' || L.phase === 'locked') {
+        view.players = players.filter((n) => everything || teamOf(n) === myTeam).map((n) => ({
+            name: n, team: teamOf(n), pick: Boolean(keyOf(state.fichesPicks, n)), zone: L.choices[keyOf(L.choices, n) ?? ''] ?? null
+        }));
+    }
+    if (L.phase === 'place' || L.phase === 'locked') {
+        view.units = allUnits.filter((u) => everything || (myTeam && u.team === myTeam));
+        view.progress = admin ? players.map((n) => ({ name: n, team: teamOf(n), total: (L.roster[n] || []).length, placed: (L.roster[n] || []).filter((u) => L.placed[u.id]).length })) : undefined;
+    }
+    return view;
+}
+
+function emitLanding() {
+    for (const s of io.sockets.sockets.values()) {
+        if (s.data?.name) s.emit('landing', landingViewFor(s));
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* Serveur HTTP + Socket.IO                                            */
 /* ------------------------------------------------------------------ */
 
@@ -1106,6 +1282,7 @@ io.on('connection', (socket) => {
         isLocked: state.isLocked,
         fichesAccess: state.fichesAccess,
         fichesFrozen: state.fichesFrozen,
+        landing: landingViewFor(socket),
         fichesPickLabels: fichesPickLabels(),
         backgroundVersion: background?.version ?? 0
     });
@@ -1276,6 +1453,7 @@ io.on('connection', (socket) => {
         await createAutoBackup('nouvelle carte', socket.data.name);
         state.config = config;
         state.gridData = {}; // toutes les cases redeviennent des plaines
+        state.landing = defaultLanding();
         histories.clear();
         rebuildContributors();
         broadcastUsers();
@@ -1582,6 +1760,131 @@ io.on('connection', (socket) => {
         reply(ack, { success: true, message: 'Fichier importé : retrouvez-le dans la liste des sauvegardes.' });
     }));
 
+    /* ---------- Débarquement ---------- */
+
+    const landingFail = (ack, message) => reply(ack, { success: false, message });
+    const landingOk = (ack, extra = {}) => { scheduleSave(); emitLanding(); reply(ack, { success: true, ...extra }); };
+
+    // Le MJ lance le débarquement : les zones sont détectées à partir des losanges et triangles.
+    socket.on('landing-start', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        state.landing = defaultLanding();
+        refreshZones();
+        if (!state.landing.zones.length) { state.landing = defaultLanding(); return landingFail(ack, 'Aucune zone : placez au moins 2 losanges (ou triangles) sur des tuiles voisines.'); }
+        state.landing.phase = 'zones';
+        landingOk(ack, { zones: state.landing.zones.length });
+    });
+
+    socket.on('landing-refresh', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        if (state.landing.phase !== 'zones') return landingFail(ack, 'Les zones ne peuvent être recalculées qu’au début.');
+        refreshZones();
+        if (!state.landing.zones.length) return landingFail(ack, 'Aucune zone détectée.');
+        landingOk(ack);
+    });
+
+    // Rattache une zone aux « entrées A », aux « entrées B » ou à aucune.
+    socket.on('landing-group', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase !== 'zones') return landingFail(ack, 'Les groupes se choisissent avant l’affectation des équipes.');
+        const id = String(payload?.zone ?? '');
+        if (!zoneById(id)) return landingFail(ack, 'Zone inconnue.');
+        if (payload?.group === 'A' || payload?.group === 'B') L.groups[id] = payload.group; else delete L.groups[id];
+        landingOk(ack);
+    });
+
+    // Affecte chaque équipe à un groupe d'entrées ; les joueurs peuvent ensuite choisir leur zone.
+    socket.on('landing-teams', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase !== 'zones' && L.phase !== 'choose') return landingFail(ack, 'Étape incorrecte.');
+        const hasA = Object.values(L.groups).includes('A');
+        const hasB = Object.values(L.groups).includes('B');
+        if (!hasA || !hasB) return landingFail(ack, 'Il faut au moins une zone dans les entrées A et une dans les entrées B.');
+        const a = payload?.A;
+        if (!TEAM_IDS.includes(a)) return landingFail(ack, 'Équipe invalide.');
+        L.teamEntry = a === 't1' ? { t1: 'A', t2: 'B' } : { t1: 'B', t2: 'A' };
+        L.phase = 'choose';
+        landingOk(ack);
+    });
+
+    // Un joueur choisit sa zone parmi celles de son équipe.
+    socket.on('landing-choose', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'choose') return landingFail(ack, 'Les choix de zone ne sont pas ouverts.');
+        const team = teamOfName(name);
+        if (!team) return landingFail(ack, 'Vous n’êtes dans aucune équipe.');
+        if (!keyOf(state.fichesPicks, name)) return landingFail(ack, 'Choisissez d’abord une légion.');
+        const id = String(payload?.zone ?? '');
+        const zone = zoneById(id);
+        if (!zone || L.groups[id] !== groupOfTeam(team)) return landingFail(ack, 'Cette zone n’est pas accessible à votre équipe.');
+        const old = keyOf(L.choices, name);
+        if (old) delete L.choices[old];
+        L.choices[name] = id;
+        landingOk(ack);
+    });
+
+    // Le MJ fige les affectations : chaque joueur reçoit les unités de sa légion à déposer.
+    socket.on('landing-freeze', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase !== 'choose') return landingFail(ack, 'Étape incorrecte.');
+        const players = Object.keys(state.fichesTeams.members).filter((n) => state.fichesTeams.members[n]);
+        const missing = players.filter((n) => !keyOf(L.choices, n));
+        if (missing.length && !payload?.force) return reply(ack, { success: false, code: 'missing', missing, message: `${missing.length} joueur(s) n’ont pas choisi de zone.` });
+        L.roster = {};
+        for (const n of players) if (keyOf(L.choices, n)) L.roster[n] = rosterFor(n);
+        L.placed = {};
+        L.phase = 'place';
+        landingOk(ack);
+    });
+
+    // Un joueur dépose (ou déplace) une unité sur une tuile de sa zone.
+    socket.on('landing-place', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'place') return landingFail(ack, 'Le dépôt des unités n’est pas ouvert.');
+        const ownerKey = keyOf(L.roster, name);
+        const unit = ownerKey && L.roster[ownerKey].find((u) => u.id === payload?.unit);
+        if (!unit) return landingFail(ack, 'Unité inconnue.');
+        if (payload?.tile == null) { delete L.placed[unit.id]; return landingOk(ack); }
+        const zone = zoneById(L.choices[keyOf(L.choices, name) ?? ''] ?? '');
+        const tile = String(payload.tile);
+        if (!zone || !zone.tiles.includes(tile)) return landingFail(ack, 'Cette tuile n’appartient pas à votre zone de débarquement.');
+        L.placed[unit.id] = tile;
+        landingOk(ack);
+    });
+
+    // Le MJ verrouille les placements : tout le monde voit alors toutes les unités.
+    socket.on('landing-lock', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase !== 'place') return landingFail(ack, 'Étape incorrecte.');
+        const left = Object.values(L.roster).flat().filter((u) => !L.placed[u.id]).length;
+        if (left && !payload?.force) return reply(ack, { success: false, code: 'missing', left, message: `${left} unité(s) ne sont pas encore placées.` });
+        L.phase = 'locked';
+        landingOk(ack);
+    });
+
+    // Retour à une étape précédente (les données déjà saisies sont conservées) ou arrêt complet.
+    socket.on('landing-goto', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        const target = payload?.phase;
+        if (target === 'off') { state.landing = defaultLanding(); return landingOk(ack); }
+        const order = ['zones', 'choose', 'place', 'locked'];
+        if (!order.includes(target) || order.indexOf(target) > order.indexOf(L.phase)) return landingFail(ack, 'Étape invalide.');
+        if (target === 'zones') { L.teamEntry = null; L.choices = {}; L.roster = {}; L.placed = {}; }
+        if (target === 'choose') { L.roster = {}; L.placed = {}; }
+        if (target === 'place') { /* les unités restent placées */ }
+        L.phase = target;
+        landingOk(ack);
+    });
+
     /* ---------- Protection de ses propres modifications ---------- */
 
     // Activer / désactiver : les autres joueurs doivent-ils confirmer avant de modifier mes tuiles ?
@@ -1682,6 +1985,7 @@ io.on('connection', (socket) => {
 
         state.config = config;
         state.gridData = gridData;
+        state.landing = defaultLanding();
         histories.clear();
         rebuildContributors();
         broadcastUsers();
