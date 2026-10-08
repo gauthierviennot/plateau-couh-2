@@ -123,6 +123,7 @@ td.name{z-index:3}
 #modal.min .sb,#modal.min .sf{display:none}#modal.min .sh{margin-bottom:0}
 #modal.fsc .sheet{max-width:none;width:100%;height:100%;max-height:100%;border-radius:0}
 .scroll{max-height:72vh}
+.parmy{margin:2px 0 4px}
 </style>
  </head>
  <body>
@@ -946,6 +947,7 @@ function onClick2(e){
     case 'fam-scan':if(isMJ())scanDuplicates();break;
     case 'newsec':if(ED())addSection();break;
     case 'diag':if(isMJ())runDiag();break;
+    case 'unit-std':{const t=S.uc;if(!t||!t.id)break;hostReq('landing-standard',{unit:t.id,on:!t.std}).then(r=>{if(!r.success)return toast(r.message||'Action impossible.');t.std=!t.std;t.stdUsed+=t.std?1:-1;const b=document.getElementById('stdBox');if(b)b.innerHTML=stdBoxHtml();toast(t.std?'Étendard attribué.':'Étendard retiré.');});break;}
     case 'snap-save':case 'snap-over':case 'snap-load':case 'snap-ren':case 'snap-del':case 'snap-export':case 'snap-exp':case 'snap-import':if(isMJ())snapAction(a,el);break;
     case 'ft-open':openFamEditor(el.dataset.fam);break;
     case 'fam-dup':if(isMJ())famDuplicate(el.dataset.fam);break;
@@ -1200,12 +1202,13 @@ function legSelect(name){
 }
 function playerCard(n){
   const on=(S.online||[]).includes(n);
-  return `<div class="pcard" data-name="${esc(n)}"><span class="grip" data-grip="1" title="Faire glisser vers une équipe">⠿</span><div class="pbody"><div class="pname">${on?'<span class="dot" title="connecté"></span>':''}${esc(n)}</div>${legSelect(n)}</div><div class="pbtn"><button class="mini" data-a="pl-ren" data-name="${esc(n)}" title="Renommer">✎</button><button class="mini" data-a="pl-del" data-name="${esc(n)}" title="Supprimer">✕</button></div></div>`;
+  return `<div class="pcard" data-name="${esc(n)}"><span class="grip" data-grip="1" title="Faire glisser vers une équipe">⠿</span><div class="pbody"><div class="pname">${on?'<span class="dot" title="connecté"></span>':''}${esc(n)}</div><div class="small parmy">${armyOf(n)}</div>${legSelect(n)}</div><div class="pbtn"><button class="mini" data-a="pl-ren" data-name="${esc(n)}" title="Renommer">✎</button><button class="mini" data-a="pl-del" data-name="${esc(n)}" title="Supprimer">✕</button></div></div>`;
 }
+function armyOf(n){const p=(S.picks||{})[n];const a=p&&getArmy(p.army);return a?`⚔️ Armée : <b>${esc(a.name)}</b>`:'<i>pas d\'armée choisie</i>';}
 function legLabelOf(n){const p=(S.picks||{})[n];if(!p)return '';const a=getArmy(p.army);const l=a&&a.legions.find(x=>x.id===p.legion);return l?`${a.name} · ${legName(l)}`:'';}
 function teamCardRO(n){
   const on=(S.online||[]).includes(n);const p=(S.picks||{})[n];const lab=legLabelOf(n);
-  return `<div class="pcard"><div class="pbody"><div class="pname">${on?'<span class="dot" title="connecté"></span>':''}${esc(n)}${isMe(n)?' <span class="small">(moi)</span>':''}</div>${lab?`<button class="chip sm" data-a="openpick" data-army="${esc(p.army)}" data-leg="${esc(p.legion)}">${esc(lab)}</button>`:'<div class="small">pas de légion</div>'}</div></div>`;
+  return `<div class="pcard"><div class="pbody"><div class="pname">${on?'<span class="dot" title="connecté"></span>':''}${esc(n)}${isMe(n)?' <span class="small">(moi)</span>':''}</div><div class="small parmy">${armyOf(n)}</div>${lab?`<button class="chip sm" data-a="openpick" data-army="${esc(p.army)}" data-leg="${esc(p.legion)}">${esc(lab)}</button>`:'<div class="small">pas de légion</div>'}</div></div>`;
 }
 function renderTeamsRO(){
   const t=S.teams||{names:{t1:'Équipe 1',t2:'Équipe 2'},members:{}};const names=allNames();
@@ -1338,20 +1341,31 @@ function mjHelp(force){
 }
 
 /* ---- fiche d'une unité posée sur la carte (fenêtre contextuelle) ---- */
+const CARD_HIDE=new Set(['S','F','J','L','M','Q','R','X']); // résultats intermédiaires : masqués dans la fiche d'une unité
 function showUnitCard(t){
   const a=getArmy(t.army);const u=a&&a.units.find(x=>x.uid===t.uid);
   if(!u){openModal('Unité introuvable',`<div class="small">Cette unité n'est plus disponible dans les fiches.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
-  ensureBonuses(a);
+  ensureBonuses(a);S.uc=Object.assign({},t);
   const lg=a.legions.find(l=>l.id===t.legion);const q=u.q[t.legion];
-  const cols=COLS.filter(c=>c!=='B'&&c!=='A'&&cellRaw(u,c)!=null&&cellRaw(u,c)!=='');
+  const cols=COLS.filter(c=>c!=='B'&&c!=='A'&&!CARD_HIDE.has(c)&&cellRaw(u,c)!=null&&cellRaw(u,c)!=='');
   const row=(lab,val)=>`<tr><th style="text-align:left;white-space:normal">${esc(lab)}</th><td style="text-align:right">${esc(val)}</td></tr>`;
   let h=`<div class="small" style="margin-bottom:6px">${esc(a.name)}${lg?' · '+esc(legName(lg)):''}${t.owner?' · '+esc(t.owner):''}</div>`;
-  if(q)h+=`<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${q[0]}</b><span>quantité</span></div>${q[1]?`<div class="kpi"><b>${q[1]}</b><span>c</span></div>`:''}${q[2]?`<div class="kpi"><b>${q[2]}</b><span>E</span></div>`:''}${q[3]===q[3]&&q[3]!=null?`<div class="kpi"><b>${Math.round(q[3])}</b><span>points</span></div>`:''}</div>`;
-  h+='<div class="scroll" style="max-height:34vh"><table style="width:100%">'+cols.map(c=>row(LONG[c]||c,fnum(cellRaw(u,c)))).join('')+'</table></div>';
+  if(q)h+=`<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${q[0]}</b><span>unités (nb)</span></div>${q[1]?`<div class="kpi"><b>${q[1]}</b><span>c</span></div>`:''}${q[2]?`<div class="kpi"><b>${q[2]}</b><span>E · étendards</span></div>`:''}${q[3]===q[3]&&q[3]!=null?`<div class="kpi"><b>${Math.round(q[3])}</b><span>valeur de la ligne</span></div>`:''}</div>`;
+  h+='<div class="scroll" style="max-height:34vh"><table style="width:100%">'+cols.map(c=>row(c==='W'?'Valeur de la figurine (avec tous les bonus)':(LONG[c]||c),fnum(cellRaw(u,c)))).join('')+'</table></div>';
   if(u.l2){const c2=['C','E'].filter(c=>u.l2.in_[c]!=null);if(c2.length)h+=`<div class="lbl2" style="margin-top:8px">2ᵉ attaque</div><table style="width:100%">${c2.map(c=>row(LONG[c]||c,fnum(u.l2.in_[c]))).join('')}</table>`;}
   const act=a.bonuses.filter(b=>bonusOn(a,b.key));
   h+=`<div class="lbl2" style="margin-top:10px">Bonus d'armée actifs</div>`+(act.length?`<div class="chips">${act.map(b=>`<span class="chip sm on" style="cursor:default">${esc(b.label)}</span>`).join('')}</div>`:'<div class="small">Aucun.</div>');
+  if(t.id&&(t.stdMax>0||t.canEdit))h+=`<div class="lbl2" style="margin-top:10px">Étendards de la ligne</div><div id="stdBox">${stdBoxHtml()}</div>`;
   openModal(u.in_.B||'Unité',h,[{label:'Fermer',cls:'pri',fn:closeModal}]);
+}
+function stdBoxHtml(){
+  const t=S.uc;if(!t)return '';
+  const full=!t.std&&t.stdUsed>=t.stdMax;
+  let h=`<div class="small">Utilisés : <b>${t.stdUsed}</b> / ${t.stdMax} (colonne E de la ligne)</div>`;
+  if(t.canEdit)h+=`<div class="row" style="margin:6px 0 0"><button class="btn ${t.std?'':'pri'}" data-a="unit-std" ${full?'disabled':''}>${t.std?'⚑ Retirer l\'étendard de cette unité':'⚑ Attribuer un étendard à cette unité'}</button></div>${full?'<div class="small">Tous les étendards de cette ligne sont attribués.</div>':''}`;
+  else if(t.std)h+='<div class="small">Cette unité porte un étendard.</div>';
+  else if(!t.stdMax)h+='<div class="small">Cette ligne n\'a pas d\'étendard.</div>';
+  return h;
 }
 
 /* ===================== DÉMARRAGE ===================== */
