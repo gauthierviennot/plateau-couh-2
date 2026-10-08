@@ -215,6 +215,19 @@
         .ub-chip.done { opacity: .6; }
         .land-ghost { position: fixed; z-index: 400; transform: translate(-50%, -50%); background: #fff; border: 3px solid #555; border-radius: 10px; padding: 6px 10px; font: 700 .85rem system-ui, sans-serif; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
         [data-land="toggle"].on { box-shadow: 0 0 0 3px #1f78ff inset; }
+        .range-info { position: fixed; top: calc(8px + var(--safe-top)); left: 50%; transform: translateX(-50%); z-index: 92; background: rgba(255,255,255,.97); border-radius: 12px; padding: 8px 12px; box-shadow: 0 4px 18px rgba(0,0,0,.35); font-size: .82rem; text-align: center; max-width: 92vw; }
+        .range-info[hidden] { display: none; }
+        .range-info small { display: block; color: #555; margin-top: 2px; }
+        #landDock { position: fixed; left: calc(8px + var(--safe-left)); top: calc(112px + var(--safe-top)); z-index: 80; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+        #landDock .dk { width: 44px; height: 44px; border-radius: 50%; border: 1px solid #bbb; background: #fff; font-size: 1.15rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+        #landDock .dk[hidden], #landDock [hidden] { display: none; }
+        #landPhaseLbl { background: rgba(255,255,255,.95); border-radius: 8px; padding: 2px 8px; font-size: .7rem; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+        .lp-list { margin: 6px 0; padding-left: 18px; line-height: 1.45; font-size: .88rem; }
+        .lp-chk { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-size: .85rem; }
+        .lp-chk input { width: 18px; height: 18px; }
+        .ub-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .ub-b { border: 1px solid #ccc; background: #f4f4f4; border-radius: 8px; padding: 3px 8px; margin-left: 3px; font-size: .75rem; cursor: pointer; }
+        .ub-b.on { background: #222; color: #fff; border-color: #222; }
         .fiches-admin { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
         .fiches-admin [hidden] { display: none; }
         .obj-option.fiche-btn { font-size: 1.15rem; background: #fff7e0; }
@@ -276,7 +289,7 @@
      </div>
     </div>
     <div class="section-title">Couleurs des terrains</div>
-    <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain. Les objets se posent sur le terrain : forêt, tours fortes, murs de fortification, maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
+    <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain. Les objets se posent sur le terrain : forêt, fortifications (une ou deux entrées), maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
     <div id="terrainContainer" class="terrain-palette"></div>
     <div class="section-title">Image de fond de la page de connexion</div>
     <p class="hint">Elle sera visible par tous les joueurs sur la première page.</p>
@@ -373,6 +386,7 @@
     <div class="map-actions-top">
      <button id="btnExportMapNow" class="btn btn-dark" title="Télécharger la carte en cours sur cet appareil">⬇️ Exporter la carte en cours</button>
      <button id="btnImportMap" class="btn btn-dark" title="Ajouter une carte depuis un fichier de cet appareil">⬆️ Importer une carte</button>
+     <button id="btnExportGame" class="btn btn-dark" title="Télécharger le jeu complet à lancer sur un PC ou un téléphone, sans internet">📦 Exporter le jeu complet (serveur local)</button>
      <input type="file" id="importMapFile" accept=".json,application/json" hidden>
     </div>
     <div class="map-save">
@@ -406,7 +420,7 @@
     <h3>Gestes sur la carte</h3>
     <ul class="help-list">
      <li><strong>Appui long sur la carte</strong> en mode déplacer : les sélecteurs se déplient et le mode peindre s'active. Un nouvel appui long en mode peindre les replie et ramène au mode déplacer.</li>
-     <li><strong>Double toucher</strong> sur un objet orienté (pont, muret, mur de fortification), en mode déplacer ou peindre : il pivote d'un sixième de tour et le mode peindre s'active.</li>
+     <li><strong>Double toucher</strong> sur un objet orienté (pont, muret, fortification), en mode déplacer ou peindre : il pivote d'un sixième de tour et le mode peindre s'active.</li>
      <li><strong>Appui long sur un sélecteur</strong>, puis glisser : le poser où vous voulez sur un bord de l'écran.</li>
      <li><strong>Annuler / rétablir</strong> forment un sélecteur à part, qui se déplie avec les sélecteurs de peinture. Le bouclier est vert à l'ouverture de la carte : les autres doivent confirmer pour modifier vos tuiles.</li>
     </ul>
@@ -419,6 +433,7 @@
   <div id="pickTip" class="palette-tooltip" hidden></div>
   <div id="landingPanel" class="landing-panel" hidden></div>
   <div id="unitBar" class="unit-bar" hidden></div>
+  <div id="rangeInfo" class="range-info" hidden></div>
   <div id="landingModal" class="modal-overlay" hidden>
    <div class="modal-content">
     <h3 id="landingModalTitle"></h3>
@@ -456,7 +471,7 @@
         /* Catalogue des terrains, objets et marqueurs                   */
         /* ============================================================ */
 
-        const GROUND = ['plain', 'hill'];
+        const GROUND = ['plain', 'hill', 'swamp'];
 
         // Les noms et les règles sont fixes ; seule la couleur d'un terrain est modifiable par le MJ.
         const TERRAINS = [
@@ -468,15 +483,15 @@
             { id: 'swamp', label: 'Marécage', color: '#6f9070' }
         ];
 
-        // turns : 1 = aucune orientation, 3 = bidirectionnel (pont, muret), 6 = une seule direction.
+        // turns : 1 = aucune orientation, 3 = bidirectionnel (pont, muret, fortification à deux entrées), 6 = une seule direction.
         const OBJECTS = [
-            { id: 'forest', label: 'Forêt', hint: 'plaine ou colline', turns: 1, on: GROUND },
+            { id: 'forest', label: 'Forêt', hint: 'plaine, colline ou marécage', turns: 1, on: GROUND },
             { id: 'bridge', label: 'Pont', hint: 'eau uniquement · double toucher pour pivoter', turns: 3, on: ['water'] },
-            { id: 'fortress', label: 'Tour forte', hint: 'plaine ou colline', turns: 1, on: GROUND },
-            { id: 'fortress-half', label: 'Mur de fortification', hint: 'plaine ou colline · double toucher pour pivoter', turns: 6, on: GROUND },
-            { id: 'village', label: 'Maison de village', hint: 'plaine ou colline', turns: 1, on: GROUND },
-            { id: 'village-flat', label: 'Maison à toit plat', hint: 'plaine ou colline', turns: 1, on: GROUND },
-            { id: 'wall', label: 'Muret', hint: 'plaine ou colline · double toucher pour pivoter', turns: 3, on: GROUND }
+            { id: 'fortress', label: 'Fortification une entrée', hint: 'plaine, colline ou marécage · double toucher pour pivoter', turns: 6, on: GROUND },
+            { id: 'fortress-half', label: 'Fortification deux entrées', hint: 'plaine, colline ou marécage · double toucher pour pivoter', turns: 3, on: GROUND },
+            { id: 'village', label: 'Maison de village', hint: 'plaine, colline ou marécage', turns: 1, on: GROUND },
+            { id: 'village-flat', label: 'Maison à toit plat', hint: 'plaine, colline ou marécage', turns: 1, on: GROUND },
+            { id: 'wall', label: 'Muret', hint: 'plaine, colline ou marécage · double toucher pour pivoter', turns: 3, on: GROUND }
         ];
 
         // Marqueurs du MJ : toujours rouges et pleins.
@@ -1021,9 +1036,9 @@
             }
         }
 
-        // Tour forte (créneaux sur les 6 côtés) ou mur de fortification (créneaux sur 2 côtés adjacents).
-        // crenelEdges = numéros des côtés crénelés (côté i : milieu à i × 60°).
-        function drawFortress(c, u, crenelEdges) {
+        // Fortification : créneaux sur les 6 côtés, sauf aux entrées (une porte est dessinée sur le côté concerné).
+        // entrances = numéros des côtés percés d'une porte (côté i : milieu à i × 60°).
+        function drawFortress(c, u, entrances) {
             const radius = u * 1.1;
             c.lineJoin = 'round';
             hexPath(c, radius);
@@ -1038,9 +1053,10 @@
             c.lineWidth = u * 0.06;
             c.stroke();
 
-            c.fillStyle = '#3d3d3d';
             const size = u * 0.26;
-            for (const edge of crenelEdges) {
+            for (let edge = 0; edge < 6; edge++) {
+                if (entrances.includes(edge)) continue;
+                c.fillStyle = '#3d3d3d';
                 const a1 = rad(60 * edge - 30);
                 const a2 = rad(60 * (edge + 1) - 30);
                 for (const t of [0.2, 0.5, 0.8]) {
@@ -1052,6 +1068,26 @@
                     c.fillRect(-size / 2, -size / 2, size, size);
                     c.restore();
                 }
+            }
+            // Portes : ouverture dans le mur d'enceinte, du cœur de la fortification jusqu'au bord.
+            for (const edge of entrances) {
+                const apothem = radius * Math.cos(rad(30));
+                const inner = u * 0.55 * Math.cos(rad(30));
+                const depth = apothem - inner + u * 0.06;
+                const width = u * 0.62;
+                c.save();
+                c.rotate(rad(60 * edge));
+                c.translate((apothem + inner) / 2, 0);
+                c.fillStyle = '#6b4a2b';
+                c.fillRect(-depth / 2, -width / 2, depth, width);
+                c.strokeStyle = '#2b1b0c';
+                c.lineWidth = u * 0.05;
+                c.strokeRect(-depth / 2, -width / 2, depth, width);
+                c.beginPath();
+                c.moveTo(-depth / 2, 0);
+                c.lineTo(depth / 2, 0);
+                c.stroke();
+                c.restore();
             }
         }
 
@@ -1148,11 +1184,12 @@
                     drawVillage(c, u, true);
                     break;
                 case 'fortress':
-                    drawFortress(c, u, [0, 1, 2, 3, 4, 5]);
+                    c.rotate(rad(60 * dir));
+                    drawFortress(c, u, [0]);
                     break;
                 case 'fortress-half':
                     c.rotate(rad(60 * dir));
-                    drawFortress(c, u, [0, 1]);
+                    drawFortress(c, u, [0, 3]);
                     break;
                 case 'bridge':
                     c.rotate(rad(60 * dir));
@@ -1495,6 +1532,26 @@
         }
 
         $('btnExportMapNow').addEventListener('click', () => exportMapFile(null));
+        $('btnExportGame').addEventListener('click', async () => {
+            toast('Préparation du jeu complet…');
+            const res = await request('export-package', {}, 120000);
+            if (!res.success) return toast(res.message || 'Export impossible.', true);
+            const bytes = Uint8Array.from(atob(res.data), (c) => c.charCodeAt(0));
+            const blob = new Blob([bytes], { type: 'application/zip' });
+            const file = new File([blob], res.name, { type: 'application/zip' });
+            try {
+                if (navigator.canShare?.({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+                    await navigator.share({ files: [file], title: res.name });
+                    return toast('Jeu exporté. Lisez LISEZMOI.txt dans le dossier.');
+                }
+            } catch (err) { if (err?.name === 'AbortError') return; }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = res.name;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 8000);
+            toast(`Jeu exporté (${Math.round(res.size / 1024)} Ko). Lisez LISEZMOI.txt dans le dossier.`);
+        });
         $('btnImportMap').addEventListener('click', () => { $('importMapFile').value = ''; $('importMapFile').click(); });
         $('importMapFile').addEventListener('change', async () => {
             const f = $('importMapFile').files?.[0];
@@ -2848,14 +2905,35 @@
         /* Débarquement : zones, choix, dépôt des unités                  */
         /* ============================================================ */
 
-        const LAND = { view: { phase: 'off' }, open: false, hover: null, preview: null, hits: [], press: null, drag: null, lastTap: null, tap: null, prevPhase: 'off' };
+        const LAND = { view: { phase: 'off' }, units: [], batch: 1, noticed: new Set(), open: false, hover: null, preview: null, hits: [], press: null, drag: null, lastTap: null, tap: null, prevPhase: 'off' };
         const TEAM_COL = { t1: '#8e24aa', t2: '#00897b' };
         const GROUP_COL = { A: '#1f78ff', B: '#ff9800' };
         const ciEq = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
         const landOn = () => LAND.view.phase !== 'off';
         const landEmit = (event, payload) => request(event, payload).then((r) => { if (!r.success && r.message && r.code !== 'missing') toast(r.message, true); return r; });
         const teamName = (t) => LAND.view.teamNames?.[t] || (t === 't1' ? 'Équipe 1' : 'Équipe 2');
-        const myUnits = () => (LAND.view.units || []).filter((u) => ciEq(u.owner, state.username));
+        const myUnits = () => LAND.units.filter((u) => ciEq(u.owner, state.username));
+
+        // Une ligne de légion de nb = 39 donne 39 unités individuelles : ids stables « joueur|ligne#numéro ».
+        function buildUnits(v) {
+            const placed = v.placed || {};
+            const std = new Set(v.std || []);
+            const out = [];
+            for (const l of v.lines || []) {
+                for (let i = 1; i <= l.qty; i++) {
+                    const id = `${l.owner}|${l.uid}#${i}`;
+                    out.push({ id, owner: l.owner, team: l.team, name: l.name, line: `${l.owner}|${l.uid}`, uid: l.uid, army: l.army, legion: l.legion, dep: l.dep, stdMax: l.stdMax, tile: placed[id] ?? null, std: std.has(id) });
+                }
+            }
+            return out;
+        }
+
+        function hexDist(a, b) {
+            const cube = ([c, r]) => { const x = c - (r - (r & 1)) / 2; return [x, -x - r, r]; };
+            const [x1, y1, z1] = cube(keyToHex(a));
+            const [x2, y2, z2] = cube(keyToHex(b));
+            return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
+        }
         const canMove = () => LAND.view.phase === 'place';
 
         function landNeighbors(col, row) {
@@ -2895,13 +2973,39 @@
         const keyToHex = (key) => key.split(',').map(Number);
         const shortName = (t, n = 13) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 
-        // Portée de déplacement : le tableau des cases où l'unité peut s'arrêter et celles qu'elle ne peut que traverser.
+        // Frontières : marqueurs disque et triangle (hors zones de débarquement). Deux marqueurs alignés horizontalement ou
+        // verticalement et séparés par une tuile forment un segment : les tuiles du passage sont elles aussi infranchissables.
+        function limitInfo() {
+            const zoneTiles = new Set((LAND.view.zones || []).flatMap((z) => z.tiles));
+            const markers = [];
+            for (const [key, tile] of Object.entries(state.gridData)) {
+                if (tile?.removed) continue;
+                if (tile?.mark === 'disc' || (tile?.mark === 'triangle' && !zoneTiles.has(key))) markers.push(key);
+            }
+            const set = new Set(markers);
+            const blocked = new Set(markers);
+            for (const key of markers) {
+                const [c, r] = keyToHex(key);
+                if (set.has(`${c + 2},${r}`)) blocked.add(`${c + 1},${r}`);
+                if (set.has(`${c},${r + 2}`)) {
+                    const lower = new Set(landNeighbors(c, r + 2).map(([x, y]) => `${x},${y}`));
+                    for (const [x, y] of landNeighbors(c, r)) if (lower.has(`${x},${y}`)) blocked.add(`${x},${y}`);
+                }
+            }
+            return { markers, blocked };
+        }
+
+        // Portée de déplacement : dep + 2 tuiles supplémentaires (3 si la frontière la plus proche est à plus de 7 tuiles).
         function computeRange(unit) {
-            const dep = Math.max(0, Math.floor(unit.dep || 0));
-            const [sc, sr] = keyToHex(unit.tile);
-            const blocked = (tile) => Boolean(tile?.removed) || tile?.mark === 'disc';
-            const canEnd = (tile) => {
-                if (blocked(tile)) return false;
+            const base = Math.max(0, Math.floor(unit.dep || 0));
+            const { markers, blocked: limits } = limitInfo();
+            let nearest = null;
+            for (const m of markers) { const d = hexDist(unit.tile, m); if (nearest === null || d < nearest) nearest = d; }
+            const extra = base > 0 ? (nearest !== null && nearest > 7 ? 3 : 2) : 0;
+            const total = base + extra;
+            const blockedTile = (key) => limits.has(key) || Boolean(state.gridData[key]?.removed);
+            const canEnd = (key) => {
+                const tile = state.gridData[key];
                 const terrain = tile?.terrain ?? 'plain';
                 if (terrain === 'mountain') return false;
                 if (terrain === 'water') return unit.army === 'saurus' || tile?.object === 'bridge';
@@ -2909,14 +3013,14 @@
             };
             const dist = new Map([[unit.tile, 0]]);
             let frontier = [unit.tile];
-            for (let step = 1; step <= dep; step++) {
+            for (let step = 1; step <= total; step++) {
                 const next = [];
                 for (const key of frontier) {
                     const [c0, r0] = keyToHex(key);
                     for (const [nc, nr] of landNeighbors(c0, r0)) {
                         if (nc < 0 || nr < 0 || nc >= state.cols || nr >= state.rows) continue;
                         const nk = `${nc},${nr}`;
-                        if (dist.has(nk) || blocked(state.gridData[nk])) continue; // un marqueur « . » ne peut être ni atteint ni traversé
+                        if (dist.has(nk) || blockedTile(nk)) continue; // une frontière ne s'atteint ni ne se traverse
                         dist.set(nk, step);
                         next.push(nk);
                     }
@@ -2927,9 +3031,9 @@
             const pass = [];
             for (const [key] of dist) {
                 if (key === unit.tile) continue;
-                (canEnd(state.gridData[key]) ? end : pass).push(key);
+                (canEnd(key) ? end : pass).push(key);
             }
-            return { dep, start: unit.tile, end, pass, sc, sr };
+            return { dep: base, extra, total, nearest, start: unit.tile, end, pass };
         }
 
         function drawLanding(c) {
@@ -3025,28 +3129,38 @@
                 c.stroke();
             }
 
-            // Unités posées : une pastille par unité ; plusieurs unités sur une tuile sont listées à côté avec une flèche.
+            // Unités posées : une pastille par ligne et par tuile (« inf lourde ×12 ») ; plusieurs lignes sur une tuile
+            // sont listées à côté avec une flèche qui indique la tuile à laquelle elles s'attachent.
             const byTile = new Map();
-            for (const u of v.units || []) {
+            for (const u of LAND.units) {
                 if (!u.tile) continue;
-                if (!byTile.has(u.tile)) byTile.set(u.tile, []);
-                byTile.get(u.tile).push(u);
+                if (!byTile.has(u.tile)) byTile.set(u.tile, new Map());
+                const lines = byTile.get(u.tile);
+                if (!lines.has(u.line)) lines.set(u.line, []);
+                lines.get(u.line).push(u);
             }
+            const dragSet = LAND.drag ? new Set(LAND.drag.units) : null;
             // Les pastilles gardent une taille lisible même quand la carte est très dézoomée.
             const boost = Math.max(1, 17 / (R * 0.62 * view.scale));
             const chipH = R * 0.62 * boost;
             const unitW = R * 1.9 * boost;
-            for (const [key, list] of byTile) {
+            for (const [key, linesMap] of byTile) {
+                const groups = [...linesMap.values()].sort((a, b) => a[0].owner.localeCompare(b[0].owner) || a[0].name.localeCompare(b[0].name));
                 const [tc, tr] = keyToHex(key);
                 const { x, y } = hexCenter(tc, tr);
                 const sp = worldToScreen(x, y);
-                const side = sp.x > viewW * 0.62 ? -1 : 1;
+                // Les pastilles se rangent du côté libre : à l'opposé d'une tuile voisine déjà occupée.
+                const rightBusy = byTile.has(`${tc + 1},${tr}`);
+                const leftBusy = byTile.has(`${tc - 1},${tr}`);
+                const side = rightBusy && !leftBusy ? -1 : (leftBusy && !rightBusy ? 1 : (sp.x > viewW * 0.62 ? -1 : 1));
                 c.save();
                 c.translate(x, y);
                 c.rotate(-view.rotation);
-                const place = (u, ox, oy, w) => {
-                    const dim = LAND.drag?.unit.id === u.id;
+                const place = (g, ox, oy, w) => {
+                    const u = g[0];
+                    const dim = dragSet && g.every((m) => dragSet.has(m.id));
                     const mine = ciEq(u.owner, state.username);
+                    const flags = g.filter((m) => m.std).length;
                     c.globalAlpha = dim ? 0.3 : 1;
                     roundRectPath(c, ox - w / 2, oy - chipH / 2, w, chipH, chipH * 0.3);
                     c.fillStyle = 'rgba(255,255,255,0.95)';
@@ -3058,34 +3172,32 @@
                     c.font = `600 ${chipH * 0.5}px system-ui, sans-serif`;
                     c.textAlign = 'center';
                     c.textBaseline = 'middle';
-                    c.fillText(`${shortName(u.name, 11)} ×${u.qty}`, ox, oy + chipH * 0.03);
+                    c.fillText(`${shortName(u.name, 10)} ×${g.length}${flags ? ` ⚑${flags}` : ''}`, ox, oy + chipH * 0.03);
                     c.globalAlpha = 1;
-                    LAND.hits.push({ unit: u, x: sp.x + (ox - w / 2) * view.scale, y: sp.y + (oy - chipH / 2) * view.scale, w: w * view.scale, h: chipH * view.scale });
+                    LAND.hits.push({ unit: u, units: g, x: sp.x + (ox - w / 2) * view.scale, y: sp.y + (oy - chipH / 2) * view.scale, w: w * view.scale, h: chipH * view.scale });
                 };
-                if (list.length === 1) {
-                    place(list[0], 0, 0, unitW);
+                if (groups.length === 1) {
+                    place(groups[0], 0, 0, unitW);
                 } else {
                     const w = unitW;
                     const gap = chipH * 1.12;
                     const colX = side * (R * 1.15 + w / 2);
-                    const top = -((list.length - 1) * gap) / 2;
-                    // pastille de comptage sur la tuile
+                    const top = -((groups.length - 1) * gap) / 2;
                     c.beginPath();
                     c.arc(0, 0, R * 0.3, 0, Math.PI * 2);
                     c.fillStyle = '#222';
                     c.fill();
                     c.fillStyle = '#fff';
-                    c.font = `700 ${R * 0.36}px system-ui, sans-serif`;
+                    c.font = `700 ${R * 0.3}px system-ui, sans-serif`;
                     c.textAlign = 'center';
                     c.textBaseline = 'middle';
-                    c.fillText(String(list.length), 0, R * 0.02);
-                    // accolade verticale + flèche vers la tuile
+                    c.fillText(String(groups.reduce((t, g) => t + g.length, 0)), 0, R * 0.02);
                     const bx = colX - side * (w / 2 + R * 0.14);
                     c.strokeStyle = '#222';
                     c.lineWidth = R * 0.07;
                     c.beginPath();
                     c.moveTo(bx, top - chipH * 0.5);
-                    c.lineTo(bx, top + (list.length - 1) * gap + chipH * 0.5);
+                    c.lineTo(bx, top + (groups.length - 1) * gap + chipH * 0.5);
                     c.stroke();
                     const ax = R * 0.36 * side;
                     c.beginPath();
@@ -3099,7 +3211,7 @@
                     c.closePath();
                     c.fillStyle = '#222';
                     c.fill();
-                    list.forEach((u, i) => place(u, colX, top + i * gap, w));
+                    groups.forEach((g, i) => place(g, colX, top + i * gap, w));
                 }
                 c.restore();
             }
@@ -3108,7 +3220,7 @@
         function tokenAt(sx, sy) {
             for (let i = LAND.hits.length - 1; i >= 0; i--) {
                 const h = LAND.hits[i];
-                if (sx >= h.x && sx <= h.x + h.w && sy >= h.y && sy <= h.y + h.h) return h.unit;
+                if (sx >= h.x && sx <= h.x + h.w && sy >= h.y && sy <= h.y + h.h) return h;
             }
             return null;
         }
@@ -3124,10 +3236,10 @@
             return { key, ok: Boolean(zone && zone.tiles.includes(key)) && ciEq(unit.owner, state.username) };
         }
 
-        function makeGhost(unit) {
+        function makeGhost(unit, count) {
             const g = document.createElement('div');
             g.className = 'land-ghost';
-            g.textContent = `${shortName(unit.name, 16)} ×${unit.qty}`;
+            g.textContent = `${shortName(unit.name, 16)} ×${count}`;
             g.style.borderColor = TEAM_COL[unit.team] || '#555';
             document.body.appendChild(g);
             return g;
@@ -3153,7 +3265,7 @@
             if (cancelled) return;
             const over = document.elementFromPoint(e.clientX, e.clientY);
             if (over && over.closest('#unitBar')) {
-                if (d.unit.tile) landEmit('landing-place', { unit: d.unit.id, tile: null });
+                if (d.fromMap) landEmit('landing-place', { units: d.units, tile: null });
                 return;
             }
             const rect = el.canvas.getBoundingClientRect();
@@ -3161,39 +3273,52 @@
             const key = tileKeyAt(e.clientX, e.clientY);
             if (!key) return;
             const h = hoverFor(e.clientX, e.clientY, d.unit);
-            if (!h || !h.ok) return toast('Déposez l’unité sur une tuile de votre zone de débarquement.', true);
-            if (d.unit.tile !== key) landEmit('landing-place', { unit: d.unit.id, tile: key });
+            if (!h || !h.ok) return toast('Déposez les unités sur une tuile de votre zone de débarquement.', true);
+            if (d.tile !== key) landEmit('landing-place', { units: d.units, tile: key });
         }
 
-        function startDrag(unit, e) {
-            if (!canMove() || !ciEq(unit.owner, state.username)) return false;
-            LAND.drag = { unit, ghost: makeGhost(unit) };
+        // Quantité déplacée par geste : 1, 5, 10 ou toute la pile.
+        const batchOf = (list) => (LAND.batch === 0 ? list : list.slice(0, LAND.batch));
+
+        function startDrag(unit, list, e, fromMap) {
+            if (!canMove() || !ciEq(unit.owner, state.username) || !list.length) return false;
+            const chosen = batchOf(list);
+            LAND.drag = { unit, units: chosen.map((u) => u.id), ghost: makeGhost(unit, chosen.length), fromMap, tile: fromMap ? unit.tile : null };
             LAND.preview = null;
+            hideRangeInfo();
             moveGhost(e);
             requestDraw();
             return true;
         }
 
+        function hideRangeInfo() { $('rangeInfo').hidden = true; }
+
         function showPreview(unit) {
             if (!unit.tile) return toast('Cette unité n’est pas encore sur la carte.');
             const r = computeRange(unit);
-            if (!r.dep) { LAND.preview = null; requestDraw(); return toast(`${unit.name} : portée de déplacement nulle.`); }
+            if (!r.total) { LAND.preview = null; hideRangeInfo(); requestDraw(); return toast(`${unit.name} : portée de déplacement nulle.`); }
             LAND.preview = { ...r, unit };
+            const info = $('rangeInfo');
+            info.innerHTML = `<b>${shortName(unit.name, 22)}</b> · dep ${r.dep} <b>+ ${r.extra}</b> tuile${r.extra > 1 ? 's' : ''} supplémentaire${r.extra > 1 ? 's' : ''} = <b>${r.total}</b>`
+                + `<small>${r.nearest === null ? 'aucune frontière sur la carte' : `frontière la plus proche à ${r.nearest} tuile${r.nearest > 1 ? 's' : ''}${r.extra === 3 ? ' (plus de 7 : +3)' : ''}`} · ${r.end.length} case${r.end.length > 1 ? 's' : ''} d’arrivée</small>`;
+            info.hidden = false;
             requestDraw();
-            toast(`${unit.name} · portée ${r.dep} tuile${r.dep > 1 ? 's' : ''} · ${r.end.length} case${r.end.length > 1 ? 's' : ''} possibles`);
         }
 
         function openUnitInfo(unit) {
-            openFiches({ unit: { army: unit.army, legion: unit.legion, uid: unit.uid, owner: unit.owner } });
+            const line = LAND.units.filter((u) => u.line === unit.line);
+            const mine = ciEq(unit.owner, state.username);
+            openFiches({ unit: { army: unit.army, legion: unit.legion, uid: unit.uid, owner: unit.owner, id: unit.id, std: unit.std, stdMax: unit.stdMax, stdUsed: line.filter((u) => u.std).length, canEdit: mine && LAND.view.phase === 'place' && Boolean(unit.tile) } });
         }
 
         // Capture : les gestes sur une unité sont traités ici ; le reste de la carte (déplacement, zoom, peinture) garde son comportement.
         el.canvas.addEventListener('pointerdown', (e) => {
             if (!landOn() || (e.pointerType === 'mouse' && e.button !== 0)) return;
             const rect = el.canvas.getBoundingClientRect();
-            const unit = tokenAt(e.clientX - rect.left, e.clientY - rect.top);
+            const hit = tokenAt(e.clientX - rect.left, e.clientY - rect.top);
+            const unit = hit?.unit;
             if (!unit) {
-                if (LAND.preview) { LAND.preview = null; requestDraw(); }
+                if (LAND.preview) { LAND.preview = null; hideRangeInfo(); requestDraw(); }
                 LAND.tap = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
                 return;
             }
@@ -3208,8 +3333,8 @@
                 openUnitInfo(unit);
                 return;
             }
-            if (LAND.preview) { LAND.preview = null; requestDraw(); }
-            const press = { unit, x: e.clientX, y: e.clientY, pid: e.pointerId, moved: false, long: false, timer: null };
+            if (LAND.preview) { LAND.preview = null; hideRangeInfo(); requestDraw(); }
+            const press = { unit, units: hit.units, x: e.clientX, y: e.clientY, pid: e.pointerId, moved: false, long: false, timer: null };
             press.timer = setTimeout(() => {
                 if (LAND.press === press && !press.moved && !LAND.drag) { press.long = true; showPreview(unit); }
             }, 450);
@@ -3222,7 +3347,7 @@
             if (!p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) {
                 p.moved = true;
                 clearTimeout(p.timer);
-                if (!p.long) startDrag(p.unit, e);
+                if (!p.long) startDrag(p.unit, p.units, e, true);
             }
             if (LAND.drag) moveGhost(e);
         }, true);
@@ -3246,56 +3371,43 @@
             const zone = key && zoneAtKey(key);
             if (!zone) return;
             if (state.isAdmin && LAND.view.phase === 'zones' && state.mode === 'move') openZoneDialog(zone.id);
-            else if (!state.isAdmin && LAND.view.phase === 'choose') chooseZone(zone.id);
-            else if (state.isAdmin && LAND.view.phase === 'choose') { LAND.open = true; renderLandingPanel(); }
+            else if (!state.isAdmin && LAND.view.phase === 'choose') { if (zone.group === LAND.view.myGroup) chooseZone(zone.id); else toast(`Cette zone appartient aux entrées ${zone.group || '—'} : votre équipe débarque aux entrées ${LAND.view.myGroup}.`, true); }
+            else if (state.isAdmin && LAND.view.phase === 'choose') { if (LAND.view.myTeam && zone.group === LAND.view.myGroup) chooseZone(zone.id); else { LAND.open = true; renderLandingPanel(); } }
         }
         el.canvas.addEventListener('pointerup', (e) => finishPress(e, false), true);
         el.canvas.addEventListener('pointercancel', (e) => finishPress(e, true), true);
 
-        // Glisser depuis le sélecteur d'unités.
+        // Un double clic sur une unité ouvre sa fiche : il ne doit pas activer ni quitter le plein écran du navigateur.
+        window.addEventListener('dblclick', (e) => {
+            if (!landOn() || e.target !== el.canvas) return;
+            const rect = el.canvas.getBoundingClientRect();
+            if (tokenAt(e.clientX - rect.left, e.clientY - rect.top)) { e.stopImmediatePropagation(); e.preventDefault(); }
+        }, true);
+
+        // Glisser depuis le sélecteur d'unités : on saisit les prochaines unités non posées de la ligne.
         document.addEventListener('pointerdown', (e) => {
-            const chip = e.target.closest?.('#unitBar [data-unit]');
+            const chip = e.target.closest?.('#unitBar [data-line]');
             if (!chip || (e.pointerType === 'mouse' && e.button !== 0)) return;
-            const unit = (LAND.view.units || []).find((u) => u.id === chip.dataset.unit);
-            if (!unit) return;
+            const free = LAND.units.filter((u) => u.line === chip.dataset.line && !u.tile && ciEq(u.owner, state.username));
+            if (!free.length) { toast('Toutes les unités de cette ligne sont posées : déplacez-les depuis la carte.'); return; }
             if (e.pointerType !== 'touch') e.preventDefault();
             chip.setPointerCapture(e.pointerId);
             const start = { x: e.clientX, y: e.clientY };
+            const clean = () => { chip.removeEventListener('pointermove', move); chip.removeEventListener('pointerup', up); chip.removeEventListener('pointercancel', cancel); };
             const move = (ev) => {
                 const dx = Math.abs(ev.clientX - start.x);
                 const dy = Math.abs(ev.clientY - start.y);
-                // Au doigt : un geste horizontal fait défiler la liste, un geste vertical saisit l'unité.
+                // Au doigt : un geste horizontal fait défiler la liste, un geste vertical saisit les unités.
                 const grab = ev.pointerType === 'touch' ? dy > 8 && dy >= dx : Math.hypot(dx, dy) > 6;
-                if (!LAND.drag && grab) startDrag(unit, ev);
+                if (!LAND.drag && grab) startDrag(free[0], free, ev, false);
                 if (LAND.drag) moveGhost(ev);
             };
-            const up = (ev) => {
-                chip.removeEventListener('pointermove', move);
-                chip.removeEventListener('pointerup', up);
-                chip.removeEventListener('pointercancel', cancel);
-                if (LAND.drag) endDrag(ev, false);
-                else toast('Maintenez et glissez l’unité sur une tuile de votre zone.');
-            };
-            const cancel = (ev) => { chip.removeEventListener('pointermove', move); chip.removeEventListener('pointerup', up); chip.removeEventListener('pointercancel', cancel); if (LAND.drag) endDrag(ev, true); };
+            const up = (ev) => { clean(); if (LAND.drag) endDrag(ev, false); else toast('Maintenez et glissez vers une tuile de votre zone.'); };
+            const cancel = (ev) => { clean(); if (LAND.drag) endDrag(ev, true); };
             chip.addEventListener('pointermove', move);
             chip.addEventListener('pointerup', up);
             chip.addEventListener('pointercancel', cancel);
         });
-
-        // Lecture seule : permet de contrôler l'affichage (tests, assistance).
-        window.__landDebug = {
-            view: () => LAND.view,
-            preview: () => (LAND.preview ? { end: LAND.preview.end, pass: LAND.preview.pass, dep: LAND.preview.dep } : null),
-            range: (unit) => { const r = computeRange(unit); return { end: r.end, pass: r.pass, dep: r.dep }; },
-            hits: () => LAND.hits.map((h) => ({ id: h.unit.id, x: h.x + el.canvas.getBoundingClientRect().left + h.w / 2, y: h.y + el.canvas.getBoundingClientRect().top + h.h / 2 })),
-            tileScreen: (key) => {
-                const [c, r] = keyToHex(key);
-                const p = hexCenter(c, r);
-                const sp = worldToScreen(p.x, p.y);
-                const rect = el.canvas.getBoundingClientRect();
-                return { x: rect.left + sp.x, y: rect.top + sp.y };
-            }
-        };
 
         /* ---------- Fenêtres et panneau ---------- */
 
@@ -3375,7 +3487,7 @@
             const v = LAND.view;
             if (!landOn() || !LAND.open) { panel.hidden = true; return; }
             const admin = state.isAdmin;
-            let h = `<div class="lp-head"><b>⚔️ Débarquement</b><span class="lp-phase">${PHASE_NAME[v.phase] || ''}</span><button class="lp-x" data-land="close" aria-label="Fermer">✕</button></div>`;
+            let h = `<div class="lp-head"><b>⚔️ Débarquement</b><span class="lp-phase">${PHASE_NAME[v.phase] || ''}</span><button class="lp-x" data-land="help" aria-label="Rappel des actions" title="Rappel des actions">ℹ️</button><button class="lp-x" data-land="close" aria-label="Fermer">✕</button></div>`;
             if (admin) {
                 if (v.phase === 'zones') {
                     h += `<p class="lp-hint">Touchez une zone sur la carte, ou utilisez la liste, pour la rattacher aux <b style="color:${GROUP_COL.A}">entrées A</b> ou aux <b style="color:${GROUP_COL.B}">entrées B</b>. Les marqueurs changent de couleur (rouge : aucune entrée).</p>`;
@@ -3387,11 +3499,18 @@
                     h += `<div class="lp-actions"><button class="btn btn-dark" data-land="refresh">↻ Recalculer les zones</button>${ready ? '<button class="btn btn-primary" data-land="teams">Affecter les équipes aux entrées →</button>' : '<span class="lp-hint">Il faut au moins une zone en A et une en B.</span>'}</div>`;
                 } else if (v.phase === 'choose') {
                     h += `<p class="lp-hint">Équipe 1 (${teamName('t1')}) → entrées ${v.teamEntry?.t1} · ${teamName('t2')} → entrées ${v.teamEntry?.t2}. Chaque joueur choisit une zone de ses entrées.</p>`;
+                    if (v.myTeam) {
+                        h += `<p class="lp-hint">Vous jouez dans l’équipe <b>${teamName(v.myTeam)}</b> (entrées ${v.myGroup}) : choisissez aussi votre zone.</p>`;
+                        for (const z of (v.zones || []).filter((x) => x.group === v.myGroup)) {
+                            h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${GROUP_COL[z.group]}">${z.id.toUpperCase()}</button><span class="lp-grow">${z.tiles.length} tuiles</span><button class="lp-seg ${v.myZone === z.id ? 'on' : ''}" data-land="choose" data-zone="${z.id}">${v.myZone === z.id ? 'Choisie ✓' : 'Choisir'}</button></div>`;
+                        }
+                    }
                     h += playersTable(v.players || []);
                     h += `<div class="lp-actions"><button class="btn btn-primary" data-land="freeze">Figer les affectations →</button></div>`;
                 } else if (v.phase === 'place') {
                     h += `<p class="lp-hint">Les joueurs déposent leurs unités sur leur zone. Vous voyez tout.</p>`;
                     h += (v.progress || []).map((p) => `<div class="lp-row"><span class="lp-dot" style="background:${TEAM_COL[p.team] || '#888'}"></span><span class="lp-grow">${p.name}</span><b>${p.placed}/${p.total}</b></div>`).join('');
+                    h += '<p class="lp-hint">Les placements de l’équipe adverse restent cachés jusqu’au verrouillage.</p>';
                     h += `<div class="lp-actions"><button class="btn btn-primary" data-land="lock">🔒 Verrouiller les placements</button></div>`;
                 } else if (v.phase === 'locked') {
                     h += '<p class="lp-hint">Placements verrouillés : tous les joueurs voient toutes les unités.</p>';
@@ -3403,14 +3522,14 @@
                 else if (!v.myTeam) h += '<p class="lp-hint">Vous n’êtes dans aucune équipe : vous suivez le débarquement en spectateur.</p>';
                 else if (v.phase === 'choose') {
                     h += `<p class="lp-hint">Votre équipe (<b>${teamName(v.myTeam)}</b>) débarque aux <b>entrées ${v.myGroup}</b>. Choisissez votre zone de débarquement (touchez la zone sur la carte ou ici). Les choix de l’autre équipe sont cachés.</p>`;
-                    for (const z of v.zones || []) {
+                    for (const z of (v.zones || []).filter((x) => x.group === v.myGroup)) {
                         const who = Object.entries(v.choices || {}).filter(([, id]) => id === z.id).map(([n]) => n);
                         h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${GROUP_COL[z.group]}">${z.id.toUpperCase()}</button><span class="lp-grow">${who.length ? who.join(', ') : 'libre'}</span><button class="lp-seg ${v.myZone === z.id ? 'on' : ''}" data-land="choose" data-zone="${z.id}">${v.myZone === z.id ? 'Choisie ✓' : 'Choisir'}</button></div>`;
                     }
                     h += playersTable(v.players || []);
                 } else if (v.phase === 'place') {
                     const units = myUnits();
-                    h += `<p class="lp-hint">Glissez chacune de vos unités depuis le sélecteur du bas vers une tuile de votre zone <b>${(v.myZone || '?').toUpperCase()}</b>. Vous pouvez les déplacer ensuite. Vos coéquipiers voient vos unités en direct. ${units.filter((u) => u.tile).length}/${units.length} placées.</p>`;
+                    h += `<p class="lp-hint">Glissez vos unités depuis le sélecteur du bas vers une tuile de votre zone <b>${(v.myZone || '?').toUpperCase()}</b>, une par une ou par lots. Vous pouvez les déplacer ensuite. Vos coéquipiers voient vos unités en direct. <b>${units.filter((u) => u.tile).length}/${units.length}</b> posées.</p>`;
                 } else if (v.phase === 'locked') {
                     h += '<p class="lp-hint">Les placements sont verrouillés : vous voyez toutes les unités. Appui long sur une unité : portée de déplacement. Double toucher : sa fiche.</p>';
                 }
@@ -3421,16 +3540,145 @@
 
         function playersTable(players) {
             if (!players.length) return '<p class="lp-hint">Aucun joueur dans une équipe.</p>';
-            return players.map((p) => `<div class="lp-row"><span class="lp-dot" style="background:${TEAM_COL[p.team] || '#888'}"></span><span class="lp-grow">${p.name}${p.pick ? '' : ' <i>(sans légion)</i>'}</span><b>${p.zone ? 'zone ' + p.zone.toUpperCase() : '—'}</b></div>`).join('');
+            return players.map((p) => `<div class="lp-row"><span class="lp-dot" style="background:${TEAM_COL[p.team] || '#888'}"></span><span class="lp-grow">${p.name}${p.pick ? '' : ' <i>(sans légion)</i>'}</span><b>${p.zone ? 'zone ' + p.zone.toUpperCase() : (p.chosen ? 'zone choisie ✓' : '—')}</b></div>`).join('');
         }
 
         function renderUnitBar() {
             const bar = $('unitBar');
             const units = myUnits();
             if (LAND.view.phase !== 'place' || !units.length) { bar.hidden = true; return; }
-            bar.innerHTML = `<div class="ub-title">Vos unités · ${units.filter((u) => u.tile).length}/${units.length} placées — glissez vers votre zone ${(LAND.view.myZone || '').toUpperCase()}</div><div class="ub-list">${units.map((u) => `<div class="ub-chip ${u.tile ? 'done' : ''}" data-unit="${u.id}" style="border-color:${TEAM_COL[u.team] || '#555'}">${u.tile ? '✓ ' : ''}${shortName(u.name, 16)} ×${u.qty}</div>`).join('')}</div>`;
+            const lines = new Map();
+            for (const u of units) { if (!lines.has(u.line)) lines.set(u.line, []); lines.get(u.line).push(u); }
+            const done = units.filter((u) => u.tile).length;
+            const batch = [[1, '1'], [5, '5'], [10, '10'], [0, 'Tout']].map(([n, t]) => `<button class="ub-b ${LAND.batch === n ? 'on' : ''}" data-land="batch" data-n="${n}">${t}</button>`).join('');
+            bar.innerHTML = `<div class="ub-title"><span>${done}/${units.length} posées · zone ${(LAND.view.myZone || '').toUpperCase()}</span><span class="ub-batch">Lot ${batch}</span></div><div class="ub-list">${[...lines.values()].map((g) => {
+                const rest = g.filter((u) => !u.tile).length;
+                const flags = g.filter((u) => u.std).length;
+                return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '✓ '}${shortName(g[0].name, 16)} <b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${flags}/${g[0].stdMax}` : ''}</div>`;
+            }).join('')}</div>`;
             bar.hidden = false;
         }
+
+
+        /* ---------- Messages d'avertissement par phase ---------- */
+
+        const NOTICES = {
+            mj: {
+                zones: { title: 'Phase 1 · Regroupement des zones', items: [
+                    'Les zones sont détectées toutes seules : au moins 2 tuiles voisines marquées d’un <b>losange</b> ou d’un <b>triangle</b>. Chaque zone a une lettre.',
+                    '<b>Toucher une zone sur la carte</b> (mode Déplacer) ou utiliser la liste du panneau ⚔️ : la rattacher aux <b>entrées A</b> (bleu), aux <b>entrées B</b> (orange) ou à aucune (rouge).',
+                    'Les joueurs voient les zones et leurs couleurs en direct, sans savoir quelle équipe ira où.',
+                    'Avec au moins une zone en A et une en B, le bouton <b>Affecter les équipes</b> (ou ▶) apparaît. ◀ arrête le débarquement.'] },
+                choose: { title: 'Phase 2 · Choix des zones', items: [
+                    'Chaque joueur choisit une zone parmi celles de son équipe. Si vous jouez dans une équipe, touchez une zone de votre groupe : vous choisissez comme un joueur.',
+                    'Vous ne voyez pas les choix de l’équipe adverse (seulement s’ils ont choisi).',
+                    '<b>▶ Figer</b> les affectations quand tout le monde a choisi (un avertissement liste les absents). ◀ revient au regroupement.'] },
+                place: { title: 'Phase 3 · Dépôt des unités', items: [
+                    'Faites glisser vos unités depuis le <b>sélecteur du bas</b> vers une tuile de votre zone. Le bouton <b>Lot</b> choisit 1, 5, 10 ou toutes les unités par geste. Glissez un jeton de la carte pour le déplacer.',
+                    '<b>Double toucher</b> sur une unité : sa fiche ; vous pouvez y attribuer un étendard (dans la limite de la colonne E de la ligne). <b>Appui long</b> : portée de déplacement.',
+                    'Vous ne voyez pas les unités de l’équipe adverse avant le verrouillage.',
+                    '<b>▶ Verrouiller</b> quand tout est placé : tout le monde voit alors tous les débarquements. ◀ revient aux choix.'] },
+                locked: { title: 'Phase 4 · Placements verrouillés', items: [
+                    'Tous les débarquements sont visibles par tous. Plus aucune unité ne bouge.',
+                    '<b>Double toucher</b> sur une unité : sa fiche. <b>Appui long</b> : portée de déplacement (dep + tuiles supplémentaires).',
+                    '◀ revient au dépôt des unités (les placements sont conservés).'] }
+            },
+            joueur: {
+                zones: { title: 'Le MJ prépare le débarquement', items: [
+                    'Vous voyez apparaître les zones de débarquement et leur groupe (entrées A bleu, entrées B orange) au fur et à mesure.',
+                    'Vous ne savez pas encore quelle équipe débarquera à quelles entrées.'] },
+                choose: { title: 'Choisissez votre zone', items: [
+                    'Votre équipe débarque à un seul groupe d’entrées. <b>Touchez une zone</b> de ce groupe sur la carte, ou utilisez la liste du panneau ⚔️, puis confirmez.',
+                    'Vous pouvez changer de zone tant que le MJ n’a pas figé les affectations. Vous voyez les choix de votre équipe, pas ceux de l’autre.'] },
+                place: { title: 'Déposez vos unités', items: [
+                    'Faites glisser vos unités depuis le <b>sélecteur du bas</b> vers une tuile de votre zone. <b>Lot</b> : 1, 5, 10 ou toutes les unités d’un coup.',
+                    'Pour déplacer une unité déjà posée, glissez son jeton sur une autre tuile de votre zone. Plusieurs unités peuvent partager une tuile.',
+                    '<b>Double toucher</b> sur une unité posée : sa fiche, avec l’attribution des étendards (limitée à la colonne E de la ligne). <b>Appui long</b> : portée de déplacement.',
+                    'Vos coéquipiers voient vos unités en direct ; l’autre équipe ne voit rien avant le verrouillage.'] },
+                locked: { title: 'Placements verrouillés', items: [
+                    'Tous les débarquements sont maintenant visibles.',
+                    '<b>Double toucher</b> sur une unité : sa fiche. <b>Appui long</b> : portée de déplacement, avec les tuiles supplémentaires.'] }
+            }
+        };
+
+        function phaseNotice(force) {
+            const phase = LAND.view.phase;
+            if (phase === 'off') return;
+            const role = state.isAdmin ? 'mj' : 'joueur';
+            const notice = NOTICES[role][phase];
+            if (!notice) return;
+            const key = `fa-land-help:${role}:${phase}`;
+            let hidden = false;
+            try { hidden = localStorage.getItem(key) === '1'; } catch { /* stockage indisponible */ }
+            if (hidden && !force) return;
+            landingDialog(notice.title, `<ul class="lp-list">${notice.items.map((i) => `<li>${i}</li>`).join('')}</ul><label class="lp-chk"><input type="checkbox" id="noticeOff"> Ne plus afficher ce message</label>`, [
+                { label: 'Compris', cls: 'btn-primary', fn: () => { try { if ($('noticeOff')?.checked) localStorage.setItem(key, '1'); } catch { /* ignoré */ } } }
+            ]);
+        }
+
+        /* ---------- Phases : avancer et reculer (MJ) ---------- */
+
+        function adminNext() {
+            const v = LAND.view;
+            if (v.phase === 'off') return landEmit('landing-start', {}).then((r) => { if (r.success) { LAND.open = true; updateLandingUI(); } });
+            if (v.phase === 'zones') {
+                if (v.groupCount?.A > 0 && v.groupCount?.B > 0) return assignTeamsDialog();
+                return toast('Rattachez d’abord au moins une zone aux entrées A et une aux entrées B.', true);
+            }
+            if (v.phase === 'choose') return adminStep('landing-freeze', {}, 'Figer quand même');
+            if (v.phase === 'place') return adminStep('landing-lock', {}, 'Verrouiller quand même');
+            return toast('C’est la dernière phase.');
+        }
+
+        function adminPrev() {
+            const v = LAND.view;
+            if (v.phase === 'off') return toast('Le débarquement n’est pas lancé.');
+            if (v.phase === 'zones') {
+                return landingDialog('Arrêter le débarquement ?', '<p>Les zones, les choix et les unités posées seront effacés.</p>', [
+                    { label: 'Arrêter', cls: 'btn-danger', fn: () => landEmit('landing-goto', { phase: 'off' }) }, { label: 'Annuler' }
+                ]);
+            }
+            const prev = { choose: 'zones', place: 'choose', locked: 'place' }[v.phase];
+            const lose = { choose: 'Les affectations de zones et les équipes aux entrées seront effacées.', place: 'Les unités posées seront effacées.', locked: 'Les placements sont conservés.' }[v.phase];
+            landingDialog('Revenir à l’étape précédente ?', `<p>${lose}</p>`, [{ label: 'Revenir', cls: 'btn-danger', fn: () => landEmit('landing-goto', { phase: prev }) }, { label: 'Annuler' }]);
+        }
+
+        (function buildDock() {
+            const dock = document.createElement('div');
+            dock.id = 'landDock';
+            dock.innerHTML = '<button class="dk" data-land="teams" title="Tableau des équipes" aria-label="Tableau des équipes">👥</button>'
+                + '<button class="dk admin" data-land="prev" hidden aria-label="Phase précédente">◀</button>'
+                + '<button class="dk admin" data-land="next" hidden aria-label="Phase suivante">▶</button>'
+                + '<span id="landPhaseLbl" class="admin" hidden></span>';
+            el.palProtect.parentElement.appendChild(dock);
+        })();
+
+        function updateDock() {
+            document.querySelectorAll('#landDock .admin').forEach((b) => { b.hidden = !state.isAdmin; });
+            if (!state.isAdmin) return;
+            const names = { off: 'Débarquement arrêté', zones: '1 · Zones', choose: '2 · Choix', place: '3 · Dépôt', locked: '4 · Verrouillé' };
+            const nextT = { off: 'Lancer le débarquement', zones: 'Affecter les équipes', choose: 'Figer les affectations', place: 'Verrouiller les placements', locked: 'Dernière phase' }[LAND.view.phase];
+            const prevT = { off: '—', zones: 'Arrêter le débarquement', choose: 'Retour au regroupement', place: 'Retour aux choix', locked: 'Retour au dépôt' }[LAND.view.phase];
+            document.querySelector('#landDock [data-land="next"]').title = `Suivant : ${nextT}`;
+            document.querySelector('#landDock [data-land="prev"]').title = `Précédent : ${prevT}`;
+            $('landPhaseLbl').textContent = names[LAND.view.phase];
+        }
+
+        // Lecture seule : permet de contrôler l'affichage (tests, assistance).
+        window.__landDebug = {
+            view: () => LAND.view,
+            units: () => LAND.units,
+            preview: () => (LAND.preview ? { end: LAND.preview.end, pass: LAND.preview.pass, dep: LAND.preview.dep, extra: LAND.preview.extra, total: LAND.preview.total } : null),
+            range: (unit) => { const r = computeRange(unit); return { end: r.end, pass: r.pass, dep: r.dep, extra: r.extra, total: r.total }; },
+            hits: () => LAND.hits.map((h) => ({ id: h.unit.id, count: h.units.length, x: h.x + el.canvas.getBoundingClientRect().left + h.w / 2, y: h.y + el.canvas.getBoundingClientRect().top + h.h / 2 })),
+            tileScreen: (key) => {
+                const [c, r] = keyToHex(key);
+                const p = hexCenter(c, r);
+                const sp = worldToScreen(p.x, p.y);
+                const rect = el.canvas.getBoundingClientRect();
+                return { x: rect.left + sp.x, y: rect.top + sp.y };
+            }
+        };
 
         function updateLandingUI() {
             const btn = document.querySelector('[data-land="toggle"]');
@@ -3441,33 +3689,34 @@
             }
             renderLandingPanel();
             renderUnitBar();
+            updateDock();
         }
 
         function onLandingView(next) {
             const prev = LAND.view.phase;
             LAND.view = next || { phase: 'off' };
-            if (LAND.preview && !(LAND.view.units || []).some((u) => u.id === LAND.preview.unit.id && u.tile === LAND.preview.start)) LAND.preview = null;
+            LAND.units = buildUnits(LAND.view);
+            if (LAND.preview && LAND.units.find((u) => u.id === LAND.preview.unit.id)?.tile !== LAND.preview.start) { LAND.preview = null; hideRangeInfo(); }
+
             if (next && next.phase !== prev) {
-                const msgs = {
-                    zones: state.isAdmin ? 'Débarquement lancé : regroupez les zones.' : null,
-                    choose: 'Choisissez votre zone de débarquement.',
-                    place: 'Déposez vos unités sur votre zone.',
-                    locked: 'Placements verrouillés : toutes les unités sont visibles.',
-                    off: prev !== 'off' ? 'Le débarquement est terminé.' : null
-                };
-                if (msgs[next.phase] && !(next.phase === 'choose' && !next.myTeam && !state.isAdmin)) toast(msgs[next.phase]);
-                if (next.phase !== 'off' && (next.phase !== 'zones' || state.isAdmin)) LAND.open = true;
-                if (next.phase === 'off') LAND.open = false;
+                if (next.phase !== 'off') LAND.open = true;
+                if (next.phase === 'off') { LAND.open = false; if (prev !== 'off') toast('Le débarquement est terminé.'); }
             }
             updateLandingUI();
             requestDraw();
+            if (next && next.phase !== prev && next.phase !== 'off') phaseNotice(false);
         }
 
         document.addEventListener('click', async (e) => {
             const b = e.target.closest('[data-land]');
             if (!b) return;
             const k = b.dataset.land;
-            if (k === 'toggle') {
+            if (k === 'teams') openFiches({ tab: 'players' });
+            else if (k === 'next' && state.isAdmin) adminNext();
+            else if (k === 'prev' && state.isAdmin) adminPrev();
+            else if (k === 'help') phaseNotice(true);
+            else if (k === 'batch') { LAND.batch = Number(b.dataset.n); renderUnitBar(); }
+            else if (k === 'toggle') {
                 if (!landOn() && state.isAdmin) {
                     const r = await landEmit('landing-start', {});
                     if (r.success) { LAND.open = true; updateLandingUI(); }
@@ -3602,7 +3851,7 @@
         /* ============================================================ */
 
         // Le serveur reste seul juge de ce que chacun peut voir ; cette page ne fait que relayer les messages.
-        const FICHES_EVENTS = new Set(['fiches-load', 'fiches-pick', 'fiches-save', 'fiches-diag', 'fiches-team', 'fiches-freeze', 'fiches-snaps', 'fiches-snap-save', 'fiches-snap-load', 'fiches-snap-rename', 'fiches-snap-delete', 'fiches-export', 'fiches-import']);
+        const FICHES_EVENTS = new Set(['fiches-load', 'fiches-pick', 'fiches-save', 'fiches-diag', 'fiches-team', 'fiches-freeze', 'fiches-snaps', 'fiches-snap-save', 'fiches-snap-load', 'fiches-snap-rename', 'fiches-snap-delete', 'fiches-export', 'fiches-import', 'landing-standard']);
 
         function fichesPost(message) {
             try { $('fichesFrame').contentWindow?.postMessage(message, location.origin); } catch { /* fenêtre fermée */ }
