@@ -5,6 +5,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const os = require('os');
 const { Server } = require('socket.io');
 
 /* ------------------------------------------------------------------ */
@@ -73,12 +74,12 @@ const LEGACY_TERRAINS = { '#2ecc71': 'plain', '#f1c40f': 'hill', '#783f04': 'mou
 
 // Objets posés à la place du petit hexagone central.
 // turns = nombre d'orientations : 1 = aucune, 3 = bidirectionnel (pont, muret), 6 = une seule direction.
-const GROUND = ['plain', 'hill'];
+const GROUND = ['plain', 'hill', 'swamp']; // le marécage reçoit les mêmes objets que la plaine et la colline (sauf les ponts, réservés à l'eau)
 const OBJECT_RULES = {
     forest: { turns: 1, on: GROUND },
     bridge: { turns: 3, on: ['water'] },
-    fortress: { turns: 1, on: GROUND },
-    'fortress-half': { turns: 6, on: GROUND },
+    fortress: { turns: 6, on: GROUND }, // fortification une entrée
+    'fortress-half': { turns: 3, on: GROUND }, // fortification deux entrées (faces opposées)
     village: { turns: 1, on: GROUND },
     'village-flat': { turns: 1, on: GROUND },
     wall: { turns: 3, on: GROUND }
@@ -288,7 +289,7 @@ const ZONE_ID = /^[a-z]$/;
 const TEAM_IDS = ['t1', 't2'];
 
 function defaultLanding() {
-    return { phase: 'off', zones: [], groups: {}, teamEntry: null, choices: {}, roster: {}, placed: {} };
+    return { phase: 'off', zones: [], groups: {}, teamEntry: null, choices: {}, roster: {}, placed: {}, std: {} };
 }
 
 // Reconstruit l'état depuis le disque en ne gardant que des valeurs bien formées.
@@ -304,14 +305,17 @@ function normalizeLanding(raw) {
     for (const [z, g] of Object.entries(raw.groups || {})) if (ids.has(z) && (g === 'A' || g === 'B')) out.groups[z] = g;
     if (raw.teamEntry && TEAM_IDS.every((t) => raw.teamEntry[t] === 'A' || raw.teamEntry[t] === 'B')) out.teamEntry = { t1: raw.teamEntry.t1, t2: raw.teamEntry.t2 };
     for (const [name, z] of Object.entries(raw.choices || {})) if (name.length <= LIMITS.maxName && ids.has(z)) out.choices[name] = z;
+    // roster : pour chaque joueur, ses lignes de légion (une ligne = nb unités individuelles).
     for (const [name, list] of Object.entries(raw.roster || {}).slice(0, 200)) {
         if (name.length > LIMITS.maxName || !Array.isArray(list)) continue;
-        out.roster[name] = list.slice(0, 80).filter((u) => u && typeof u.id === 'string' && u.id.length <= 120).map((u) => ({
-            id: u.id, name: String(u.name || '').slice(0, 60), qty: Number.isFinite(u.qty) ? u.qty : 1, dep: Number.isFinite(u.dep) ? u.dep : 0,
-            army: String(u.army || '').slice(0, 40), legion: String(u.legion || '').slice(0, 12), uid: String(u.uid || '').slice(0, 100)
+        out.roster[name] = list.slice(0, 120).filter((u) => u && typeof u.uid === 'string' && u.uid.length <= 100).map((u) => ({
+            uid: u.uid, name: String(u.name || '').slice(0, 60), qty: Math.max(1, Math.min(400, Math.floor(Number(u.qty) || 1))),
+            dep: Number.isFinite(u.dep) ? u.dep : 0, army: String(u.army || '').slice(0, 40), legion: String(u.legion || '').slice(0, 12),
+            stdMax: Math.max(0, Math.min(400, Math.floor(Number(u.stdMax) || 0)))
         }));
     }
-    for (const [id, tile] of Object.entries(raw.placed || {}).slice(0, 4000)) if (typeof tile === 'string' && /^\d{1,3},\d{1,3}$/.test(tile)) out.placed[id] = tile;
+    for (const [id, tile] of Object.entries(raw.placed || {}).slice(0, 12000)) if (typeof tile === 'string' && /^\d{1,3},\d{1,3}$/.test(tile)) out.placed[id] = tile;
+    for (const [id, v] of Object.entries(raw.std || {}).slice(0, 12000)) if (v === true && id in out.placed) out.std[id] = true;
     return out;
 }
 
@@ -1041,7 +1045,7 @@ function refreshZones() {
 
 const unitKey = (armyId, u) => u.uid || `${armyId}-r${u.row}`;
 
-// Les unités d'un joueur : une ligne de sa légion = une unité sur la carte.
+// Les lignes d'un joueur : la colonne nb d'une ligne de légion donne le nombre d'unités individuelles de cette ligne.
 function rosterFor(name) {
     const pickKey = keyOf(state.fichesPicks, name);
     if (!pickKey) return [];
@@ -1049,14 +1053,25 @@ function rosterFor(name) {
     const army = fichesArmy(pick.army);
     if (!army) return [];
     return army.units.filter((u) => Array.isArray(u.q?.[pick.legion]) && u.q[pick.legion][0] > 0).map((u) => ({
-        id: `${name}|${unitKey(army.id, u)}`.slice(0, 120),
+        uid: unitKey(army.id, u),
         name: String(u.in_?.B || 'unité').slice(0, 60),
-        qty: u.q[pick.legion][0],
+        qty: Math.min(400, Math.floor(u.q[pick.legion][0])),
+        stdMax: Math.max(0, Math.min(400, Math.floor(Number(u.q[pick.legion][2]) || 0))), // colonne E : nombre d'unités portant un étendard
         dep: Number.isFinite(Number(u.in_?.I)) ? Math.floor(Number(u.in_.I)) : 0,
         army: army.id,
-        legion: pick.legion,
-        uid: unitKey(army.id, u)
-    }));
+        legion: pick.legion
+    })).slice(0, 120);
+}
+
+const unitIdOf = (owner, uid, i) => `${owner}|${uid}#${i}`;
+function findLine(owner, id) {
+    const ownerKey = keyOf(state.landing.roster, owner);
+    if (!ownerKey) return null;
+    const m = /^(.*)\|(.*)#(\d+)$/.exec(String(id));
+    if (!m || !ci(m[1], ownerKey)) return null;
+    const line = state.landing.roster[ownerKey].find((l) => l.uid === m[2]);
+    const idx = Number(m[3]);
+    return line && idx >= 1 && idx <= line.qty ? { owner: ownerKey, line, idx, id: unitIdOf(ownerKey, line.uid, idx) } : null;
 }
 
 const teamOfName = (name) => {
@@ -1066,7 +1081,8 @@ const teamOfName = (name) => {
 const groupOfTeam = (team) => state.landing.teamEntry?.[team] ?? null;
 const zoneById = (id) => state.landing.zones.find((z) => z.id === id);
 
-// Ce que chaque personne a le droit de voir : jamais les choix ni les unités de l'autre équipe avant le verrouillage.
+// Ce que chaque personne a le droit de voir. Les zones sont publiques dès qu'elles existent ; les choix et les unités
+// de l'autre équipe restent cachés jusqu'au verrouillage, y compris pour le MJ s'il joue dans une équipe.
 function landingViewFor(socket) {
     const L = state.landing;
     const name = socket.data.name;
@@ -1074,39 +1090,49 @@ function landingViewFor(socket) {
     const base = { phase: L.phase, admin, teamNames: { ...state.fichesTeams.names } };
     if (L.phase === 'off') return base;
 
+    const teamOf = (n) => state.fichesTeams.members[keyOf(state.fichesTeams.members, n) ?? ''] ?? null;
     const players = Object.keys(state.fichesTeams.members).filter((n) => state.fichesTeams.members[n]);
-    const teamOf = (n) => state.fichesTeams.members[keyOf(state.fichesTeams.members, n)];
-    const allUnits = [];
-    for (const [owner, list] of Object.entries(L.roster)) {
-        for (const u of list) allUnits.push({ ...u, owner, team: teamOf(owner) ?? null, tile: L.placed[u.id] ?? null });
-    }
     const myTeam = name ? teamOfName(name) : null;
     const myGroup = myTeam ? groupOfTeam(myTeam) : null;
-    const everything = admin || L.phase === 'locked';
+    const everything = L.phase === 'locked' || (admin && !myTeam); // un MJ sans équipe arbitre et voit tout
+    const sees = (n) => everything || (myTeam && teamOf(n) === myTeam);
 
-    const view = { ...base, myTeam, myGroup, teamEntry: everything ? L.teamEntry : (myTeam && myGroup ? { [myTeam]: myGroup } : null) };
-    if (admin && L.phase === 'zones') {
-        view.zones = L.zones.map((z) => ({ id: z.id, tiles: z.tiles, group: L.groups[z.id] ?? null }));
-        view.groupCount = { A: Object.values(L.groups).filter((g) => g === 'A').length, B: Object.values(L.groups).filter((g) => g === 'B').length };
+    const view = { ...base, myTeam, myGroup, teamEntry: (everything || admin) ? L.teamEntry : (myTeam && myGroup ? { [myTeam]: myGroup } : null) };
+    view.zones = L.zones.map((z) => ({ id: z.id, tiles: z.tiles, group: L.groups[z.id] ?? null }));
+    if (L.phase === 'zones') {
+        if (admin) view.groupCount = { A: Object.values(L.groups).filter((g) => g === 'A').length, B: Object.values(L.groups).filter((g) => g === 'B').length };
         return view;
     }
-    if (L.phase === 'zones') return base;
-
-    // Zones visibles : toutes pour le MJ et après verrouillage, sinon uniquement celles de son équipe.
-    const visibleZones = L.zones.filter((z) => everything || (myGroup && L.groups[z.id] === myGroup));
-    view.zones = visibleZones.map((z) => ({ id: z.id, tiles: z.tiles, group: L.groups[z.id] ?? null }));
-    const visibleChoices = {};
-    for (const [n, z] of Object.entries(L.choices)) if (everything || (myTeam && teamOf(n) === myTeam)) visibleChoices[n] = z;
-    view.choices = visibleChoices;
+    view.choices = {};
+    for (const [n, z] of Object.entries(L.choices)) if (sees(n)) view.choices[n] = z;
     view.myZone = name && keyOf(L.choices, name) ? L.choices[keyOf(L.choices, name)] : null;
-    if (L.phase === 'choose' || L.phase === 'place' || L.phase === 'locked') {
-        view.players = players.filter((n) => everything || teamOf(n) === myTeam).map((n) => ({
-            name: n, team: teamOf(n), pick: Boolean(keyOf(state.fichesPicks, n)), zone: L.choices[keyOf(L.choices, n) ?? ''] ?? null
-        }));
-    }
+    view.players = players.map((n) => ({
+        name: n, team: teamOf(n), pick: Boolean(keyOf(state.fichesPicks, n)), chosen: Boolean(keyOf(L.choices, n)),
+        zone: sees(n) ? (L.choices[keyOf(L.choices, n) ?? ''] ?? null) : null
+    })).filter((p) => everything || admin || p.team === myTeam);
     if (L.phase === 'place' || L.phase === 'locked') {
-        view.units = allUnits.filter((u) => everything || (myTeam && u.team === myTeam));
-        view.progress = admin ? players.map((n) => ({ name: n, team: teamOf(n), total: (L.roster[n] || []).length, placed: (L.roster[n] || []).filter((u) => L.placed[u.id]).length })) : undefined;
+        view.lines = [];
+        view.placed = {};
+        view.std = [];
+        for (const [owner, list] of Object.entries(L.roster)) {
+            if (!sees(owner)) continue;
+            for (const l of list) {
+                view.lines.push({ ...l, owner, team: teamOf(owner) });
+                for (let i = 1; i <= l.qty; i++) {
+                    const id = unitIdOf(owner, l.uid, i);
+                    if (L.placed[id]) view.placed[id] = L.placed[id];
+                    if (L.std[id]) view.std.push(id);
+                }
+            }
+        }
+        if (admin) {
+            view.progress = players.map((n) => {
+                const list = L.roster[keyOf(L.roster, n) ?? ''] || [];
+                const total = list.reduce((t, l) => t + l.qty, 0);
+                const placed = list.reduce((t, l) => { let k = 0; for (let i = 1; i <= l.qty; i++) if (L.placed[unitIdOf(keyOf(L.roster, n), l.uid, i)]) k++; return t + k; }, 0);
+                return { name: n, team: teamOf(n), total, placed };
+            });
+        }
     }
     return view;
 }
@@ -1115,6 +1141,146 @@ function emitLanding() {
     for (const s of io.sockets.sockets.values()) {
         if (s.data?.name) s.emit('landing', landingViewFor(s));
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* Export du jeu complet pour un serveur local (sans internet)          */
+/* ------------------------------------------------------------------ */
+
+const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+    return t;
+})();
+const crc32 = (buf) => { let c = 0xffffffff; for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+
+// Archive ZIP minimale (sans compression) : suffisante pour un dossier de quelques Mo.
+function makeZip(files) {
+    const now = new Date();
+    const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    const parts = [];
+    const central = [];
+    let offset = 0;
+    for (const f of files) {
+        const name = Buffer.from(f.name, 'utf8');
+        const data = Buffer.isBuffer(f.data) ? f.data : Buffer.from(f.data, 'utf8');
+        const crc = crc32(data);
+        const local = Buffer.alloc(30);
+        local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(20, 4); local.writeUInt16LE(0x0800, 6); local.writeUInt16LE(0, 8);
+        local.writeUInt16LE(dosTime, 10); local.writeUInt16LE(dosDate, 12); local.writeUInt32LE(crc, 14);
+        local.writeUInt32LE(data.length, 18); local.writeUInt32LE(data.length, 22); local.writeUInt16LE(name.length, 26); local.writeUInt16LE(0, 28);
+        parts.push(local, name, data);
+        const cd = Buffer.alloc(46);
+        cd.writeUInt32LE(0x02014b50, 0); cd.writeUInt16LE(0x031e, 4); cd.writeUInt16LE(20, 6); cd.writeUInt16LE(0x0800, 8); cd.writeUInt16LE(0, 10);
+        cd.writeUInt16LE(dosTime, 12); cd.writeUInt16LE(dosDate, 14); cd.writeUInt32LE(crc, 16); cd.writeUInt32LE(data.length, 20); cd.writeUInt32LE(data.length, 24);
+        cd.writeUInt16LE(name.length, 28); cd.writeUInt32LE(((f.mode ?? 0o644) << 16) >>> 0, 38); cd.writeUInt32LE(offset, 42);
+        central.push(cd, name);
+        offset += local.length + name.length + data.length;
+    }
+    const cdBuf = Buffer.concat(central);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(files.length, 8); end.writeUInt16LE(files.length, 10);
+    end.writeUInt32LE(cdBuf.length, 12); end.writeUInt32LE(offset, 16);
+    return Buffer.concat([...parts, cdBuf, end]);
+}
+
+const LOCAL_PACKAGE_JSON = JSON.stringify({
+    name: 'jeu-local', version: '1.0.0', private: true, main: 'server.js',
+    scripts: { start: 'node server.js' }, dependencies: { express: '^4.19.2', 'socket.io': '^4.7.5' }
+}, null, 2);
+
+const LOCAL_BAT = [
+    '@echo off', 'chcp 65001 >nul', 'cd /d "%~dp0"',
+    'where node >nul 2>nul || (echo Node.js n est pas installe. Installez-le depuis https://nodejs.org puis relancez ce fichier. & pause & exit /b 1)',
+    'if not exist node_modules (echo Premiere installation : une connexion internet est necessaire UNE SEULE FOIS. & call npm install --omit=dev || (echo Echec de l installation. & pause & exit /b 1))',
+    'if "%ADMIN_PASSWORD%"=="" set /p ADMIN_PASSWORD=Choisissez le mot de passe du MJ : ',
+    'set PORT=3000', 'echo.',
+    'echo Les joueurs doivent etre sur le meme Wi-Fi et ouvrir l une des adresses affichees ci-dessous.',
+    'node server.js', 'pause', ''
+].join('\r\n');
+
+const LOCAL_SH = [
+    '#!/bin/sh', 'cd "$(dirname "$0")"',
+    'command -v node >/dev/null 2>&1 || { echo "Node.js n est pas installe (https://nodejs.org, ou : pkg install nodejs sous Termux)."; exit 1; }',
+    '[ -d node_modules ] || { echo "Premiere installation : une connexion internet est necessaire UNE SEULE FOIS."; npm install --omit=dev || exit 1; }',
+    '[ -n "$ADMIN_PASSWORD" ] || { printf "Choisissez le mot de passe du MJ : "; read ADMIN_PASSWORD; export ADMIN_PASSWORD; }',
+    'export PORT=3000', 'echo "Les joueurs doivent etre sur le meme Wi-Fi et ouvrir l une des adresses affichees ci-dessous."',
+    'node server.js', ''
+].join('\n');
+
+const LOCAL_README = `JEU EN SERVEUR LOCAL (sans internet)
+=====================================
+
+Ce dossier contient tout le jeu : le serveur, les pages, vos cartes, vos fiches d'armée,
+l'équipe, les légions choisies et le débarquement en cours, tels qu'ils étaient à l'export.
+
+1. PRÉPARATION (une seule fois, AVEC internet)
+   - Installez Node.js (https://nodejs.org, version 18 ou plus récente) sur l'appareil qui servira de serveur.
+   - Windows : double-cliquez sur « demarrer-windows.bat ».
+     Mac / Linux : dans un terminal, « sh demarrer-mac-linux.sh ».
+     Téléphone Android : installez Termux, puis « pkg install nodejs », ouvrez ce dossier
+     et lancez « sh demarrer-mac-linux.sh ».
+   - Au premier lancement, les composants du serveur sont téléchargés (dossier node_modules).
+     Une fois fait, plus aucune connexion internet n'est nécessaire.
+
+2. JOUER SANS INTERNET
+   - L'appareil serveur et tous les joueurs doivent être sur le même réseau Wi-Fi. Sans box internet,
+     activez le partage de connexion (point d'accès Wi-Fi) d'un téléphone ou d'un PC : il n'a pas
+     besoin d'internet pour que les appareils se voient entre eux.
+   - Au démarrage, le serveur affiche ses adresses, par exemple http://192.168.1.20:3000.
+     Chaque joueur ouvre cette adresse dans son navigateur. Le MJ se connecte avec le pseudo « MJ »
+     et le mot de passe choisi au lancement.
+   - Le Bluetooth n'est pas pris en charge : le jeu a besoin d'un réseau Wi-Fi (ou Ethernet).
+
+3. DONNÉES
+   - Tout est enregistré dans le dossier « data ». Gardez-le : c'est votre partie.
+   - Pour revenir sur le serveur en ligne, exportez à nouveau depuis le jeu local (fenêtre Cartes)
+     et utilisez les fichiers exportés de cartes et de fiches.
+`;
+
+function lanAddresses(port) {
+    const out = [];
+    for (const list of Object.values(os.networkInterfaces())) {
+        for (const i of list || []) if (i.family === 'IPv4' && !i.internal) out.push(`http://${i.address}:${port}`);
+    }
+    return out;
+}
+
+async function buildGamePackage() {
+    const files = [];
+    const add = (name, data, mode) => files.push({ name, data, mode });
+    add('LISEZMOI.txt', LOCAL_README);
+    add('package.json', LOCAL_PACKAGE_JSON);
+    add('demarrer-windows.bat', LOCAL_BAT);
+    add('demarrer-mac-linux.sh', LOCAL_SH, 0o755);
+    add('server.js', fs.readFileSync(__filename));
+    if (fs.existsSync(FICHES_SEED_FILE)) add('fiches-seed.json', fs.readFileSync(FICHES_SEED_FILE));
+    const pubDir = path.join(__dirname, 'public');
+    const walk = (dir, rel) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) walk(full, `${rel}${entry.name}/`);
+            else add(`public/${rel}${entry.name}`, fs.readFileSync(full));
+        }
+    };
+    if (fs.existsSync(pubDir)) walk(pubDir, '');
+    add('data/state.json', JSON.stringify(state));
+    for (const id of mapsIndex.keys()) {
+        const map = await storage.getMap(id);
+        if (map) add(`data/maps/${id}.json`, JSON.stringify({ ...map, id }));
+    }
+    const bg = await storage.loadBackground();
+    if (bg) add('data/background.json', JSON.stringify({ version: bg.version, image: bg.buffer.toString('base64') }));
+    const docIds = [];
+    for (const id of fiches.seedArmies.keys()) docIds.push(`fiches_a_${id}`);
+    docIds.push('fiches_fams', SNAPS_INDEX);
+    for (const m of await loadSnapIndex()) docIds.push(`fiches_snap_${m.id}`);
+    for (const id of docIds) {
+        const doc = await storage.loadDoc(id);
+        if (doc) add(`data/docs/${id}.json`, JSON.stringify(doc));
+    }
+    return makeZip(files);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1838,24 +2004,48 @@ io.on('connection', (socket) => {
         L.roster = {};
         for (const n of players) if (keyOf(L.choices, n)) L.roster[n] = rosterFor(n);
         L.placed = {};
+        L.std = {};
         L.phase = 'place';
         landingOk(ack);
     });
 
-    // Un joueur dépose (ou déplace) une unité sur une tuile de sa zone.
+    // Un joueur dépose (ou déplace) une ou plusieurs unités individuelles sur une tuile de sa zone.
     socket.on('landing-place', (payload, ack) => {
         const name = socket.data.name;
         const L = state.landing;
         if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
         if (L.phase !== 'place') return landingFail(ack, 'Le dépôt des unités n’est pas ouvert.');
-        const ownerKey = keyOf(L.roster, name);
-        const unit = ownerKey && L.roster[ownerKey].find((u) => u.id === payload?.unit);
-        if (!unit) return landingFail(ack, 'Unité inconnue.');
-        if (payload?.tile == null) { delete L.placed[unit.id]; return landingOk(ack); }
+        const ids = (Array.isArray(payload?.units) ? payload.units : [payload?.unit]).filter((x) => typeof x === 'string').slice(0, 400);
+        if (!ids.length) return landingFail(ack, 'Aucune unité.');
+        const found = ids.map((id) => findLine(name, id));
+        if (found.some((f) => !f)) return landingFail(ack, 'Unité inconnue.');
+        if (payload?.tile == null) {
+            for (const f of found) { delete L.placed[f.id]; delete L.std[f.id]; }
+            return landingOk(ack);
+        }
         const zone = zoneById(L.choices[keyOf(L.choices, name) ?? ''] ?? '');
         const tile = String(payload.tile);
         if (!zone || !zone.tiles.includes(tile)) return landingFail(ack, 'Cette tuile n’appartient pas à votre zone de débarquement.');
-        L.placed[unit.id] = tile;
+        for (const f of found) L.placed[f.id] = tile;
+        landingOk(ack);
+    });
+
+    // Étendards : le nombre d'unités d'une ligne qui en portent un est limité par la colonne E de la légion.
+    socket.on('landing-standard', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'place') return landingFail(ack, 'Les étendards s’attribuent pendant le dépôt des unités.');
+        const f = findLine(name, payload?.unit);
+        if (!f) return landingFail(ack, 'Unité inconnue.');
+        if (!L.placed[f.id]) return landingFail(ack, 'Débarquez d’abord cette unité.');
+        if (payload?.on) {
+            if (L.std[f.id]) return landingOk(ack);
+            let used = 0;
+            for (let i = 1; i <= f.line.qty; i++) if (L.std[unitIdOf(f.owner, f.line.uid, i)]) used++;
+            if (used >= f.line.stdMax) return landingFail(ack, f.line.stdMax ? `Tous les étendards de cette ligne sont attribués (${f.line.stdMax}).` : 'Cette ligne n’a pas d’étendard.');
+            L.std[f.id] = true;
+        } else delete L.std[f.id];
         landingOk(ack);
     });
 
@@ -1864,7 +2054,7 @@ io.on('connection', (socket) => {
         if (!requireAdmin(socket, ack)) return;
         const L = state.landing;
         if (L.phase !== 'place') return landingFail(ack, 'Étape incorrecte.');
-        const left = Object.values(L.roster).flat().filter((u) => !L.placed[u.id]).length;
+        const left = Object.entries(L.roster).reduce((t, [o, list]) => t + list.reduce((k, l) => { let n = 0; for (let i = 1; i <= l.qty; i++) if (!L.placed[unitIdOf(o, l.uid, i)]) n++; return k + n; }, 0), 0);
         if (left && !payload?.force) return reply(ack, { success: false, code: 'missing', left, message: `${left} unité(s) ne sont pas encore placées.` });
         L.phase = 'locked';
         landingOk(ack);
@@ -1878,8 +2068,8 @@ io.on('connection', (socket) => {
         if (target === 'off') { state.landing = defaultLanding(); return landingOk(ack); }
         const order = ['zones', 'choose', 'place', 'locked'];
         if (!order.includes(target) || order.indexOf(target) > order.indexOf(L.phase)) return landingFail(ack, 'Étape invalide.');
-        if (target === 'zones') { L.teamEntry = null; L.choices = {}; L.roster = {}; L.placed = {}; }
-        if (target === 'choose') { L.roster = {}; L.placed = {}; }
+        if (target === 'zones') { L.teamEntry = null; L.choices = {}; L.roster = {}; L.placed = {}; L.std = {}; }
+        if (target === 'choose') { L.roster = {}; L.placed = {}; L.std = {}; }
         if (target === 'place') { /* les unités restent placées */ }
         L.phase = target;
         landingOk(ack);
@@ -1974,168 +2164,4 @@ io.on('connection', (socket) => {
             return reply(ack, { success: false, message: 'Carte introuvable.' });
         }
 
-        const map = await storage.getMap(id);
-        const config = sanitizeConfig(map?.config);
-        if (!config) return reply(ack, { success: false, message: 'Fichier de carte illisible.' });
-
-        const gridData = sanitizeGrid(map.gridData, config);
-        const terrains = sanitizeTerrains(map.terrainsList);
-
-        await createAutoBackup('avant chargement', socket.data.name);
-
-        state.config = config;
-        state.gridData = gridData;
-        state.landing = defaultLanding();
-        histories.clear();
-        rebuildContributors();
-        broadcastUsers();
-        if (terrains) state.terrainsList = terrains;
-        await saveNow();
-
-        io.emit('update-config', { config: state.config, gridData: state.gridData });
-        io.emit('update-terrains', state.terrainsList);
-        broadcastMaps();
-        reply(ack, { success: true, message: `Carte « ${map.name} » chargée.` });
-    }));
-
-    // Export d'une carte (ou de la carte en cours) vers un fichier local.
-    socket.on('export-map', guarded(async (payload, ack) => {
-        if (!requireAdmin(socket, ack)) return;
-        let map;
-        if (payload?.id) {
-            const id = String(payload.id);
-            if (!MAP_ID.test(id) || !mapsIndex.has(id)) return reply(ack, { success: false, message: 'Carte introuvable.' });
-            map = await storage.getMap(id);
-        } else {
-            map = { name: 'Carte en cours', config: state.config, terrainsList: state.terrainsList, gridData: state.gridData };
-        }
-        if (!map) return reply(ack, { success: false, message: 'Carte introuvable.' });
-        reply(ack, { success: true, file: { kind: 'carte', format: 1, name: map.name, savedAt: Date.now(), config: map.config, terrainsList: map.terrainsList, gridData: map.gridData } });
-    }));
-
-    // Import d'une carte depuis un fichier local : elle s'ajoute à la liste, sans toucher au plateau en cours.
-    socket.on('import-map', guarded(async (payload, ack) => {
-        if (!requireAdmin(socket, ack)) return;
-        const file = payload?.file;
-        if (!file || file.kind !== 'carte') return reply(ack, { success: false, message: 'Ce fichier n’est pas une carte exportée.' });
-        const config = sanitizeConfig(file.config);
-        if (!config) return reply(ack, { success: false, message: 'Carte illisible (dimensions invalides).' });
-        const gridData = sanitizeGrid(file.gridData, config);
-        const terrains = sanitizeTerrains(file.terrainsList) || state.terrainsList;
-        const manual = [...mapsIndex.values()].filter((m) => !m.auto).length;
-        if (manual >= 200) return reply(ack, { success: false, message: 'Trop de cartes enregistrées : supprimez-en.' });
-        const name = cleanText(file.name, LIMITS.maxMapName - 10) || 'Carte importée';
-        const map = {
-            id: crypto.randomUUID(),
-            name: `${name} (importée)`,
-            auto: false,
-            author: socket.data.name,
-            savedAt: Date.now(),
-            config,
-            terrainsList: terrains.map((t) => ({ ...t })),
-            gridData
-        };
-        await storage.putMap(map);
-        mapsIndex.set(map.id, metaOf(map));
-        broadcastMaps();
-        reply(ack, { success: true, message: `Carte « ${map.name} » importée.` });
-    }));
-
-    socket.on('rename-map', guarded(async (payload, ack) => {
-        if (!requireAdmin(socket, ack)) return;
-
-        const id = String(payload?.id ?? '');
-        const name = cleanText(payload?.name, LIMITS.maxMapName);
-        if (!name) return reply(ack, { success: false, message: 'Le nom ne peut pas être vide.' });
-        if (!MAP_ID.test(id) || !mapsIndex.has(id)) {
-            return reply(ack, { success: false, message: 'Carte introuvable.' });
-        }
-
-        await storage.renameMap(id, name);
-        const meta = mapsIndex.get(id);
-        meta.name = name;
-        meta.auto = false;
-        broadcastMaps();
-        reply(ack, { success: true, message: 'Carte renommée.' });
-    }));
-
-    socket.on('delete-map', guarded(async (payload, ack) => {
-        if (!requireAdmin(socket, ack)) return;
-
-        const id = String(payload?.id ?? '');
-        if (!MAP_ID.test(id) || !mapsIndex.has(id)) {
-            return reply(ack, { success: false, message: 'Carte introuvable.' });
-        }
-
-        await deleteMap(id);
-        broadcastMaps();
-        reply(ack, { success: true, message: 'Carte supprimée.' });
-    }));
-
-    /* ---------- Déconnexion ---------- */
-
-    socket.on('disconnect', () => {
-        if (socket.data.name) broadcastUsers();
-    });
-});
-
-/* ------------------------------------------------------------------ */
-/* Démarrage / arrêt propre                                            */
-/* ------------------------------------------------------------------ */
-
-async function start() {
-    console.log(`💾 Stockage : ${storage.label}`);
-
-    let raw = await storage.loadState();
-    if (!raw && storage !== fileStorage) {
-        // Première utilisation de Supabase : on récupère d'éventuelles données locales.
-        raw = await fileStorage.loadState();
-        if (raw) console.log('✅ Données locales trouvées : elles sont importées dans Supabase.');
-    }
-    if (!raw) console.log('🆕 Aucune donnée trouvée : plateau par défaut (150x100).');
-
-    state = normalizeState(raw);
-    rebuildContributors();
-    await storage.saveState(state);
-
-    background = await storage.loadBackground();
-
-    try {
-        loadFichesSeed();
-        await loadFichesOverrides();
-    } catch (err) {
-        console.error('⚠️ Fiches d’armée : modifications du MJ illisibles, version d’origine utilisée :', err.message);
-    }
-
-    for (const meta of await storage.listMaps()) mapsIndex.set(meta.id, meta);
-    console.log(`🗺️  ${mapsIndex.size} carte(s) enregistrée(s).`);
-
-    const now = Date.now();
-    for (const [token, session] of Object.entries(await storage.loadSessions())) {
-        if (session && typeof session.name === 'string' && now - session.lastSeen < SESSION_TTL_MS) {
-            sessions.set(token, session);
-        }
-    }
-
-    server.listen(PORT, () => {
-        console.log(`Serveur prêt sur http://localhost:${PORT}`);
-    });
-}
-
-async function shutdown() {
-    try {
-        await saveNow();
-    } finally {
-        process.exit(0);
-    }
-}
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
-
-start().catch((err) => {
-    console.error('❌ Démarrage impossible :', err.message);
-    if (storage !== fileStorage) {
-        console.error('   Vérifiez SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, et que supabase-schema.sql a été exécuté.');
-    }
-    process.exit(1);
-});
+       
