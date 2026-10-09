@@ -1504,6 +1504,7 @@ io.on('connection', (socket) => {
                 // Reconnexion ou reprise de session : l'ancienne connexion est remplacée.
                 releaseSession(other);
                 other.emit('kicked', 'Cette session a été ouverte depuis un autre appareil ou onglet.');
+                other.emit('landing', landingViewFor(other));
             } else {
                 return reply(ack, { success: false, message: 'Ce pseudo est déjà utilisé.' });
             }
@@ -1526,6 +1527,9 @@ io.on('connection', (socket) => {
         }
         broadcastUsers();
         reply(ack, { success: true, name, isAdmin: wantsAdmin, token });
+        // Le débarquement dépend de la personne connectée : on envoie sa vue dès qu'elle est identifiée
+        // (connexion, reprise de session après rechargement ou coupure réseau).
+        socket.emit('landing', landingViewFor(socket));
     });
 
     socket.on('logout', (payload, ack) => {
@@ -1533,6 +1537,7 @@ io.on('connection', (socket) => {
         releaseSession(socket);
         broadcastUsers();
         reply(ack, { success: true });
+        socket.emit('landing', landingViewFor(socket)); // vue anonyme : plus aucune donnée privée sur cet appareil
     });
 
     /* ---------- Cases (tous les joueurs connectés, plateau déverrouillé) ---------- */
@@ -2164,4 +2169,178 @@ io.on('connection', (socket) => {
             return reply(ack, { success: false, message: 'Carte introuvable.' });
         }
 
-       
+        const map = await storage.getMap(id);
+        const config = sanitizeConfig(map?.config);
+        if (!config) return reply(ack, { success: false, message: 'Fichier de carte illisible.' });
+
+        const gridData = sanitizeGrid(map.gridData, config);
+        const terrains = sanitizeTerrains(map.terrainsList);
+
+        await createAutoBackup('avant chargement', socket.data.name);
+
+        state.config = config;
+        state.gridData = gridData;
+        state.landing = defaultLanding();
+        histories.clear();
+        rebuildContributors();
+        broadcastUsers();
+        if (terrains) state.terrainsList = terrains;
+        await saveNow();
+
+        io.emit('update-config', { config: state.config, gridData: state.gridData });
+        io.emit('update-terrains', state.terrainsList);
+        broadcastMaps();
+        reply(ack, { success: true, message: `Carte « ${map.name} » chargée.` });
+    }));
+
+    // Export du jeu complet (serveur, pages, cartes, fiches, état) : un dossier à lancer sur un PC ou un téléphone, sans internet.
+    socket.on('export-package', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const zip = await buildGamePackage();
+        if (zip.length > 80 * 1024 * 1024) return reply(ack, { success: false, message: 'Le jeu est trop volumineux pour être exporté en une fois : exportez les cartes une par une.' });
+        reply(ack, { success: true, name: `jeu-local-${new Date().toISOString().slice(0, 10)}.zip`, size: zip.length, data: zip.toString('base64') });
+    }));
+
+    // Export d'une carte (ou de la carte en cours) vers un fichier local.
+    socket.on('export-map', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        let map;
+        if (payload?.id) {
+            const id = String(payload.id);
+            if (!MAP_ID.test(id) || !mapsIndex.has(id)) return reply(ack, { success: false, message: 'Carte introuvable.' });
+            map = await storage.getMap(id);
+        } else {
+            map = { name: 'Carte en cours', config: state.config, terrainsList: state.terrainsList, gridData: state.gridData };
+        }
+        if (!map) return reply(ack, { success: false, message: 'Carte introuvable.' });
+        reply(ack, { success: true, file: { kind: 'carte', format: 1, name: map.name, savedAt: Date.now(), config: map.config, terrainsList: map.terrainsList, gridData: map.gridData } });
+    }));
+
+    // Import d'une carte depuis un fichier local : elle s'ajoute à la liste, sans toucher au plateau en cours.
+    socket.on('import-map', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const file = payload?.file;
+        if (!file || file.kind !== 'carte') return reply(ack, { success: false, message: 'Ce fichier n’est pas une carte exportée.' });
+        const config = sanitizeConfig(file.config);
+        if (!config) return reply(ack, { success: false, message: 'Carte illisible (dimensions invalides).' });
+        const gridData = sanitizeGrid(file.gridData, config);
+        const terrains = sanitizeTerrains(file.terrainsList) || state.terrainsList;
+        const manual = [...mapsIndex.values()].filter((m) => !m.auto).length;
+        if (manual >= 200) return reply(ack, { success: false, message: 'Trop de cartes enregistrées : supprimez-en.' });
+        const name = cleanText(file.name, LIMITS.maxMapName - 10) || 'Carte importée';
+        const map = {
+            id: crypto.randomUUID(),
+            name: `${name} (importée)`,
+            auto: false,
+            author: socket.data.name,
+            savedAt: Date.now(),
+            config,
+            terrainsList: terrains.map((t) => ({ ...t })),
+            gridData
+        };
+        await storage.putMap(map);
+        mapsIndex.set(map.id, metaOf(map));
+        broadcastMaps();
+        reply(ack, { success: true, message: `Carte « ${map.name} » importée.` });
+    }));
+
+    socket.on('rename-map', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+
+        const id = String(payload?.id ?? '');
+        const name = cleanText(payload?.name, LIMITS.maxMapName);
+        if (!name) return reply(ack, { success: false, message: 'Le nom ne peut pas être vide.' });
+        if (!MAP_ID.test(id) || !mapsIndex.has(id)) {
+            return reply(ack, { success: false, message: 'Carte introuvable.' });
+        }
+
+        await storage.renameMap(id, name);
+        const meta = mapsIndex.get(id);
+        meta.name = name;
+        meta.auto = false;
+        broadcastMaps();
+        reply(ack, { success: true, message: 'Carte renommée.' });
+    }));
+
+    socket.on('delete-map', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+
+        const id = String(payload?.id ?? '');
+        if (!MAP_ID.test(id) || !mapsIndex.has(id)) {
+            return reply(ack, { success: false, message: 'Carte introuvable.' });
+        }
+
+        await deleteMap(id);
+        broadcastMaps();
+        reply(ack, { success: true, message: 'Carte supprimée.' });
+    }));
+
+    /* ---------- Déconnexion ---------- */
+
+    socket.on('disconnect', () => {
+        if (socket.data.name) broadcastUsers();
+    });
+});
+
+/* ------------------------------------------------------------------ */
+/* Démarrage / arrêt propre                                            */
+/* ------------------------------------------------------------------ */
+
+async function start() {
+    console.log(`💾 Stockage : ${storage.label}`);
+
+    let raw = await storage.loadState();
+    if (!raw && storage !== fileStorage) {
+        // Première utilisation de Supabase : on récupère d'éventuelles données locales.
+        raw = await fileStorage.loadState();
+        if (raw) console.log('✅ Données locales trouvées : elles sont importées dans Supabase.');
+    }
+    if (!raw) console.log('🆕 Aucune donnée trouvée : plateau par défaut (150x100).');
+
+    state = normalizeState(raw);
+    rebuildContributors();
+    await storage.saveState(state);
+
+    background = await storage.loadBackground();
+
+    try {
+        loadFichesSeed();
+        await loadFichesOverrides();
+    } catch (err) {
+        console.error('⚠️ Fiches d’armée : modifications du MJ illisibles, version d’origine utilisée :', err.message);
+    }
+
+    for (const meta of await storage.listMaps()) mapsIndex.set(meta.id, meta);
+    console.log(`🗺️  ${mapsIndex.size} carte(s) enregistrée(s).`);
+
+    const now = Date.now();
+    for (const [token, session] of Object.entries(await storage.loadSessions())) {
+        if (session && typeof session.name === 'string' && now - session.lastSeen < SESSION_TTL_MS) {
+            sessions.set(token, session);
+        }
+    }
+
+    server.listen(PORT, () => {
+        console.log(`Serveur prêt sur http://localhost:${PORT}`);
+        const lan = lanAddresses(PORT);
+        if (lan.length) console.log(`Sur le même réseau Wi-Fi, les joueurs peuvent ouvrir : ${lan.join('  ou  ')}`);
+    });
+}
+
+async function shutdown() {
+    try {
+        await saveNow();
+    } finally {
+        process.exit(0);
+    }
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+start().catch((err) => {
+    console.error('❌ Démarrage impossible :', err.message);
+    if (storage !== fileStorage) {
+        console.error('   Vérifiez SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, et que supabase-schema.sql a été exécuté.');
+    }
+    process.exit(1);
+});
