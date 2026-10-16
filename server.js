@@ -286,10 +286,11 @@ function sanitizePicks(raw) {
 
 const LANDING_PHASES = ['off', 'zones', 'choose', 'place', 'locked'];
 const ZONE_ID = /^[a-z]$/;
+const DEFAULT_BONUS = 2; // tuiles de déplacement supplémentaires par défaut, réglables par le MJ pour chaque section
 const TEAM_IDS = ['t1', 't2'];
 
 function defaultLanding() {
-    return { phase: 'off', zones: [], groups: {}, teamEntry: null, choices: {}, roster: {}, placed: {}, std: {} };
+    return { phase: 'off', zones: [], groups: {}, bonus: {}, teamEntry: null, choices: {}, roster: {}, placed: {}, std: {} };
 }
 
 // Reconstruit l'état depuis le disque en ne gardant que des valeurs bien formées.
@@ -303,6 +304,11 @@ function normalizeLanding(raw) {
     }
     const ids = new Set(out.zones.map((z) => z.id));
     for (const [z, g] of Object.entries(raw.groups || {})) if (ids.has(z) && (g === 'A' || g === 'B')) out.groups[z] = g;
+    for (const [z, b] of Object.entries(raw.bonus || {})) {
+        if (!ids.has(z) || !b || typeof b !== 'object') continue;
+        const v = (x) => (Number.isInteger(x) && x >= 0 && x <= 9 ? x : DEFAULT_BONUS);
+        out.bonus[z] = { s1: v(b.s1), s2: v(b.s2) };
+    }
     if (raw.teamEntry && TEAM_IDS.every((t) => raw.teamEntry[t] === 'A' || raw.teamEntry[t] === 'B')) out.teamEntry = { t1: raw.teamEntry.t1, t2: raw.teamEntry.t2 };
     for (const [name, z] of Object.entries(raw.choices || {})) if (name.length <= LIMITS.maxName && ids.has(z)) out.choices[name] = z;
     // roster : pour chaque joueur, ses lignes de légion (une ligne = nb unités individuelles).
@@ -310,6 +316,7 @@ function normalizeLanding(raw) {
         if (name.length > LIMITS.maxName || !Array.isArray(list)) continue;
         out.roster[name] = list.slice(0, 120).filter((u) => u && typeof u.uid === 'string' && u.uid.length <= 100).map((u) => ({
             uid: u.uid, name: String(u.name || '').slice(0, 60), qty: Math.max(1, Math.min(400, Math.floor(Number(u.qty) || 1))),
+            figs: Math.max(0, Math.min(5000, Math.floor(Number(u.figs) || 0))), type: String(u.type || '').slice(0, 12),
             dep: Number.isFinite(u.dep) ? u.dep : 0, army: String(u.army || '').slice(0, 40), legion: String(u.legion || '').slice(0, 12),
             stdMax: Math.max(0, Math.min(400, Math.floor(Number(u.stdMax) || 0)))
         }));
@@ -773,9 +780,17 @@ const validPick = (armyId, lid) => {
 };
 
 // Joueur qui a déjà choisi cette légion (hors lui-même), sinon null.
+// Une légion formée de deux armées compte pour une seule : choisir l'une des deux moitiés prend les deux.
+function legionGroup(armyId, lid) {
+    const l = fichesArmy(armyId)?.legions?.find((x) => x.id === lid);
+    const group = [`${armyId}:${lid}`];
+    if (l?.partner) group.push(`${l.partner.army}:${l.partner.legion}`);
+    return group;
+}
 function pickTakenBy(armyId, lid, exceptName) {
+    const mine = legionGroup(armyId, lid);
     for (const [name, pick] of Object.entries(state.fichesPicks)) {
-        if (name !== exceptName && pick.army === armyId && pick.legion === lid) return name;
+        if (name !== exceptName && legionGroup(pick.army, pick.legion).some((k) => mine.includes(k))) return name;
     }
     return null;
 }
@@ -855,10 +870,16 @@ function fichesCatalog() {
 // Armées réduites aux seules légions choisies par les joueurs : tout ce que reçoit un joueur quand l'accès est fermé.
 function fichesPickedArmies() {
     const byArmy = new Map();
+    const add = (armyId, lid) => {
+        if (!fichesArmy(armyId)) return;
+        if (!byArmy.has(armyId)) byArmy.set(armyId, new Set());
+        byArmy.get(armyId).add(lid);
+    };
     for (const pick of Object.values(state.fichesPicks)) {
         if (!validPick(pick.army, pick.legion)) continue;
-        if (!byArmy.has(pick.army)) byArmy.set(pick.army, new Set());
-        byArmy.get(pick.army).add(pick.legion);
+        add(pick.army, pick.legion);
+        const partner = fichesArmy(pick.army).legions.find((l) => l.id === pick.legion)?.partner;
+        if (partner) add(partner.army, partner.legion);
     }
     return [...byArmy.entries()].map(([armyId, lids]) => {
         const army = fichesArmy(armyId);
@@ -1027,40 +1048,90 @@ function computeZones() {
     return comps.slice(0, 26).map((tiles, i) => ({ id: String.fromCharCode(97 + i), tiles: tiles.sort() }));
 }
 
-// Recalcule les zones en conservant le groupe des zones qui se recouvrent.
+// Une case existe si elle est dans la carte et n'a pas été retirée.
+function mapHas(col, row) {
+    const { cols, rows } = state.config;
+    if (col < 0 || row < 0 || col >= cols || row >= rows) return false;
+    return !state.gridData[`${col},${row}`]?.removed;
+}
+
+// Angle fermé de la carte : une case dont les deux voisines du haut (ou du bas) manquent, ainsi qu'une voisine de côté.
+function isClosedCorner(col, row) {
+    const odd = row % 2 === 1;
+    const has = (dc, dr) => mapHas(col + dc, row + dr);
+    const E = has(1, 0);
+    const W = has(-1, 0);
+    const NW = odd ? has(0, -1) : has(-1, -1);
+    const NE = odd ? has(1, -1) : has(0, -1);
+    const SW = odd ? has(0, 1) : has(-1, 1);
+    const SE = odd ? has(1, 1) : has(0, 1);
+    return (!NW && !NE && (!E || !W)) || (!SW && !SE && (!E || !W));
+}
+
+// Section 1 d'une zone : les cases d'extrémité (une seule voisine dans la zone) qui ne sont pas dans un angle fermé de la carte.
+// Toutes les autres cases (et une extrémité située dans un angle fermé) forment la section 2.
+function zoneEnds(zone) {
+    const set = new Set(zone.tiles);
+    return zone.tiles.filter((key) => {
+        const [c, r] = key.split(',').map(Number);
+        const inside = hexNeighbors(c, r).filter(([nc, nr]) => set.has(`${nc},${nr}`)).length;
+        return inside <= 1 && !isClosedCorner(c, r);
+    });
+}
+
+// Recalcule les zones en conservant le groupe et les bonus des zones qui se recouvrent.
 function refreshZones() {
     const L = state.landing;
     const old = L.zones;
     const next = computeZones();
     const groups = {};
+    const bonus = {};
     for (const z of next) {
         const best = old.map((o) => ({ o, n: o.tiles.filter((t) => z.tiles.includes(t)).length })).sort((a, b) => b.n - a.n)[0];
         if (best && best.n > 0 && L.groups[best.o.id]) groups[z.id] = L.groups[best.o.id];
+        if (best && best.n > 0 && L.bonus[best.o.id]) bonus[z.id] = { ...L.bonus[best.o.id] };
     }
     L.zones = next;
     L.groups = groups;
+    L.bonus = bonus;
     const ids = new Set(next.map((z) => z.id));
     for (const [n, z] of Object.entries(L.choices)) if (!ids.has(z)) delete L.choices[n];
 }
 
 const unitKey = (armyId, u) => u.uid || `${armyId}-r${u.row}`;
 
-// Les lignes d'un joueur : la colonne nb d'une ligne de légion donne le nombre d'unités individuelles de cette ligne.
+// Lignes d'une légion. Pour chaque ligne : nb = nombre total de figurines, U = nombre d'unités (avec leur type),
+// E = nombre d'unités portant un étendard. La colonne c des fiches Excel ne sert pas.
+function legionLines(army, lid) {
+    return (army.units || []).filter((u) => Array.isArray(u.q?.[lid]) && u.q[lid][0] > 0).map((u) => {
+        const q = u.q[lid];
+        const units = Math.max(1, Math.min(400, Math.floor(Number(q[6]) || 1)));
+        return {
+            uid: unitKey(army.id, u),
+            name: String(u.in_?.B || 'unité').slice(0, 60),
+            qty: units,
+            figs: Math.max(0, Math.floor(Number(q[0]) || 0)),
+            type: String(q[7] || '').slice(0, 12),
+            stdMax: Math.max(0, Math.min(units, Math.floor(Number(q[2]) || 0))),
+            dep: Number.isFinite(Number(u.in_?.I)) ? Math.floor(Number(u.in_.I)) : 0,
+            army: army.id,
+            legion: lid
+        };
+    });
+}
+
+// Une légion peut être formée de deux armées (Elfes sylvains + Thyranides) : ses lignes viennent des deux fiches.
 function rosterFor(name) {
     const pickKey = keyOf(state.fichesPicks, name);
     if (!pickKey) return [];
     const pick = state.fichesPicks[pickKey];
     const army = fichesArmy(pick.army);
     if (!army) return [];
-    return army.units.filter((u) => Array.isArray(u.q?.[pick.legion]) && u.q[pick.legion][0] > 0).map((u) => ({
-        uid: unitKey(army.id, u),
-        name: String(u.in_?.B || 'unité').slice(0, 60),
-        qty: Math.min(400, Math.floor(u.q[pick.legion][0])),
-        stdMax: Math.max(0, Math.min(400, Math.floor(Number(u.q[pick.legion][2]) || 0))), // colonne E : nombre d'unités portant un étendard
-        dep: Number.isFinite(Number(u.in_?.I)) ? Math.floor(Number(u.in_.I)) : 0,
-        army: army.id,
-        legion: pick.legion
-    })).slice(0, 120);
+    const lines = legionLines(army, pick.legion);
+    const partner = army.legions?.find((l) => l.id === pick.legion)?.partner;
+    const partnerArmy = partner ? fichesArmy(partner.army) : null;
+    if (partnerArmy) lines.push(...legionLines(partnerArmy, partner.legion));
+    return lines.slice(0, 120);
 }
 
 const unitIdOf = (owner, uid, i) => `${owner}|${uid}#${i}`;
@@ -1098,7 +1169,7 @@ function landingViewFor(socket) {
     const sees = (n) => everything || (myTeam && teamOf(n) === myTeam);
 
     const view = { ...base, myTeam, myGroup, teamEntry: (everything || admin) ? L.teamEntry : (myTeam && myGroup ? { [myTeam]: myGroup } : null) };
-    view.zones = L.zones.map((z) => ({ id: z.id, tiles: z.tiles, group: L.groups[z.id] ?? null }));
+    view.zones = L.zones.map((z) => ({ id: z.id, tiles: z.tiles, group: L.groups[z.id] ?? null, ends: zoneEnds(z), bonus: { s1: L.bonus[z.id]?.s1 ?? DEFAULT_BONUS, s2: L.bonus[z.id]?.s2 ?? DEFAULT_BONUS } }));
     if (L.phase === 'zones') {
         if (admin) view.groupCount = { A: Object.values(L.groups).filter((g) => g === 'A').length, B: Object.values(L.groups).filter((g) => g === 'B').length };
         return view;
@@ -1980,6 +2051,20 @@ io.on('connection', (socket) => {
         landingOk(ack);
     });
 
+    // Le MJ règle le bonus de déplacement (0 à 9 tuiles, 2 par défaut) de la section 1 ou de la section 2 d'une zone.
+    socket.on('landing-bonus', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase === 'off') return landingFail(ack, 'Le débarquement n’est pas lancé.');
+        const id = String(payload?.zone ?? '');
+        if (!zoneById(id)) return landingFail(ack, 'Zone inconnue.');
+        const key = payload?.section === 1 ? 's1' : payload?.section === 2 ? 's2' : null;
+        const value = Number(payload?.value);
+        if (!key || !Number.isInteger(value) || value < 0 || value > 9) return landingFail(ack, 'Le bonus doit être un nombre entier de 0 à 9.');
+        L.bonus[id] = { s1: L.bonus[id]?.s1 ?? DEFAULT_BONUS, s2: L.bonus[id]?.s2 ?? DEFAULT_BONUS, [key]: value };
+        landingOk(ack);
+    });
+
     // Un joueur choisit sa zone parmi celles de son équipe.
     socket.on('landing-choose', (payload, ack) => {
         const name = socket.data.name;
@@ -2014,14 +2099,15 @@ io.on('connection', (socket) => {
         landingOk(ack);
     });
 
-    // Un joueur dépose (ou déplace) une ou plusieurs unités individuelles sur une tuile de sa zone.
+    // Un joueur dépose (ou déplace) une unité à la fois sur une tuile de sa zone.
     socket.on('landing-place', (payload, ack) => {
         const name = socket.data.name;
         const L = state.landing;
         if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
         if (L.phase !== 'place') return landingFail(ack, 'Le dépôt des unités n’est pas ouvert.');
-        const ids = (Array.isArray(payload?.units) ? payload.units : [payload?.unit]).filter((x) => typeof x === 'string').slice(0, 400);
+        const ids = (Array.isArray(payload?.units) ? payload.units : [payload?.unit]).filter((x) => typeof x === 'string');
         if (!ids.length) return landingFail(ack, 'Aucune unité.');
+        if (ids.length > 1) return landingFail(ack, 'Les unités se déposent une par une.');
         const found = ids.map((id) => findLine(name, id));
         if (found.some((f) => !f)) return landingFail(ack, 'Unité inconnue.');
         if (payload?.tile == null) {
