@@ -551,7 +551,8 @@ function groupUnits(a,filter,withEmpty){
   return out;
 }
 function visLegions(a){const mj=isMJ();return a.legions.filter(l=>l.id!=='ni'||mj||legStats(a,l).figs>0);}
-function legTot(a,l){let n=0,c=0,e=0,v=0;a.units.forEach(u=>{const q=u.q[l.id];if(!q)return;n+=q[0];c+=q[1]||0;e+=q[2]||0;v+=(q[3]===q[3]&&q[3]!=null)?q[3]:0;});return {n,c,e,v:v+(l.sup||0)};}
+const uTxt=q=>q&&q[6]?`${q[6]}${q[7]||''}`:'';
+function legTot(a,l){let n=0,c=0,e=0,v=0;a.units.forEach(u=>{const q=u.q[l.id];if(!q)return;n+=q[0];c+=q[6]||0;e+=q[2]||0;v+=(q[3]===q[3]&&q[3]!=null)?q[3]:0;});return {n,c,e,v:v+(l.sup||0)};}
 const lgW=()=>S.cols.has('$pts')?4:3;
 
 /* ---- choix de légion ---- */
@@ -610,7 +611,7 @@ function renderFull(a){
   h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c,2)).join('');
   vl.forEach(l=>{h+=`<th class="lg gs ${S.sel===l.id?'on':''}" colspan="${w}" data-a="leg" data-leg="${esc(l.id)}"${mj?' data-ondbl="legmenu"':''} title="${esc(legName(l))}">${esc(legShort(l))}</th>`;});
   h+='</tr><tr>';
-  vl.forEach(l=>{['nb','c','E'].concat(w===4?['pts']:[]).forEach((t,k)=>{h+=`<th class="lg sub ${k===0?'gs':''} ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}">${t}</th>`;});});
+  vl.forEach(l=>{['nb','U','E'].concat(w===4?['pts']:[]).forEach((t,k)=>{h+=`<th class="lg sub ${k===0?'gs':''} ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}">${t}</th>`;});});
   h+='</tr></thead><tbody>';
   const span=cs.length+vl.length*w;
   groupUnits(a,null,mj).forEach(g=>{
@@ -622,7 +623,7 @@ function renderFull(a){
       else vl.forEach(l=>{const q=u.q[l.id];const on=S.sel===l.id?'on':'';
         for(let k=0;k<3;k++){
           const attr=mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${k}"`:'';
-          const txt=q?(k===0?`<span class="qty">${q[0]}</span>`:(q[k]||'')):(k===0?'<span class="dim">·</span>':'');
+          const txt=q?(k===0?`<span class="qty">${q[0]}</span>`:(k===1?uTxt(q):(q[k]||''))):(k===0?'<span class="dim">·</span>':'');
           h+=`<td class="lg ${k===0?'gs':''} ${on}"${attr}>${txt}</td>`;}
         if(w===4)h+=`<td class="lg ${on}">${q&&q[3]===q[3]&&q[3]!=null?Math.round(q[3]):''}</td>`;});
       h+=actTd(a,u,wh)+'</tr>';});});
@@ -646,19 +647,21 @@ function renderLegion(a){
   if(mj&&l.id!=='ni')h+='<div class="row noprint"><button class="btn" data-a="editleg">✎ Modifier la légion</button><button class="btn" data-a="dupleg">⧉ Dupliquer</button><button class="btn" data-a="delleg">🗑 Supprimer</button><button class="btn" data-a="newleg">＋ Nouvelle légion</button></div>';
   if(S.showCols)h+=colsPanel(a);
   h+=`<div class="card"><div class="sans small up">${esc(a.name)}</div><h1 style="font-size:26px;margin:2px 0">${esc(legName(l))}${l.tag?'<span class="tag">'+esc(l.tag)+'</span>':''}</h1>`;
-  h+=`<div class="kpis"><div class="kpi"><b>${t.n}</b><span>figurines</span></div><div class="kpi"><b>${pts(t.v)}</b><span>points</span></div><div class="kpi"><b>${rows.length}</b><span>types d'unités</span></div></div>`;
+  h+=`<div class="kpis"><div class="kpi"><b>${t.c}</b><span>unités</span></div><div class="kpi"><b>${t.n}</b><span>figurines</span></div><div class="kpi"><b>${pts(t.v)}</b><span>points</span></div><div class="kpi"><b>${rows.length}</b><span>types d'unités</span></div></div>`;
+  S.partner=l.partner||null;
+  if(l.partner){const pa=getArmy(l.partner.army);h+=`<div class="hint">Cette légion est formée de <b>deux armées</b> : elle est complétée par la légion ${esc(l.partner.legion)} des <b>${esc(pa?pa.name:l.partner.army)}</b>. <button class="btn" data-a="openpartner">Voir l'autre moitié</button></div>`;}
   if(l.comp)h+=`<div class="comp">Composition : ${esc(l.comp)}</div>`;
   h+='</div>';
   if(!rows.length)h+='<div class="hint">Aucune unité dans cette légion.</div>';
   else{
-    h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c)).join('')+'<th>nb</th><th title="c de la légion">c</th><th title="E de la légion">E</th><th title="Valeur de la ligne dans cette légion">pts</th>'+(mj?'<th class="noprint"></th>':'')+'</tr></thead><tbody>';
+    h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c)).join('')+'<th>nb</th><th title="U : nombre d\'unités et leur type">U</th><th title="E de la légion">E</th><th title="Valeur de la ligne dans cette légion">pts</th>'+(mj?'<th class="noprint"></th>':'')+'</tr></thead><tbody>';
     groupUnits(a,u=>u.q[l.id],false).forEach(g=>{
       h+=secRow(a,g,cs.length+4+(mj?1:0),false);
       g.units.forEach(u=>{const q=u.q[l.id];
         ['u','l2'].forEach(wh=>{if(wh==='l2'&&!u.l2)return;
           h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c)).join('');
           if(wh==='u'){const at=i=>mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${i}"`:'';
-            h+=`<td class="qty"${at(0)}>${q[0]}</td><td${at(1)}>${q[1]||''}</td><td${at(2)}>${q[2]||''}</td><td>${q[3]==null||q[3]!==q[3]?'':Math.round(q[3])}</td>`;}
+            h+=`<td class="qty"${at(0)}>${q[0]}</td><td${at(1)}>${uTxt(q)}</td><td${at(2)}>${q[2]||''}</td><td>${q[3]==null||q[3]!==q[3]?'':Math.round(q[3])}</td>`;}
           else h+='<td></td><td></td><td></td><td></td>';
           h+=actTd(a,u,wh)+'</tr>';});});
     });
@@ -673,9 +676,9 @@ function renderLegion(a){
 }
 function toText(a,l){
   const cs=visCols();let t=`${a.name} — ${legName(l)}\n\n`;
-  t+=cs.map(c=>c==='B'?'Unité':colLabel(a,c)).concat(['nb','c','E','pts']).join('\t')+'\n';
+  t+=cs.map(c=>c==='B'?'Unité':colLabel(a,c)).concat(['nb','U','E','pts']).join('\t')+'\n';
   a.units.filter(u=>u.q[l.id]).forEach(u=>{const q=u.q[l.id];
-    t+=cs.map(c=>fnum(cellRaw(u,c))).concat([q[0],q[1]||'',q[2]||'',q[3]==null||q[3]!==q[3]?'':Math.round(q[3])]).join('\t')+'\n';
+    t+=cs.map(c=>fnum(cellRaw(u,c))).concat([q[0],uTxt(q),q[2]||'',q[3]==null||q[3]!==q[3]?'':Math.round(q[3])]).join('\t')+'\n';
     if(u.l2)t+=cs.map(c=>c==='B'?'↳ 2e attaque':fnum(cellRaw(u.l2,c))).join('\t')+'\n';});
   return t;
 }
@@ -721,11 +724,11 @@ function render(){
 function openLegQty(armyId,uidv,lid,i){
   const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
   const q=u.q[lid];const lg=a.legions.find(l=>l.id===lid);
-  const nm=['Quantité','c (légion)','E (légion)'][i];
+  const nm=['Nombre de figurines (nb)','Nombre d\'unités (U)','Unités avec étendard (E)'][i];
   if(!q&&i!==0)return toast("Renseignez d'abord la quantité de cette unité dans la légion.");
-  openModal('Modifier '+nm,`<div class="small" style="margin-bottom:8px">${esc(a.name)} › ${esc(u.in_.B||'')} › ${esc(legName(lg))}</div><input id="lqv" class="ft" type="number" min="0" value="${q?q[i]:0}">${i===0?'<div class="small" style="margin-top:6px">0 retire l\'unité de la légion.</div>':''}`,
+  openModal('Modifier '+nm,`<div class="small" style="margin-bottom:8px">${esc(a.name)} › ${esc(u.in_.B||'')} › ${esc(legName(lg))}</div><input id="lqv" class="ft" type="number" min="0" value="${q?(i===1?(q[6]||1):q[i]):0}">${i===0?'<div class="small" style="margin-top:6px">0 retire l\'unité de la légion.</div>':''}`,
    [{label:'Annuler',fn:closeModal},{label:'Valider',cls:'pri',fn:()=>{const n=Math.max(0,Math.round(Number(mval('lqv'))||0));
-     if(i===0){if(n===0)delete u.q[lid];else if(q)q[0]=n;else u.q[lid]=[n,0,0,null,a.defVal,a.defVal];}else q[i]=n;
+     if(i===0){if(n===0)delete u.q[lid];else if(q)q[0]=n;else u.q[lid]=[n,0,0,null,a.defVal,a.defVal,1,''];}else if(i===1)q[6]=Math.max(1,n);else q[i]=n;
      closeModal();afterChange([armyId]);}}]);
 }
 
@@ -947,6 +950,7 @@ function onClick2(e){
     case 'fam-scan':if(isMJ())scanDuplicates();break;
     case 'newsec':if(ED())addSection();break;
     case 'diag':if(isMJ())runDiag();break;
+    case 'openpartner':if(S.partner)openFromLink(S.partner.army,S.partner.legion);break;
     case 'unit-std':{const t=S.uc;if(!t||!t.id)break;hostReq('landing-standard',{unit:t.id,on:!t.std}).then(r=>{if(!r.success)return toast(r.message||'Action impossible.');t.std=!t.std;t.stdUsed+=t.std?1:-1;const b=document.getElementById('stdBox');if(b)b.innerHTML=stdBoxHtml();toast(t.std?'Étendard attribué.':'Étendard retiré.');});break;}
     case 'snap-save':case 'snap-over':case 'snap-load':case 'snap-ren':case 'snap-del':case 'snap-export':case 'snap-exp':case 'snap-import':if(isMJ())snapAction(a,el);break;
     case 'ft-open':openFamEditor(el.dataset.fam);break;
@@ -1350,7 +1354,7 @@ function showUnitCard(t){
   const cols=COLS.filter(c=>c!=='B'&&c!=='A'&&!CARD_HIDE.has(c)&&cellRaw(u,c)!=null&&cellRaw(u,c)!=='');
   const row=(lab,val)=>`<tr><th style="text-align:left;white-space:normal">${esc(lab)}</th><td style="text-align:right">${esc(val)}</td></tr>`;
   let h=`<div class="small" style="margin-bottom:6px">${esc(a.name)}${lg?' · '+esc(legName(lg)):''}${t.owner?' · '+esc(t.owner):''}</div>`;
-  if(q)h+=`<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${q[0]}</b><span>unités (nb)</span></div>${q[1]?`<div class="kpi"><b>${q[1]}</b><span>c</span></div>`:''}${q[2]?`<div class="kpi"><b>${q[2]}</b><span>E · étendards</span></div>`:''}${q[3]===q[3]&&q[3]!=null?`<div class="kpi"><b>${Math.round(q[3])}</b><span>valeur de la ligne</span></div>`:''}</div>`;
+  if(q){const un=q[6]||1;const fpu=q[0]/un;h+=`<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${un}${q[7]?' '+esc(q[7]):''}</b><span>unité${un>1?'s':''} de la ligne</span></div><div class="kpi"><b>${q[0]}</b><span>figurines (nb)</span></div><div class="kpi"><b>${fpu%1?fpu.toFixed(1):fpu}</b><span>fig. par unité</span></div>${q[2]?`<div class="kpi"><b>${q[2]}</b><span>étendards (E)</span></div>`:''}${q[3]===q[3]&&q[3]!=null?`<div class="kpi"><b>${Math.round(q[3])}</b><span>valeur de la ligne</span></div>`:''}</div>`;}
   h+='<div class="scroll" style="max-height:34vh"><table style="width:100%">'+cols.map(c=>row(c==='W'?'Valeur de la figurine (avec tous les bonus)':(LONG[c]||c),fnum(cellRaw(u,c)))).join('')+'</table></div>';
   if(u.l2){const c2=['C','E'].filter(c=>u.l2.in_[c]!=null);if(c2.length)h+=`<div class="lbl2" style="margin-top:8px">2ᵉ attaque</div><table style="width:100%">${c2.map(c=>row(LONG[c]||c,fnum(u.l2.in_[c]))).join('')}</table>`;}
   const act=a.bonuses.filter(b=>bonusOn(a,b.key));
