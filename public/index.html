@@ -2925,7 +2925,7 @@
             for (const l of v.lines || []) {
                 for (let i = 1; i <= l.qty; i++) {
                     const id = `${l.owner}|${l.uid}#${i}`;
-                    out.push({ id, owner: l.owner, team: l.team, name: l.name, line: `${l.owner}|${l.uid}`, uid: l.uid, army: l.army, legion: l.legion, dep: l.dep, stdMax: l.stdMax, figs: l.figs, type: l.type, tile: placed[id] ?? null, std: std.has(id) });
+                    out.push({ id, owner: l.owner, team: l.team, name: l.name, line: `${l.owner}|${l.uid}`, uid: l.uid, army: l.army, legion: l.legion, dep: l.dep, stdMax: l.stdMax, figs: l.figs, type: l.type, idx: i, tile: placed[id] ?? null, std: std.has(id) });
                 }
             }
             return out;
@@ -2976,20 +2976,33 @@
         const keyToHex = (key) => key.split(',').map(Number);
         const shortName = (t, n = 13) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 
-        // Deux marqueurs alignés horizontalement ou verticalement et séparés par une tuile forment un segment :
-        // les tuiles du passage sont elles aussi fermées.
-        function gapFill(markerKeys) {
+        const edgeKey = (a, b) => `${a}|${b}`;
+
+        // Deux marqueurs alignés et séparés par une tuile forment un segment :
+        //  - à l'horizontale, la tuile du milieu est sur le segment : elle est fermée ;
+        //  - à la verticale, le segment passe entre les deux tuiles voisines des deux marqueurs : chacune reste accessible de son côté,
+        //    mais on ne passe pas de l'une à l'autre (on s'arrête avant le segment).
+        function gapTiles(markerKeys) {
             const set = new Set(markerKeys);
-            const filled = new Set();
+            const out = new Set();
             for (const key of markerKeys) {
                 const [c, r] = keyToHex(key);
-                if (set.has(`${c + 2},${r}`)) filled.add(`${c + 1},${r}`);
-                if (set.has(`${c},${r + 2}`)) {
-                    const lower = new Set(landNeighbors(c, r + 2).map(([x, y]) => `${x},${y}`));
-                    for (const [x, y] of landNeighbors(c, r)) if (lower.has(`${x},${y}`)) filled.add(`${x},${y}`);
-                }
+                if (set.has(`${c + 2},${r}`)) out.add(`${c + 1},${r}`);
             }
-            return filled;
+            return out;
+        }
+
+        function gapEdges(markerKeys) {
+            const set = new Set(markerKeys);
+            const out = new Set();
+            for (const key of markerKeys) {
+                const [c, r] = keyToHex(key);
+                if (!set.has(`${c},${r + 2}`)) continue;
+                const lower = new Set(landNeighbors(c, r + 2).map(([x, y]) => `${x},${y}`));
+                const common = landNeighbors(c, r).map(([x, y]) => `${x},${y}`).filter((k) => lower.has(k));
+                if (common.length === 2) { out.add(edgeKey(common[0], common[1])); out.add(edgeKey(common[1], common[0])); }
+            }
+            return out;
         }
 
         const inMapKey = (key) => {
@@ -3005,59 +3018,113 @@
                 if (tile?.removed) continue;
                 if (tile?.mark === 'disc' || (tile?.mark === 'triangle' && !zoneTiles.has(key))) markers.push(key);
             }
-            const blocked = new Set([...markers, ...gapFill(markers)]);
-            return { markers, blocked };
+            return { markers, blocked: new Set([...markers, ...gapTiles(markers)]), edges: gapEdges(markers) };
         }
 
-        // Aire de bonus d'une zone : la région située « en face » de ses tuiles de section 2, délimitée par les marqueurs +,
-        // les frontières (disques, triangles), les bords de la carte et les extrémités (section 1) des zones.
-        // Les tuiles + qui bordent l'aire en font partie.
-        function areaFor(zone) {
+        // Sections d'une zone : chaque extrémité (hors angle fermé de la carte) forme une section ; les autres tuiles forment
+        // la section du centre. Chaque section a son bonus de déplacement (2 par défaut, réglé par le MJ).
+        function zoneSections(zone) {
+            const byPos = (a, b) => { const [ac, ar] = keyToHex(a); const [bc, br] = keyToHex(b); return ar - br || ac - bc; };
+            const ends = [...(zone.ends || [])].sort(byPos);
+            const endSet = new Set(ends);
+            const mid = zone.tiles.filter((k) => !endSet.has(k));
+            const list = [];
+            if (ends[0]) list.push({ key: ends[0], kind: 'end', tiles: [ends[0]] });
+            if (mid.length) list.push({ key: 'mid', kind: 'mid', tiles: mid });
+            for (const e of ends.slice(1)) list.push({ key: e, kind: 'end', tiles: [e] });
+            list.forEach((sec, i) => {
+                sec.n = i + 1;
+                sec.bonus = (sec.kind === 'mid' ? zone.bonus?.mid : zone.bonus?.ends?.[sec.key]) ?? 2;
+            });
+            return list;
+        }
+
+        // Aire de bonus de chaque section : les régions situées en face de ses tuiles, délimitées par les marqueurs +, les frontières
+        // (disques, triangles), les bords de la carte et les extrémités de zones. Les tuiles + qui bordent une aire en font partie.
+        //  - centre : la région en contact avec le plus grand nombre de ses tuiles (« en face » de la ligne) ;
+        //  - extrémité : les régions en contact avec elle, hors de l'aire du centre.
+        function zoneAreas(zone) {
             const zones = LAND.view.zones || [];
-            const ends = new Set(zones.flatMap((z) => z.ends || []));
+            const sections = zoneSections(zone);
+            const endTiles = new Set(zones.flatMap((z) => z.ends || []));
+            const lim = limitInfo();
             const crosses = Object.entries(state.gridData).filter(([, t]) => t?.mark === 'cross' && !t.removed).map(([k]) => k);
-            const boundary = new Set([...limitInfo().blocked, ...crosses, ...gapFill(crosses), ...ends]);
-            const seeds = zone.tiles.filter((k) => !(zone.ends || []).includes(k));
-            const region = new Set();
-            let frontier = [];
-            for (const k of seeds) { region.add(k); frontier.push(k); }
-            while (frontier.length) {
-                const next = [];
-                for (const key of frontier) {
-                    const [c0, r0] = keyToHex(key);
-                    for (const [nc, nr] of landNeighbors(c0, r0)) {
-                        const nk = `${nc},${nr}`;
-                        if (region.has(nk) || boundary.has(nk) || !inMapKey(nk)) continue;
-                        region.add(nk);
-                        next.push(nk);
+            const lines = [...lim.markers, ...crosses];
+            const boundary = new Set([...lim.markers, ...crosses, ...gapTiles(lines), ...endTiles]);
+            const edges = gapEdges(lines);
+            const zoneSet = new Set(zone.tiles);
+            const free = (k) => inMapKey(k) && !boundary.has(k) && !zoneSet.has(k);
+            const compOf = new Map();
+            const comps = [];
+            const grow = (seed) => {
+                const id = comps.length;
+                const set = new Set([seed]);
+                comps.push(set);
+                compOf.set(seed, id);
+                let frontier = [seed];
+                while (frontier.length) {
+                    const next = [];
+                    for (const key of frontier) {
+                        const [c0, r0] = keyToHex(key);
+                        for (const [nc, nr] of landNeighbors(c0, r0)) {
+                            const nk = `${nc},${nr}`;
+                            if (compOf.has(nk) || !free(nk) || edges.has(edgeKey(key, nk))) continue;
+                            compOf.set(nk, id);
+                            set.add(nk);
+                            next.push(nk);
+                        }
                     }
+                    frontier = next;
                 }
-                frontier = next;
-            }
-            const area = new Set(region);
-            for (const key of region) {
-                const [c0, r0] = keyToHex(key);
+                return id;
+            };
+            const touching = (tile) => {
+                const ids = new Set();
+                const [c0, r0] = keyToHex(tile);
                 for (const [nc, nr] of landNeighbors(c0, r0)) {
                     const nk = `${nc},${nr}`;
-                    if (state.gridData[nk]?.mark === 'cross' && inMapKey(nk)) area.add(nk);
+                    if (free(nk)) ids.add(compOf.get(nk) ?? grow(nk));
                 }
+                return ids;
+            };
+            const midComps = new Set();
+            const mid = sections.find((sec) => sec.kind === 'mid');
+            if (mid) {
+                const count = new Map();
+                for (const t of mid.tiles) for (const id of touching(t)) count.set(id, (count.get(id) || 0) + 1);
+                const max = Math.max(0, ...count.values());
+                if (max > 0) for (const [id, n] of count) if (n === max) midComps.add(id);
             }
-            return area;
+            const result = new Map();
+            for (const sec of sections) {
+                let ids = new Set();
+                if (sec.kind === 'mid') ids = midComps;
+                else for (const id of touching(sec.tiles[0])) if (!midComps.has(id)) ids.add(id);
+                const area = new Set();
+                for (const id of ids) for (const k of comps[id]) area.add(k);
+                for (const k of [...area]) {
+                    const [c0, r0] = keyToHex(k);
+                    for (const [nc, nr] of landNeighbors(c0, r0)) {
+                        const nk = `${nc},${nr}`;
+                        if (state.gridData[nk]?.mark === 'cross' && inMapKey(nk)) area.add(nk);
+                    }
+                }
+                result.set(sec.key, area);
+            }
+            return result;
         }
 
-        // Portée de déplacement. Une unité qui débarque dans une zone a un bonus (2 tuiles par défaut, réglable par le MJ pour
-        // chaque section) :
-        //  - section 2 (toutes les tuiles sauf les extrémités hors angle) : bonus seulement vers une tuile de l'aire en face de la zone ;
-        //  - section 1 (extrémité hors angle fermé) : bonus seulement vers une tuile située hors de cette aire.
+        // Portée de déplacement. Une unité qui débarque dans une section reçoit le bonus de cette section (2 tuiles par défaut,
+        // réglable par le MJ) uniquement pour une arrivée dans l'aire de cette section.
         function computeRange(unit) {
             const base = Math.max(0, Math.floor(unit.dep || 0));
-            const { blocked: limits } = limitInfo();
+            const lim = limitInfo();
             const zone = (LAND.view.zones || []).find((z) => z.tiles.includes(unit.tile));
-            const section = zone ? ((zone.ends || []).includes(unit.tile) ? 1 : 2) : 0;
-            const bonus = zone && base > 0 ? (section === 1 ? zone.bonus?.s1 : zone.bonus?.s2) ?? 2 : 0;
-            const area = zone && bonus > 0 ? areaFor(zone) : null;
+            const sec = zone ? zoneSections(zone).find((x) => x.tiles.includes(unit.tile)) : null;
+            const bonus = sec && base > 0 ? sec.bonus : 0;
+            const area = zone && bonus > 0 ? zoneAreas(zone).get(sec.key) : null;
             const total = base + bonus;
-            const blockedTile = (key) => limits.has(key) || Boolean(state.gridData[key]?.removed);
+            const blockedTile = (key) => lim.blocked.has(key) || Boolean(state.gridData[key]?.removed);
             const canEnd = (key) => {
                 const tile = state.gridData[key];
                 const terrain = tile?.terrain ?? 'plain';
@@ -3074,7 +3141,7 @@
                     for (const [nc, nr] of landNeighbors(c0, r0)) {
                         if (nc < 0 || nr < 0 || nc >= state.cols || nr >= state.rows) continue;
                         const nk = `${nc},${nr}`;
-                        if (dist.has(nk) || blockedTile(nk)) continue; // une frontière ne s'atteint ni ne se traverse
+                        if (dist.has(nk) || blockedTile(nk) || lim.edges.has(edgeKey(key, nk))) continue; // une frontière ne s'atteint ni ne se traverse
                         dist.set(nk, step);
                         next.push(nk);
                     }
@@ -3088,9 +3155,9 @@
                 if (key === unit.tile) continue;
                 if (!canEnd(key)) { pass.push(key); continue; }
                 if (d <= base) end.push(key);
-                else if (area && (section === 2 ? area.has(key) : !area.has(key))) bonusEnd.push(key);
+                else if (area && area.has(key)) bonusEnd.push(key);
             }
-            return { dep: base, extra: bonus, bonus, total, section, zone: zone?.id ?? null, start: unit.tile, end, bonusEnd, pass };
+            return { dep: base, extra: bonus, bonus, total, section: sec?.n ?? 0, sectionKind: sec?.kind ?? null, zone: zone?.id ?? null, start: unit.tile, end, bonusEnd, pass };
         }
 
         function drawLanding(c) {
@@ -3116,7 +3183,8 @@
                     c.stroke();
                     const tile = state.gridData[key];
                     if (tile?.mark) drawMark(c, x, y, tile.mark, view.rotation, Boolean(tile.object), R, col);
-                    if ((zone.ends || []).includes(key) && showLetters) {
+                    const endSec = (zone.ends || []).includes(key) ? zoneSections(zone).find((sc) => sc.key === key) : null;
+                    if (endSec && showLetters) {
                         c.save();
                         c.translate(x, y);
                         c.rotate(-view.rotation);
@@ -3124,7 +3192,7 @@
                         c.textAlign = 'center';
                         c.textBaseline = 'middle';
                         c.fillStyle = '#111';
-                        c.fillText('1', R * 0.42, -R * 0.42);
+                        c.fillText(String(endSec.n), R * 0.42, -R * 0.42);
                         c.restore();
                     }
                 }
@@ -3160,17 +3228,18 @@
                 c.restore();
             }
 
-            // Aire de bonus d'une zone, affichée à la demande du MJ pour vérifier ses lignes de marqueurs +.
+            // Aire de bonus d'une section, affichée à la demande du MJ pour vérifier ses lignes de marqueurs.
             if (LAND.showArea) {
-                const zone = (v.zones || []).find((z) => z.id === LAND.showArea);
+                const cut = LAND.showArea.indexOf(':');
+                const zone = (v.zones || []).find((z) => z.id === LAND.showArea.slice(0, cut));
                 if (zone) {
                     const sig = `${LAND.showArea}|${Object.keys(state.gridData).length}|${Object.values(state.gridData).map((t) => t.mark || '').join('').length}|${(zone.ends || []).join()}`;
-                    if (LAND.areaSig !== sig) { LAND.areaSig = sig; LAND.areaSet = areaFor(zone); }
+                    if (LAND.areaSig !== sig) { LAND.areaSig = sig; LAND.areaSet = zoneAreas(zone).get(LAND.showArea.slice(cut + 1)) || new Set(); }
                     for (const key of LAND.areaSet) {
                         const [ac, ar] = keyToHex(key);
                         const { x, y } = hexCenter(ac, ar);
                         hexPathAt(c, x, y, R * 0.92);
-                        c.fillStyle = 'rgba(0,170,200,0.28)';
+                        c.fillStyle = 'rgba(0,170,200,0.32)';
                         c.fill();
                     }
                 }
@@ -3223,60 +3292,123 @@
                 c.stroke();
             }
 
-            // Unités posées : une pastille par ligne et par tuile (« inf lourde ×12 ») ; plusieurs lignes sur une tuile
-            // sont listées à côté avec une flèche qui indique la tuile à laquelle elles s'attachent.
+            // Unités posées : une étiquette individuelle par unité (même type, même tuile), avec son numéro et un drapeau d'étendard.
+            // Plusieurs unités sur une tuile sont rangées en colonnes à côté, avec une flèche vers la tuile.
             const byTile = new Map();
+            const stdUsed = new Map();
             for (const u of LAND.units) {
+                if (u.std) stdUsed.set(u.line, (stdUsed.get(u.line) || 0) + 1);
                 if (!u.tile) continue;
-                if (!byTile.has(u.tile)) byTile.set(u.tile, new Map());
-                const lines = byTile.get(u.tile);
-                if (!lines.has(u.line)) lines.set(u.line, []);
-                lines.get(u.line).push(u);
+                if (!byTile.has(u.tile)) byTile.set(u.tile, []);
+                byTile.get(u.tile).push(u);
             }
             const dragSet = LAND.drag ? new Set(LAND.drag.units) : null;
-            // Les pastilles gardent une taille lisible même quand la carte est très dézoomée.
-            const boost = Math.max(1, 17 / (R * 0.62 * view.scale));
+            // Les étiquettes gardent une taille lisible (et touchable) même quand la carte est très dézoomée.
+            const boost = Math.max(1, 24 / (R * 0.62 * view.scale));
             const chipH = R * 0.62 * boost;
-            const unitW = R * 1.9 * boost;
-            for (const [key, linesMap] of byTile) {
-                const groups = [...linesMap.values()].sort((a, b) => a[0].owner.localeCompare(b[0].owner) || a[0].name.localeCompare(b[0].name));
+            const unitW = R * 2.4 * boost;
+            const PER_COL = 8;
+            const drawFlag = (fx, fy, h, state) => {
+                c.save();
+                c.lineWidth = h * 0.09;
+                c.lineCap = 'round';
+                c.strokeStyle = state === 'on' ? '#8c1c13' : state === 'full' ? '#bbb' : '#555';
+                c.beginPath();
+                c.moveTo(fx - h * 0.3, fy + h * 0.45);
+                c.lineTo(fx - h * 0.3, fy - h * 0.45);
+                c.stroke();
+                c.beginPath();
+                c.moveTo(fx - h * 0.3, fy - h * 0.45);
+                c.lineTo(fx + h * 0.42, fy - h * 0.22);
+                c.lineTo(fx - h * 0.3, fy + h * 0.02);
+                c.closePath();
+                if (state === 'on') { c.fillStyle = '#d32f2f'; c.fill(); }
+                c.stroke();
+                c.restore();
+            };
+            const taken = []; // rectangles écran déjà occupés par des étiquettes : on décale les colonnes pour qu'elles ne se chevauchent pas
+            for (const [key, list] of [...byTile].sort((a, b) => b[1].length - a[1].length)) {
+                list.sort((a, b) => a.owner.localeCompare(b.owner) || a.name.localeCompare(b.name) || a.idx - b.idx);
                 const [tc, tr] = keyToHex(key);
                 const { x, y } = hexCenter(tc, tr);
                 const sp = worldToScreen(x, y);
-                // Les pastilles se rangent du côté libre : à l'opposé d'une tuile voisine déjà occupée.
+                // Les étiquettes se rangent du côté libre : à l'opposé d'une tuile voisine déjà occupée.
                 const rightBusy = byTile.has(`${tc + 1},${tr}`);
                 const leftBusy = byTile.has(`${tc - 1},${tr}`);
-                const side = rightBusy && !leftBusy ? -1 : (leftBusy && !rightBusy ? 1 : (sp.x > viewW * 0.62 ? -1 : 1));
+                let side = rightBusy && !leftBusy ? -1 : (leftBusy && !rightBusy ? 1 : (sp.x > viewW * 0.62 ? -1 : 1));
+                if (list.length > 1) {
+                    // Les colonnes d'étiquettes ne doivent pas sortir de l'écran : on choisit le côté qui a la place.
+                    const ncols = Math.ceil(list.length / PER_COL);
+                    const need = (R * 1.15 + unitW * ncols + R * 0.2 * (ncols - 1)) * view.scale;
+                    const roomL = sp.x;
+                    const roomR = viewW - sp.x;
+                    if (side < 0 && roomL < need && roomR > roomL) side = 1;
+                    else if (side > 0 && roomR < need && roomL > roomR) side = -1;
+                }
                 c.save();
                 c.translate(x, y);
                 c.rotate(-view.rotation);
-                const place = (g, ox, oy, w) => {
-                    const u = g[0];
-                    const dim = dragSet && g.every((m) => dragSet.has(m.id));
+                const place = (u, ox, oy, w) => {
+                    const dim = dragSet && dragSet.has(u.id);
                     const mine = ciEq(u.owner, state.username);
-                    const flags = g.filter((m) => m.std).length;
                     c.globalAlpha = dim ? 0.3 : 1;
                     roundRectPath(c, ox - w / 2, oy - chipH / 2, w, chipH, chipH * 0.3);
-                    c.fillStyle = 'rgba(255,255,255,0.95)';
+                    c.fillStyle = 'rgba(255,255,255,0.96)';
                     c.fill();
                     c.lineWidth = mine ? R * 0.12 : R * 0.07;
                     c.strokeStyle = TEAM_COL[u.team] || '#555';
                     c.stroke();
+                    const hasFlag = u.stdMax > 0 && (mine || u.std);
                     c.fillStyle = '#1b1b1b';
-                    c.font = `600 ${chipH * 0.5}px system-ui, sans-serif`;
-                    c.textAlign = 'center';
+                    c.font = `600 ${chipH * 0.46}px system-ui, sans-serif`;
+                    c.textAlign = 'left';
                     c.textBaseline = 'middle';
-                    c.fillText(`${shortName(u.name, 10)} ×${g.length}${flags ? ` ⚑${flags}` : ''}`, ox, oy + chipH * 0.03);
+                    const textW = w - (hasFlag ? chipH * 1.05 : chipH * 0.3);
+                    // Le numéro de l'unité reste toujours visible : c'est le nom qui est raccourci si besoin.
+                    const num = ` ${u.idx}`;
+                    let nm = shortName(u.name, 12);
+                    while (c.measureText(nm + num).width > textW && nm.length > 3) nm = `${nm.slice(0, -2)}…`;
+                    c.fillText(nm + num, ox - w / 2 + chipH * 0.28, oy + chipH * 0.03);
+                    let flag = null;
+                    if (hasFlag) {
+                        const used = stdUsed.get(u.line) || 0;
+                        const state = u.std ? 'on' : (used >= u.stdMax ? 'full' : 'off');
+                        drawFlag(ox + w / 2 - chipH * 0.55, oy, chipH * 0.8, state);
+                        if (mine && LAND.view.phase === 'place') {
+                            flag = { x: sp.x + (ox + w / 2 - chipH * 1.05) * view.scale, y: sp.y + (oy - chipH / 2) * view.scale, w: chipH * 1.05 * view.scale, h: chipH * view.scale };
+                        }
+                    }
                     c.globalAlpha = 1;
-                    LAND.hits.push({ unit: u, units: g, x: sp.x + (ox - w / 2) * view.scale, y: sp.y + (oy - chipH / 2) * view.scale, w: w * view.scale, h: chipH * view.scale });
+                    LAND.hits.push({ unit: u, units: [u], flag, x: sp.x + (ox - w / 2) * view.scale, y: sp.y + (oy - chipH / 2) * view.scale, w: w * view.scale, h: chipH * view.scale });
                 };
-                if (groups.length === 1) {
-                    place(groups[0], 0, 0, unitW);
+                if (list.length === 1) {
+                    place(list[0], 0, 0, unitW);
+                    taken.push({ x0: sp.x - (unitW / 2) * view.scale, x1: sp.x + (unitW / 2) * view.scale, y0: sp.y - (chipH / 2) * view.scale, y1: sp.y + (chipH / 2) * view.scale });
                 } else {
-                    const w = unitW;
+                    const cols = Math.ceil(list.length / PER_COL);
+                    const rows = Math.ceil(list.length / cols);
                     const gap = chipH * 1.12;
-                    const colX = side * (R * 1.15 + w / 2);
-                    const top = -((groups.length - 1) * gap) / 2;
+                    const colGap = unitW + R * 0.2;
+                    const x0 = side * (R * 1.15 + unitW / 2);
+                    const top0 = -((rows - 1) * gap) / 2;
+                    // Décalage vertical de la colonne s'il y a déjà des étiquettes à cet endroit.
+                    const widthW = R * 1.15 + unitW * cols + R * 0.2 * (cols - 1);
+                    const hitsTaken = (shift) => {
+                        const rx0 = side > 0 ? sp.x + R * 1.15 * view.scale : sp.x - widthW * view.scale;
+                        const rx1 = side > 0 ? sp.x + widthW * view.scale : sp.x - R * 1.15 * view.scale;
+                        const ry0 = sp.y + (top0 + shift - chipH / 2) * view.scale;
+                        const ry1 = sp.y + (top0 + shift + (rows - 1) * gap + chipH / 2) * view.scale;
+                        return taken.some((t) => rx0 < t.x1 && rx1 > t.x0 && ry0 < t.y1 && ry1 > t.y0) ? null : { x0: rx0, x1: rx1, y0: ry0, y1: ry1 };
+                    };
+                    const stepY = (rows + 0.5) * gap;
+                    let shift = 0;
+                    let box = hitsTaken(0);
+                    for (let k = 1; !box && k <= 6; k++) {
+                        for (const sgn of [-1, 1]) { box = hitsTaken(sgn * Math.ceil(k / 2) * stepY * 0.55); if (box) { shift = sgn * Math.ceil(k / 2) * stepY * 0.55; break; } }
+                    }
+                    if (!box) box = hitsTaken(0) || { x0: sp.x, x1: sp.x, y0: sp.y, y1: sp.y };
+                    taken.push(box);
+                    const top = top0 + shift;
                     c.beginPath();
                     c.arc(0, 0, R * 0.3, 0, Math.PI * 2);
                     c.fillStyle = '#222';
@@ -3285,17 +3417,18 @@
                     c.font = `700 ${R * 0.3}px system-ui, sans-serif`;
                     c.textAlign = 'center';
                     c.textBaseline = 'middle';
-                    c.fillText(String(groups.reduce((t, g) => t + g.length, 0)), 0, R * 0.02);
-                    const bx = colX - side * (w / 2 + R * 0.14);
+                    c.fillText(String(list.length), 0, R * 0.02);
+                    const bx = x0 - side * (unitW / 2 + R * 0.14);
                     c.strokeStyle = '#222';
                     c.lineWidth = R * 0.07;
                     c.beginPath();
                     c.moveTo(bx, top - chipH * 0.5);
-                    c.lineTo(bx, top + (groups.length - 1) * gap + chipH * 0.5);
+                    c.lineTo(bx, top + (rows - 1) * gap + chipH * 0.5);
                     c.stroke();
                     const ax = R * 0.36 * side;
+                    const by = Math.max(top, Math.min(top + (rows - 1) * gap, 0)); // la flèche part du point de l'accolade le plus proche de la tuile
                     c.beginPath();
-                    c.moveTo(bx, 0);
+                    c.moveTo(bx, by);
                     c.lineTo(ax, 0);
                     c.stroke();
                     c.beginPath();
@@ -3305,7 +3438,7 @@
                     c.closePath();
                     c.fillStyle = '#222';
                     c.fill();
-                    groups.forEach((g, i) => place(g, colX, top + i * gap, w));
+                    list.forEach((u, i) => place(u, x0 + side * Math.floor(i / rows) * colGap, top + (i % rows) * gap, unitW));
                 }
                 c.restore();
             }
@@ -3394,17 +3527,19 @@
             if (!r.total) { LAND.preview = null; hideRangeInfo(); requestDraw(); return toast(`${unit.name} : portée de déplacement nulle.`); }
             LAND.preview = { ...r, unit };
             const info = $('rangeInfo');
-            const where = r.zone ? `section ${r.section} · zone ${r.zone.toUpperCase()}` : 'hors zone de débarquement';
-            info.innerHTML = `<b>${shortName(unit.name, 22)}</b> · dep ${r.dep}${r.bonus ? ` <b>+ ${r.bonus}</b> tuile${r.bonus > 1 ? 's' : ''} supplémentaire${r.bonus > 1 ? 's' : ''} = <b>${r.total}</b>` : ''}`
-                + `<small>${where}${r.bonus ? (r.section === 2 ? ' · bonus vers l’aire en face de la zone (cases bleues)' : ' · bonus en dehors de l’aire en face de la zone (cases bleues)') : ''} · ${r.end.length + r.bonusEnd.length} case${r.end.length + r.bonusEnd.length > 1 ? 's' : ''} d’arrivée</small>`;
+            const kind = r.sectionKind === 'mid' ? 'centre' : 'extrémité';
+            const where = r.zone ? `section ${r.section} (${kind}) · zone ${r.zone.toUpperCase()}` : 'hors zone de débarquement';
+            const n = r.end.length + r.bonusEnd.length;
+            info.innerHTML = `<b>${shortName(unit.name, 22)}</b> ${unit.idx} · dep ${r.dep}${r.bonus ? ` <b>+ ${r.bonus}</b> tuile${r.bonus > 1 ? 's' : ''} supplémentaire${r.bonus > 1 ? 's' : ''} = <b>${r.total}</b>` : ''}`
+                + `<small>${where}${r.bonus ? ' · bonus seulement vers l’aire de cette section (cases bleues)' : ''} · ${n} case${n > 1 ? 's' : ''} d’arrivée</small>`;
             info.hidden = false;
             requestDraw();
         }
 
+        // La fiche ne concerne que l'unité touchée (pas les autres unités du même type).
         function openUnitInfo(unit) {
             const line = LAND.units.filter((u) => u.line === unit.line);
-            const mine = ciEq(unit.owner, state.username);
-            openFiches({ unit: { army: unit.army, legion: unit.legion, uid: unit.uid, owner: unit.owner, id: unit.id, figs: unit.figs, type: unit.type, units: line.length, std: unit.std, stdMax: unit.stdMax, stdUsed: line.filter((u) => u.std).length, canEdit: mine && LAND.view.phase === 'place' && Boolean(unit.tile) } });
+            openFiches({ unit: { army: unit.army, legion: unit.legion, uid: unit.uid, owner: unit.owner, id: unit.id, idx: unit.idx, figs: unit.figs, type: unit.type, units: line.length, std: unit.std } });
         }
 
         // Capture : les gestes sur une unité sont traités ici ; le reste de la carte (déplacement, zoom, peinture) garde son comportement.
@@ -3422,6 +3557,16 @@
             e.preventDefault();
             el.canvas.setPointerCapture(e.pointerId);
             LAND.tap = null;
+            const fl = hit.flag;
+            if (fl) {
+                const px = e.clientX - rect.left;
+                const py = e.clientY - rect.top;
+                if (px >= fl.x && px <= fl.x + fl.w && py >= fl.y && py <= fl.y + fl.h) {
+                    const next = !unit.std;
+                    landEmit('landing-standard', { unit: unit.id, on: next }).then((r) => { if (r.success) toast(next ? 'Étendard attribué à cette unité.' : 'Étendard retiré.'); });
+                    return;
+                }
+            }
             const now = performance.now();
             if (LAND.lastTap && LAND.lastTap.id === unit.id && now - LAND.lastTap.t < 380) {
                 LAND.lastTap = null;
@@ -3590,9 +3735,11 @@
                     for (const z of v.zones || []) {
                         h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${z.group ? GROUP_COL[z.group] : '#e01b1b'}">${z.id.toUpperCase()}</button><span class="lp-grow">${z.tiles.length} tuiles</span>`
                             + ['A', 'B', null].map((g) => `<button class="lp-seg ${z.group === g ? 'on' : ''}" data-land="group" data-zone="${z.id}" data-group="${g ?? ''}">${g ? `Entrées ${g}` : 'Aucune'}</button>`).join('') + '</div>';
-                        const stepper = (sec, n, val) => `<span class="lp-sub-item">Section ${sec} (${n} tuile${n > 1 ? 's' : ''}) : <button class="lp-seg" data-land="bonus" data-zone="${z.id}" data-section="${sec}" data-d="-1">−</button><b>+${val}</b><button class="lp-seg" data-land="bonus" data-zone="${z.id}" data-section="${sec}" data-d="1">+</button></span>`;
-                        const ne = (z.ends || []).length;
-                        h += `<div class="lp-row lp-sub"><span class="lp-grow">Bonus de déplacement</span>${stepper(1, ne, z.bonus?.s1 ?? 2)}${stepper(2, z.tiles.length - ne, z.bonus?.s2 ?? 2)}<button class="lp-seg ${LAND.showArea === z.id ? 'on' : ''}" data-land="area" data-zone="${z.id}" title="Afficher l’aire où le bonus de la section 2 s’applique">👁 aire</button></div>`;
+                        for (const sec of zoneSections(z)) {
+                            const areaKey = `${z.id}:${sec.key}`;
+                            const label = sec.kind === 'mid' ? `centre (${sec.tiles.length} tuile${sec.tiles.length > 1 ? 's' : ''})` : `extrémité ${sec.key}`;
+                            h += `<div class="lp-row lp-sub"><span class="lp-grow">Section ${sec.n} · ${label}</span><button class="lp-seg" data-land="bonus" data-zone="${z.id}" data-section="${sec.key}" data-d="-1">−</button><b>+${sec.bonus}</b><button class="lp-seg" data-land="bonus" data-zone="${z.id}" data-section="${sec.key}" data-d="1">+</button><button class="lp-seg ${LAND.showArea === areaKey ? 'on' : ''}" data-land="area" data-zone="${z.id}" data-section="${sec.key}" title="Afficher l’aire où le bonus de cette section s’applique">👁 aire</button></div>`;
+                        }
                     }
                     const ready = v.groupCount?.A > 0 && v.groupCount?.B > 0;
                     h += `<div class="lp-actions"><button class="btn btn-dark" data-land="refresh">↻ Recalculer les zones</button>${ready ? '<button class="btn btn-primary" data-land="assign">Affecter les équipes aux entrées →</button>' : '<span class="lp-hint">Il faut au moins une zone en A et une en B.</span>'}</div>`;
@@ -3630,7 +3777,7 @@
                     const units = myUnits();
                     h += `<p class="lp-hint">Glissez vos unités depuis le sélecteur du bas vers une tuile de votre zone <b>${(v.myZone || '?').toUpperCase()}</b>, une par une. Vous pouvez les déplacer ensuite. Vos coéquipiers voient vos unités en direct. <b>${units.filter((u) => u.tile).length}/${units.length}</b> posées.</p>`;
                 } else if (v.phase === 'locked') {
-                    h += '<p class="lp-hint">Les placements sont verrouillés : vous voyez toutes les unités. Appui long sur une unité : portée de déplacement. Double toucher : sa fiche.</p>';
+                    h += '<p class="lp-hint">Les placements sont verrouillés : vous voyez toutes les unités. Appui long sur une unité : portée de déplacement (cases bleues = bonus de sa section). Double toucher : la fiche de cette unité.</p>';
                 }
             }
             panel.innerHTML = h;
@@ -3679,7 +3826,7 @@
                     'Les zones sont détectées toutes seules : au moins 2 tuiles voisines marquées d’un <b>losange</b> ou d’un <b>triangle</b>. Chaque zone a une lettre.',
                     '<b>Toucher une zone sur la carte</b> (mode Déplacer) ou utiliser la liste du panneau ⚔️ : la rattacher aux <b>entrées A</b> (bleu), aux <b>entrées B</b> (orange) ou à aucune (rouge).',
                     'Les joueurs voient les zones et leurs couleurs en direct, sans savoir quelle équipe ira où.',
-                    'Pour chaque zone, réglez le <b>bonus de déplacement</b> (2 tuiles par défaut) : section 1 = les extrémités de la zone hors angle de la carte, section 2 = les autres tuiles. 👁 aire montre la zone « en face », délimitée par vos marqueurs <b>+</b>, disques et triangles.',
+                    'Chaque zone se découpe en <b>sections</b> : chaque extrémité (hors angle fermé de la carte) forme une section, les autres tuiles forment la section du centre. Réglez le <b>bonus de déplacement</b> de chacune (2 tuiles par défaut). <b>👁 aire</b> montre l’aire de la section, délimitée par vos marqueurs <b>+</b>, disques, triangles et par les bords de la carte.',
                     'Avec au moins une zone en A et une en B, le bouton <b>Affecter les équipes</b> (ou ▶) apparaît. ◀ arrête le débarquement.'] },
                 choose: { title: 'Phase 2 · Choix des zones', items: [
                     'Chaque joueur choisit une zone parmi celles de son équipe. Si vous jouez dans une équipe, touchez une zone de votre groupe : vous choisissez comme un joueur.',
@@ -3687,12 +3834,12 @@
                     '<b>▶ Figer</b> les affectations quand tout le monde a choisi (un avertissement liste les absents). ◀ revient au regroupement.'] },
                 place: { title: 'Phase 3 · Dépôt des unités', items: [
                     'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur du bas</b> vers une tuile de votre zone. Glissez un jeton de la carte pour déplacer une unité.',
-                    '<b>Double toucher</b> sur une unité : sa fiche ; vous pouvez y attribuer un étendard (dans la limite de la colonne E de la ligne). <b>Appui long</b> : portée de déplacement.',
+                    'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de sa section s’applique.',
                     'Vous ne voyez pas les unités de l’équipe adverse avant le verrouillage.',
                     '<b>▶ Verrouiller</b> quand tout est placé : tout le monde voit alors tous les débarquements. ◀ revient aux choix.'] },
                 locked: { title: 'Phase 4 · Placements verrouillés', items: [
                     'Tous les débarquements sont visibles par tous. Plus aucune unité ne bouge.',
-                    '<b>Double toucher</b> sur une unité : sa fiche. <b>Appui long</b> : portée de déplacement (dep + tuiles supplémentaires).',
+                    '<b>Double toucher</b> sur une unité : sa fiche. <b>Appui long</b> : portée de déplacement (dep + bonus de la section de débarquement, cases bleues).',
                     '◀ revient au dépôt des unités (les placements sont conservés).'] }
             },
             joueur: {
@@ -3705,7 +3852,7 @@
                 place: { title: 'Déposez vos unités', items: [
                     'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur du bas</b> vers une tuile de votre zone.',
                     'Pour déplacer une unité déjà posée, glissez son jeton sur une autre tuile de votre zone. Plusieurs unités peuvent partager une tuile.',
-                    '<b>Double toucher</b> sur une unité posée : sa fiche, avec l’attribution des étendards (limitée à la colonne E de la ligne). <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de débarquement s’applique.',
+                    'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de la section s’applique.',
                     'Vos coéquipiers voient vos unités en direct ; l’autre équipe ne voit rien avant le verrouillage.'] },
                 locked: { title: 'Placements verrouillés', items: [
                     'Tous les débarquements sont maintenant visibles.',
@@ -3783,9 +3930,10 @@
             view: () => LAND.view,
             units: () => LAND.units,
             preview: () => (LAND.preview ? { end: LAND.preview.end, bonusEnd: LAND.preview.bonusEnd, pass: LAND.preview.pass, dep: LAND.preview.dep, extra: LAND.preview.extra, total: LAND.preview.total, section: LAND.preview.section } : null),
-            range: (unit) => { const r = computeRange(unit); return { end: r.end, bonusEnd: r.bonusEnd, pass: r.pass, dep: r.dep, extra: r.extra, bonus: r.bonus, total: r.total, section: r.section, zone: r.zone }; },
-            area: (zoneId) => { const z = (LAND.view.zones || []).find((x) => x.id === zoneId); return z ? [...areaFor(z)] : []; },
-            hits: () => LAND.hits.map((h) => ({ id: h.unit.id, count: h.units.length, x: h.x + el.canvas.getBoundingClientRect().left + h.w / 2, y: h.y + el.canvas.getBoundingClientRect().top + h.h / 2 })),
+            range: (unit) => { const r = computeRange(unit); return { end: r.end, bonusEnd: r.bonusEnd, pass: r.pass, dep: r.dep, extra: r.extra, bonus: r.bonus, total: r.total, section: r.section, sectionKind: r.sectionKind, zone: r.zone }; },
+            area: (zoneId, sectionKey) => { const z = (LAND.view.zones || []).find((x) => x.id === zoneId); return z ? [...(zoneAreas(z).get(sectionKey) || [])] : []; },
+            sections: (zoneId) => { const z = (LAND.view.zones || []).find((x) => x.id === zoneId); return z ? zoneSections(z).map((x) => ({ key: x.key, kind: x.kind, n: x.n, bonus: x.bonus, tiles: x.tiles.length })) : []; },
+            hits: () => LAND.hits.map((h) => { const r = el.canvas.getBoundingClientRect(); return { id: h.unit.id, count: h.units.length, x: h.x + r.left + h.w / 2, y: h.y + r.top + h.h / 2, flag: h.flag ? { x: h.flag.x + r.left + h.flag.w / 2, y: h.flag.y + r.top + h.flag.h / 2 } : null }; }),
             tileScreen: (key) => {
                 const [c, r] = keyToHex(key);
                 const p = hexCenter(c, r);
@@ -3842,10 +3990,9 @@
             else if (k === 'assign' && state.isAdmin) assignTeamsDialog();
             else if (k === 'bonus' && state.isAdmin) {
                 const z = (LAND.view.zones || []).find((x) => x.id === b.dataset.zone);
-                const sec = Number(b.dataset.section);
-                const cur = (sec === 1 ? z?.bonus?.s1 : z?.bonus?.s2) ?? 2;
-                landEmit('landing-bonus', { zone: b.dataset.zone, section: sec, value: Math.max(0, Math.min(9, cur + Number(b.dataset.d))) });
-            } else if (k === 'area') { LAND.showArea = LAND.showArea === b.dataset.zone ? null : b.dataset.zone; LAND.areaSig = ''; renderLandingPanel(); requestDraw(); }
+                const sec = z ? zoneSections(z).find((x) => x.key === b.dataset.section) : null;
+                if (sec) landEmit('landing-bonus', { zone: z.id, section: sec.key, value: Math.max(0, Math.min(9, sec.bonus + Number(b.dataset.d))) });
+            } else if (k === 'area') { const key = `${b.dataset.zone}:${b.dataset.section}`; LAND.showArea = LAND.showArea === key ? null : key; LAND.areaSig = ''; renderLandingPanel(); requestDraw(); }
             else if (k === 'barfold') { LAND.barCollapsed = !LAND.barCollapsed; renderUnitBar(); }
             else if (k === 'choose') chooseZone(b.dataset.zone);
             else if (k === 'freeze' && state.isAdmin) adminStep('landing-freeze', {}, 'Figer quand même');
