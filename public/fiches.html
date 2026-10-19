@@ -1354,13 +1354,12 @@ function showUnitCard(t){
   const cols=COLS.filter(c=>c!=='B'&&c!=='A'&&!CARD_HIDE.has(c)&&cellRaw(u,c)!=null&&cellRaw(u,c)!=='');
   const row=(lab,val)=>`<tr><th style="text-align:left;white-space:normal">${esc(lab)}</th><td style="text-align:right">${esc(val)}</td></tr>`;
   let h=`<div class="small" style="margin-bottom:6px">${esc(a.name)}${lg?' · '+esc(legName(lg)):''}${t.owner?' · '+esc(t.owner):''}</div>`;
-  if(q){const un=q[6]||1;const fpu=q[0]/un;h+=`<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${un}${q[7]?' '+esc(q[7]):''}</b><span>unité${un>1?'s':''} de la ligne</span></div><div class="kpi"><b>${q[0]}</b><span>figurines (nb)</span></div><div class="kpi"><b>${fpu%1?fpu.toFixed(1):fpu}</b><span>fig. par unité</span></div>${q[2]?`<div class="kpi"><b>${q[2]}</b><span>étendards (E)</span></div>`:''}${q[3]===q[3]&&q[3]!=null?`<div class="kpi"><b>${Math.round(q[3])}</b><span>valeur de la ligne</span></div>`:''}</div>`;}
+  if(q){const un=Math.max(1,t.units||q[6]||1);const fpu=(t.figs??q[0])/un;const val=q[3]===q[3]&&q[3]!=null?Math.round(q[3]/un):null;h+=`<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${t.idx||1}</b><span>unité n° (sur ${un}${t.type?' '+esc(t.type):''})</span></div><div class="kpi"><b>${fpu%1?fpu.toFixed(1):fpu}</b><span>figurines dans l'unité</span></div>${val!=null?`<div class="kpi"><b>${val}</b><span>valeur de l'unité</span></div>`:''}<div class="kpi"><b>${t.std?'oui':'non'}</b><span>étendard</span></div></div>`;}
   h+='<div class="scroll" style="max-height:34vh"><table style="width:100%">'+cols.map(c=>row(c==='W'?'Valeur de la figurine (avec tous les bonus)':(LONG[c]||c),fnum(cellRaw(u,c)))).join('')+'</table></div>';
   if(u.l2){const c2=['C','E'].filter(c=>u.l2.in_[c]!=null);if(c2.length)h+=`<div class="lbl2" style="margin-top:8px">2ᵉ attaque</div><table style="width:100%">${c2.map(c=>row(LONG[c]||c,fnum(u.l2.in_[c]))).join('')}</table>`;}
   const act=a.bonuses.filter(b=>bonusOn(a,b.key));
   h+=`<div class="lbl2" style="margin-top:10px">Bonus d'armée actifs</div>`+(act.length?`<div class="chips">${act.map(b=>`<span class="chip sm on" style="cursor:default">${esc(b.label)}</span>`).join('')}</div>`:'<div class="small">Aucun.</div>');
-  if(t.id&&(t.stdMax>0||t.canEdit))h+=`<div class="lbl2" style="margin-top:10px">Étendards de la ligne</div><div id="stdBox">${stdBoxHtml()}</div>`;
-  openModal(u.in_.B||'Unité',h,[{label:'Fermer',cls:'pri',fn:closeModal}]);
+  openModal((u.in_.B||'Unité')+(t.idx?' n°'+t.idx:''),h,[{label:'Fermer',cls:'pri',fn:closeModal}]);
 }
 function stdBoxHtml(){
   const t=S.uc;if(!t)return '';
