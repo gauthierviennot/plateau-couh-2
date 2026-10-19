@@ -304,10 +304,14 @@ function normalizeLanding(raw) {
     }
     const ids = new Set(out.zones.map((z) => z.id));
     for (const [z, g] of Object.entries(raw.groups || {})) if (ids.has(z) && (g === 'A' || g === 'B')) out.groups[z] = g;
+    // Bonus de déplacement par section : { mid: centre, ends: { "col,ligne": extrémité } } (2 par défaut, 0 à 9).
     for (const [z, b] of Object.entries(raw.bonus || {})) {
         if (!ids.has(z) || !b || typeof b !== 'object') continue;
-        const v = (x) => (Number.isInteger(x) && x >= 0 && x <= 9 ? x : DEFAULT_BONUS);
-        out.bonus[z] = { s1: v(b.s1), s2: v(b.s2) };
+        const ok = (x) => Number.isInteger(x) && x >= 0 && x <= 9;
+        const entry = { ends: {} };
+        if (ok(b.mid)) entry.mid = b.mid;
+        for (const [tile, v] of Object.entries(b.ends || {})) if (/^\d{1,3},\d{1,3}$/.test(tile) && ok(v)) entry.ends[tile] = v;
+        out.bonus[z] = entry;
     }
     if (raw.teamEntry && TEAM_IDS.every((t) => raw.teamEntry[t] === 'A' || raw.teamEntry[t] === 'B')) out.teamEntry = { t1: raw.teamEntry.t1, t2: raw.teamEntry.t2 };
     for (const [name, z] of Object.entries(raw.choices || {})) if (name.length <= LIMITS.maxName && ids.has(z)) out.choices[name] = z;
@@ -1079,6 +1083,14 @@ function zoneEnds(zone) {
     });
 }
 
+// Bonus de chaque section d'une zone : le centre et chaque extrémité (hors angle fermé) ont leur propre valeur.
+function sectionBonus(zone) {
+    const b = state.landing.bonus[zone.id] || {};
+    const ends = {};
+    for (const e of zoneEnds(zone)) ends[e] = b.ends?.[e] ?? DEFAULT_BONUS;
+    return { mid: b.mid ?? DEFAULT_BONUS, ends };
+}
+
 // Recalcule les zones en conservant le groupe et les bonus des zones qui se recouvrent.
 function refreshZones() {
     const L = state.landing;
@@ -1089,7 +1101,7 @@ function refreshZones() {
     for (const z of next) {
         const best = old.map((o) => ({ o, n: o.tiles.filter((t) => z.tiles.includes(t)).length })).sort((a, b) => b.n - a.n)[0];
         if (best && best.n > 0 && L.groups[best.o.id]) groups[z.id] = L.groups[best.o.id];
-        if (best && best.n > 0 && L.bonus[best.o.id]) bonus[z.id] = { ...L.bonus[best.o.id] };
+        if (best && best.n > 0 && L.bonus[best.o.id]) bonus[z.id] = { mid: L.bonus[best.o.id].mid, ends: { ...(L.bonus[best.o.id].ends || {}) } };
     }
     L.zones = next;
     L.groups = groups;
@@ -1169,7 +1181,7 @@ function landingViewFor(socket) {
     const sees = (n) => everything || (myTeam && teamOf(n) === myTeam);
 
     const view = { ...base, myTeam, myGroup, teamEntry: (everything || admin) ? L.teamEntry : (myTeam && myGroup ? { [myTeam]: myGroup } : null) };
-    view.zones = L.zones.map((z) => ({ id: z.id, tiles: z.tiles, group: L.groups[z.id] ?? null, ends: zoneEnds(z), bonus: { s1: L.bonus[z.id]?.s1 ?? DEFAULT_BONUS, s2: L.bonus[z.id]?.s2 ?? DEFAULT_BONUS } }));
+    view.zones = L.zones.map((z) => ({ id: z.id, tiles: z.tiles, group: L.groups[z.id] ?? null, ends: zoneEnds(z), bonus: sectionBonus(z) }));
     if (L.phase === 'zones') {
         if (admin) view.groupCount = { A: Object.values(L.groups).filter((g) => g === 'A').length, B: Object.values(L.groups).filter((g) => g === 'B').length };
         return view;
@@ -2051,17 +2063,23 @@ io.on('connection', (socket) => {
         landingOk(ack);
     });
 
-    // Le MJ règle le bonus de déplacement (0 à 9 tuiles, 2 par défaut) de la section 1 ou de la section 2 d'une zone.
+    // Le MJ règle le bonus de déplacement (0 à 9 tuiles, 2 par défaut) d'une section d'une zone :
+    // section = 'mid' (le centre) ou la tuile d'une extrémité ("col,ligne").
     socket.on('landing-bonus', (payload, ack) => {
         if (!requireAdmin(socket, ack)) return;
         const L = state.landing;
         if (L.phase === 'off') return landingFail(ack, 'Le débarquement n’est pas lancé.');
         const id = String(payload?.zone ?? '');
-        if (!zoneById(id)) return landingFail(ack, 'Zone inconnue.');
-        const key = payload?.section === 1 ? 's1' : payload?.section === 2 ? 's2' : null;
+        const zone = zoneById(id);
+        if (!zone) return landingFail(ack, 'Zone inconnue.');
+        const section = String(payload?.section ?? '');
         const value = Number(payload?.value);
-        if (!key || !Number.isInteger(value) || value < 0 || value > 9) return landingFail(ack, 'Le bonus doit être un nombre entier de 0 à 9.');
-        L.bonus[id] = { s1: L.bonus[id]?.s1 ?? DEFAULT_BONUS, s2: L.bonus[id]?.s2 ?? DEFAULT_BONUS, [key]: value };
+        if (!Number.isInteger(value) || value < 0 || value > 9) return landingFail(ack, 'Le bonus doit être un nombre entier de 0 à 9.');
+        if (section !== 'mid' && !zoneEnds(zone).includes(section)) return landingFail(ack, 'Section inconnue.');
+        const entry = L.bonus[id] || { ends: {} };
+        entry.ends = entry.ends || {};
+        if (section === 'mid') entry.mid = value; else entry.ends[section] = value;
+        L.bonus[id] = entry;
         landingOk(ack);
     });
 
