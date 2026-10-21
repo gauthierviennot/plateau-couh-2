@@ -218,10 +218,18 @@
         .range-info { position: fixed; top: calc(8px + var(--safe-top)); left: 50%; transform: translateX(-50%); z-index: 92; background: rgba(255,255,255,.97); border-radius: 12px; padding: 8px 12px; box-shadow: 0 4px 18px rgba(0,0,0,.35); font-size: .82rem; text-align: center; max-width: 92vw; }
         .range-info[hidden] { display: none; }
         .range-info small { display: block; color: #555; margin-top: 2px; }
-        #landDock { position: fixed; left: calc(8px + var(--safe-left)); top: calc(112px + var(--safe-top)); z-index: 80; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-        #landDock .dk { width: 44px; height: 44px; border-radius: 50%; border: 1px solid #bbb; background: #fff; font-size: 1.15rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
-        #landDock .dk[hidden], #landDock [hidden] { display: none; }
-        #landPhaseLbl { background: rgba(255,255,255,.95); border-radius: 8px; padding: 2px 8px; font-size: .7rem; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+        /* Groupe de boutons du coin bas droit et sélecteur d'unités : repli complet sur le côté, comme les sélecteurs de tuiles */
+        .stack-br.folded, .unit-bar.folded { cursor: pointer; overflow: hidden; }
+        .stack-br.folded > *, .unit-bar.folded > * { visibility: hidden; }
+        .stack-br.folded::after, .unit-bar.folded::after { content: ''; position: absolute; background: rgba(0,0,0,.4); border-radius: 3px; }
+        .stack-br.folded { transform: translateX(calc(100% + 8px + var(--safe-right) - 14px)); background: var(--pal-inactive); border-radius: 9px; }
+        .stack-br.folded::after { left: 3px; top: 50%; width: 4px; height: 24px; margin-top: -12px; }
+        .unit-bar.folded { transform: translateY(calc(100% + 76px + var(--safe-bottom) - 14px)); }
+        .unit-bar.folded::after { top: 3px; left: 50%; height: 4px; width: 24px; margin-left: -12px; }
+        .stack-br .fold-btn { width: 28px; height: 28px; }
+        .stack-br .phase-btn { width: 36px; height: 36px; }
+        .stack-br .phase-btn[hidden], .stack-br .phase-lbl[hidden] { display: none; }
+        .phase-lbl { background: rgba(255,255,255,.95); border-radius: 8px; padding: 2px 5px; font-size: .6rem; text-align: center; max-width: 72px; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
         .lp-list { margin: 6px 0; padding-left: 18px; line-height: 1.45; font-size: .88rem; }
         .lp-chk { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-size: .85rem; }
         .lp-chk input { width: 18px; height: 18px; }
@@ -332,6 +340,10 @@
     <button id="btnPrintBannerCancel" class="btn btn-secondary btn-small">Annuler</button>
    </div>
    <div id="stackBr" class="stack-br">
+    <button id="btnStackFold" class="btn-round fold-btn" data-fold="stack" title="Replier ces boutons sur le côté" aria-label="Replier ces boutons sur le côté">▸</button>
+    <span id="landPhaseLbl" class="phase-lbl" hidden></span>
+    <button class="btn-round phase-btn" data-land="prev" hidden aria-label="Phase précédente">◀</button>
+    <button class="btn-round phase-btn" data-land="next" hidden aria-label="Phase suivante">▶</button>
     <button id="btnCompass" class="btn-compass" title="Boussole : toucher pour pivoter de 90°, maintenir pour remettre le nord en haut" aria-label="Boussole : pivoter la carte de 90 degrés">
      <svg id="compassDial" viewBox="0 0 48 48" aria-hidden="true">
       <circle cx="24" cy="24" r="21" fill="#ffffff" stroke="#2c3e50" stroke-width="2.5" /> <text x="24" y="12" font-size="9" font-weight="700" text-anchor="middle" fill="#2c3e50">N</text> <polygon points="24,15 29,25 19,25" fill="#e74c3c" /> <polygon points="24,35 29,25 19,25" fill="#7f8c8d" /> <circle cx="24" cy="25" r="2" fill="#2c3e50" />
@@ -1370,9 +1382,8 @@
                 b.title = label;
                 return b;
             };
-            const list = [make('open', 'Fiches d’armée'), make('teams', state.isAdmin ? 'Équipes et joueurs (modifiable)' : 'Tableau des équipes')];
+            const list = [make('open', 'Fiches d’armée (le tableau des équipes s’y trouve)')];
             list[0].textContent = '📜';
-            list[1].textContent = '👥';
             const land = make('land', 'Débarquement');
             land.dataset.land = 'toggle';
             land.textContent = '⚔️';
@@ -1838,8 +1849,9 @@
             const hasList = el.miniUsers.children.length > 0;
             const listW = hasList ? el.miniUsers.offsetWidth : 0;
             const listH = hasList ? el.miniUsers.offsetHeight : 0;
-            const stackW = el.stackBr.offsetWidth;
-            const stackH = el.stackBr.offsetHeight;
+            const stackFolded = el.stackBr.classList.contains('folded');
+            const stackW = stackFolded ? 0 : el.stackBr.offsetWidth;
+            const stackH = stackFolded ? 0 : el.stackBr.offsetHeight;
 
             const xMin = inset.left + M;
             const xMax = width - inset.right - M;
@@ -2528,6 +2540,12 @@
             c.translate((pageW - worldW * scale) / 2 - bounds.minX * scale, (pageH - worldH * scale) / 2 - bounds.minY * scale);
             c.scale(scale, scale);
             paintScene(c, region, { scale, rotation: 0, ghosts: false, selection: null, minLinePx: 1.4 });
+            c.save();
+            c.beginPath();
+            c.rect(bounds.minX, bounds.minY, worldW, worldH);
+            c.clip();
+            drawLandingPrint(c, { rot: 0, scale, W: worldW * scale, toScreen: (x, y) => ({ x: (x - bounds.minX) * scale, y: (y - bounds.minY) * scale }) });
+            c.restore();
 
             const blob = await canvasToBlob(canvas);
             if (!blob) return toast('Impossible de créer l’image sur cet appareil.', true);
@@ -3049,7 +3067,7 @@
             const endTiles = new Set(zones.flatMap((z) => z.ends || []));
             const lim = limitInfo();
             const crosses = Object.entries(state.gridData).filter(([, t]) => t?.mark === 'cross' && !t.removed).map(([k]) => k);
-            const lines = [...lim.markers, ...crosses];
+            const lines = [...lim.markers, ...crosses, ...endTiles];
             const boundary = new Set([...lim.markers, ...crosses, ...gapTiles(lines), ...endTiles]);
             const edges = gapEdges(lines);
             const zoneSet = new Set(zone.tiles);
@@ -3102,11 +3120,13 @@
                 else for (const id of touching(sec.tiles[0])) if (!midComps.has(id)) ids.add(id);
                 const area = new Set();
                 for (const id of ids) for (const k of comps[id]) area.add(k);
-                for (const k of [...area]) {
-                    const [c0, r0] = keyToHex(k);
-                    for (const [nc, nr] of landNeighbors(c0, r0)) {
-                        const nk = `${nc},${nr}`;
-                        if (state.gridData[nk]?.mark === 'cross' && inMapKey(nk)) area.add(nk);
+                if (sec.kind === 'mid') {
+                    for (const k of [...area]) {
+                        const [c0, r0] = keyToHex(k);
+                        for (const [nc, nr] of landNeighbors(c0, r0)) {
+                            const nk = `${nc},${nr}`;
+                            if (state.gridData[nk]?.mark === 'cross' && inMapKey(nk)) area.add(nk);
+                        }
                     }
                 }
                 result.set(sec.key, area);
@@ -3160,7 +3180,17 @@
             return { dep: base, extra: bonus, bonus, total, section: sec?.n ?? 0, sectionKind: sec?.kind ?? null, zone: zone?.id ?? null, start: unit.tile, end, bonusEnd, pass };
         }
 
-        function drawLanding(c) {
+        // Impression : les unités posées (telles que ce joueur les voit) sont dessinées sur l'image, sans aperçu ni geste en cours.
+        function drawLandingPrint(c, opt) {
+            if (!landOn()) return;
+            const keep = { hits: LAND.hits, hover: LAND.hover, preview: LAND.preview, drag: LAND.drag, showArea: LAND.showArea, pressHide: LAND.pressHide };
+            LAND.hover = null; LAND.preview = null; LAND.drag = null; LAND.showArea = null; LAND.pressHide = null;
+            try { drawLanding(c, opt); } finally { Object.assign(LAND, keep); }
+        }
+
+        function drawLanding(c, opt) {
+            // opt : rendu d'impression (échelle, rotation, largeur et conversion monde → page propres à l'image) ; sinon la vue à l'écran.
+            const VW = opt || { rot: view.rotation, scale: view.scale, W: viewW, toScreen: worldToScreen };
             const v = LAND.view;
             LAND.hits = [];
             if (v.phase === 'off') return;
@@ -3182,12 +3212,12 @@
                     c.strokeStyle = col;
                     c.stroke();
                     const tile = state.gridData[key];
-                    if (tile?.mark) drawMark(c, x, y, tile.mark, view.rotation, Boolean(tile.object), R, col);
+                    if (tile?.mark) drawMark(c, x, y, tile.mark, VW.rot, Boolean(tile.object), R, col);
                     const endSec = (zone.ends || []).includes(key) ? zoneSections(zone).find((sc) => sc.key === key) : null;
                     if (endSec && showLetters) {
                         c.save();
                         c.translate(x, y);
-                        c.rotate(-view.rotation);
+                        c.rotate(-VW.rot);
                         c.font = `700 ${R * 0.36}px system-ui, sans-serif`;
                         c.textAlign = 'center';
                         c.textBaseline = 'middle';
@@ -3202,7 +3232,7 @@
                 const who = Object.entries(v.choices || {}).filter(([, z]) => z === zone.id).map(([n]) => n);
                 c.save();
                 c.translate(cx, cy);
-                c.rotate(-view.rotation);
+                c.rotate(-VW.rot);
                 c.beginPath();
                 c.arc(0, 0, R * 0.5, 0, Math.PI * 2);
                 c.fillStyle = '#ffffff';
@@ -3299,12 +3329,13 @@
             for (const u of LAND.units) {
                 if (u.std) stdUsed.set(u.line, (stdUsed.get(u.line) || 0) + 1);
                 if (!u.tile) continue;
+                if (LAND.pressHide && u.id !== LAND.pressHide) continue; // appui long : seules la portée et l'unité touchée restent visibles
                 if (!byTile.has(u.tile)) byTile.set(u.tile, []);
                 byTile.get(u.tile).push(u);
             }
             const dragSet = LAND.drag ? new Set(LAND.drag.units) : null;
             // Les étiquettes gardent une taille lisible (et touchable) même quand la carte est très dézoomée.
-            const boost = Math.max(1, 24 / (R * 0.62 * view.scale));
+            const boost = Math.max(1, 24 / (R * 0.62 * VW.scale));
             const chipH = R * 0.62 * boost;
             const unitW = R * 2.4 * boost;
             const PER_COL = 8;
@@ -3331,23 +3362,23 @@
                 list.sort((a, b) => a.owner.localeCompare(b.owner) || a.name.localeCompare(b.name) || a.idx - b.idx);
                 const [tc, tr] = keyToHex(key);
                 const { x, y } = hexCenter(tc, tr);
-                const sp = worldToScreen(x, y);
+                const sp = VW.toScreen(x, y);
                 // Les étiquettes se rangent du côté libre : à l'opposé d'une tuile voisine déjà occupée.
                 const rightBusy = byTile.has(`${tc + 1},${tr}`);
                 const leftBusy = byTile.has(`${tc - 1},${tr}`);
-                let side = rightBusy && !leftBusy ? -1 : (leftBusy && !rightBusy ? 1 : (sp.x > viewW * 0.62 ? -1 : 1));
+                let side = rightBusy && !leftBusy ? -1 : (leftBusy && !rightBusy ? 1 : (sp.x > VW.W * 0.62 ? -1 : 1));
                 if (list.length > 1) {
                     // Les colonnes d'étiquettes ne doivent pas sortir de l'écran : on choisit le côté qui a la place.
                     const ncols = Math.ceil(list.length / PER_COL);
-                    const need = (R * 1.15 + unitW * ncols + R * 0.2 * (ncols - 1)) * view.scale;
+                    const need = (R * 1.15 + unitW * ncols + R * 0.2 * (ncols - 1)) * VW.scale;
                     const roomL = sp.x;
-                    const roomR = viewW - sp.x;
+                    const roomR = VW.W - sp.x;
                     if (side < 0 && roomL < need && roomR > roomL) side = 1;
                     else if (side > 0 && roomR < need && roomL > roomR) side = -1;
                 }
                 c.save();
                 c.translate(x, y);
-                c.rotate(-view.rotation);
+                c.rotate(-VW.rot);
                 const place = (u, ox, oy, w) => {
                     const dim = dragSet && dragSet.has(u.id);
                     const mine = ciEq(u.owner, state.username);
@@ -3375,15 +3406,15 @@
                         const state = u.std ? 'on' : (used >= u.stdMax ? 'full' : 'off');
                         drawFlag(ox + w / 2 - chipH * 0.55, oy, chipH * 0.8, state);
                         if (mine && LAND.view.phase === 'place') {
-                            flag = { x: sp.x + (ox + w / 2 - chipH * 1.05) * view.scale, y: sp.y + (oy - chipH / 2) * view.scale, w: chipH * 1.05 * view.scale, h: chipH * view.scale };
+                            flag = { x: sp.x + (ox + w / 2 - chipH * 1.05) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 1.05 * VW.scale, h: chipH * VW.scale };
                         }
                     }
                     c.globalAlpha = 1;
-                    LAND.hits.push({ unit: u, units: [u], flag, x: sp.x + (ox - w / 2) * view.scale, y: sp.y + (oy - chipH / 2) * view.scale, w: w * view.scale, h: chipH * view.scale });
+                    LAND.hits.push({ unit: u, units: [u], flag, x: sp.x + (ox - w / 2) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: w * VW.scale, h: chipH * VW.scale });
                 };
                 if (list.length === 1) {
                     place(list[0], 0, 0, unitW);
-                    taken.push({ x0: sp.x - (unitW / 2) * view.scale, x1: sp.x + (unitW / 2) * view.scale, y0: sp.y - (chipH / 2) * view.scale, y1: sp.y + (chipH / 2) * view.scale });
+                    taken.push({ x0: sp.x - (unitW / 2) * VW.scale, x1: sp.x + (unitW / 2) * VW.scale, y0: sp.y - (chipH / 2) * VW.scale, y1: sp.y + (chipH / 2) * VW.scale });
                 } else {
                     const cols = Math.ceil(list.length / PER_COL);
                     const rows = Math.ceil(list.length / cols);
@@ -3394,10 +3425,10 @@
                     // Décalage vertical de la colonne s'il y a déjà des étiquettes à cet endroit.
                     const widthW = R * 1.15 + unitW * cols + R * 0.2 * (cols - 1);
                     const hitsTaken = (shift) => {
-                        const rx0 = side > 0 ? sp.x + R * 1.15 * view.scale : sp.x - widthW * view.scale;
-                        const rx1 = side > 0 ? sp.x + widthW * view.scale : sp.x - R * 1.15 * view.scale;
-                        const ry0 = sp.y + (top0 + shift - chipH / 2) * view.scale;
-                        const ry1 = sp.y + (top0 + shift + (rows - 1) * gap + chipH / 2) * view.scale;
+                        const rx0 = side > 0 ? sp.x + R * 1.15 * VW.scale : sp.x - widthW * VW.scale;
+                        const rx1 = side > 0 ? sp.x + widthW * VW.scale : sp.x - R * 1.15 * VW.scale;
+                        const ry0 = sp.y + (top0 + shift - chipH / 2) * VW.scale;
+                        const ry1 = sp.y + (top0 + shift + (rows - 1) * gap + chipH / 2) * VW.scale;
                         return taken.some((t) => rx0 < t.x1 && rx1 > t.x0 && ry0 < t.y1 && ry1 > t.y0) ? null : { x0: rx0, x1: rx1, y0: ry0, y1: ry1 };
                     };
                     const stepY = (rows + 0.5) * gap;
@@ -3577,7 +3608,7 @@
             if (LAND.preview) { LAND.preview = null; hideRangeInfo(); requestDraw(); }
             const press = { unit, units: hit.units, x: e.clientX, y: e.clientY, pid: e.pointerId, moved: false, long: false, timer: null };
             press.timer = setTimeout(() => {
-                if (LAND.press === press && !press.moved && !LAND.drag) { press.long = true; showPreview(unit); }
+                if (LAND.press === press && !press.moved && !LAND.drag) { press.long = true; showPreview(unit); if (LAND.preview) { LAND.pressHide = unit.id; requestDraw(); } }
             }, 450);
             LAND.press = press;
         }, true);
@@ -3598,6 +3629,7 @@
             if (p && e.pointerId === p.pid) {
                 clearTimeout(p.timer);
                 LAND.press = null;
+                if (LAND.pressHide) { LAND.pressHide = null; requestDraw(); } // les autres unités réapparaissent au relâchement
                 if (LAND.drag) endDrag(e, cancelled);
                 else if (!p.moved && !p.long && !cancelled) LAND.lastTap = { id: p.unit.id, t: performance.now() };
                 if (el.canvas.hasPointerCapture(e.pointerId)) el.canvas.releasePointerCapture(e.pointerId);
@@ -3793,27 +3825,24 @@
         // Place le panneau du débarquement au-dessus du sélecteur d'unités pour que rien ne cache les boutons de la carte.
         function layoutLanding() {
             const bar = $('unitBar');
-            const gap = bar.hidden ? 0 : bar.offsetHeight + 8;
+            const gap = bar.hidden || bar.classList.contains('folded') ? 0 : bar.offsetHeight + 8;
             $('landingPanel').style.bottom = `calc(${76 + gap}px + var(--safe-bottom))`;
         }
 
         function renderUnitBar() {
             const bar = $('unitBar');
             const units = myUnits();
-            if (LAND.view.phase !== 'place' || !units.length) { bar.hidden = true; layoutLanding(); return; }
+            if (LAND.view.phase !== 'place' || !units.length) { bar.hidden = true; bar.classList.remove('folded'); layoutLanding(); return; }
             const lines = new Map();
             for (const u of units) { if (!lines.has(u.line)) lines.set(u.line, []); lines.get(u.line).push(u); }
             const done = units.filter((u) => u.tile).length;
-            const fold = `<button class="ub-fold" data-land="barfold" aria-label="${LAND.barCollapsed ? 'Déplier' : 'Replier'} le sélecteur d’unités">${LAND.barCollapsed ? '▴' : '▾'}</button>`;
-            if (LAND.barCollapsed) {
-                bar.innerHTML = `<div class="ub-title">${fold}<span>${done}/${units.length} unités posées · zone ${(LAND.view.myZone || '').toUpperCase()} — touchez ▴ pour déplier</span></div>`;
-            } else {
-                bar.innerHTML = `<div class="ub-title">${fold}<span>${done}/${units.length} unités posées · zone ${(LAND.view.myZone || '').toUpperCase()} — une unité par glissement</span></div><div class="ub-list">${[...lines.values()].map((g) => {
-                    const rest = g.filter((u) => !u.tile).length;
-                    const flags = g.filter((u) => u.std).length;
-                    return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '✓ '}${shortName(g[0].name, 16)} <b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${flags}/${g[0].stdMax}` : ''}</div>`;
-                }).join('')}</div>`;
-            }
+            const fold = `<button class="ub-fold" data-land="barfold" aria-label="Replier le sélecteur d’unités sur le côté">▾</button>`;
+            bar.innerHTML = `<div class="ub-title">${fold}<span>${done}/${units.length} unités posées · zone ${(LAND.view.myZone || '').toUpperCase()} — une unité par glissement</span></div><div class="ub-list">${[...lines.values()].map((g) => {
+                const rest = g.filter((u) => !u.tile).length;
+                const flags = g.filter((u) => u.std).length;
+                return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '✓ '}${shortName(g[0].name, 16)} <b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${flags}/${g[0].stdMax}` : ''}</div>`;
+            }).join('')}</div>`;
+            bar.classList.toggle('folded', Boolean(LAND.barCollapsed));
             bar.hidden = false;
             layoutLanding();
         }
@@ -3902,26 +3931,35 @@
             landingDialog('Revenir à l’étape précédente ?', `<p>${lose}</p>`, [{ label: 'Revenir', cls: 'btn-danger', fn: () => landEmit('landing-goto', { phase: prev }) }, { label: 'Annuler' }]);
         }
 
-        (function buildDock() {
-            const dock = document.createElement('div');
-            dock.id = 'landDock';
-            dock.innerHTML = '<button class="dk" data-land="teams" title="Tableau des équipes" aria-label="Tableau des équipes">👥</button>'
-                + '<button class="dk admin" data-land="prev" hidden aria-label="Phase précédente">◀</button>'
-                + '<button class="dk admin" data-land="next" hidden aria-label="Phase suivante">▶</button>'
-                + '<span id="landPhaseLbl" class="admin" hidden></span>';
-            el.palProtect.parentElement.appendChild(dock);
+        (function placeLandingPanels() {
             // Le panneau, le sélecteur d'unités et l'info de portée appartiennent à la page de la carte : ils ne couvrent pas le tableau de bord.
             for (const id of ['landingPanel', 'unitBar', 'rangeInfo']) el.palProtect.parentElement.appendChild($(id));
         })();
 
+        // Repli complet sur le côté (comme les sélecteurs de tuiles) : une poignée reste visible, un toucher déplie.
+        function setStackFolded(on) {
+            el.stackBr.classList.toggle('folded', on);
+            try { localStorage.setItem('stackFolded', on ? '1' : ''); } catch (e) { /* stockage indisponible */ }
+            requestLayout();
+        }
+        el.stackBr.addEventListener('click', (e) => {
+            if (el.stackBr.classList.contains('folded')) { e.stopPropagation(); e.preventDefault(); setStackFolded(false); }
+            else if (e.target.closest('[data-fold="stack"]')) setStackFolded(true);
+        }, true);
+        $('unitBar').addEventListener('click', (e) => {
+            const bar = $('unitBar');
+            if (bar.classList.contains('folded')) { e.stopPropagation(); e.preventDefault(); LAND.barCollapsed = false; renderUnitBar(); }
+        }, true);
+        try { if (localStorage.getItem('stackFolded')) el.stackBr.classList.add('folded'); } catch (e) { /* ignoré */ }
+
         function updateDock() {
-            document.querySelectorAll('#landDock .admin').forEach((b) => { b.hidden = !state.isAdmin; });
+            document.querySelectorAll('#stackBr .phase-btn, #landPhaseLbl').forEach((b) => { b.hidden = !state.isAdmin; });
             if (!state.isAdmin) return;
             const names = { off: 'Débarquement arrêté', zones: '1 · Zones', choose: '2 · Choix', place: '3 · Dépôt', locked: '4 · Verrouillé' };
             const nextT = { off: 'Lancer le débarquement', zones: 'Affecter les équipes', choose: 'Figer les affectations', place: 'Verrouiller les placements', locked: 'Dernière phase' }[LAND.view.phase];
             const prevT = { off: '—', zones: 'Arrêter le débarquement', choose: 'Retour au regroupement', place: 'Retour aux choix', locked: 'Retour au dépôt' }[LAND.view.phase];
-            document.querySelector('#landDock [data-land="next"]').title = `Suivant : ${nextT}`;
-            document.querySelector('#landDock [data-land="prev"]').title = `Précédent : ${prevT}`;
+            document.querySelector('#stackBr [data-land="next"]').title = `Suivant : ${nextT}`;
+            document.querySelector('#stackBr [data-land="prev"]').title = `Précédent : ${prevT}`;
             $('landPhaseLbl').textContent = names[LAND.view.phase];
         }
 
@@ -3955,8 +3993,25 @@
             updateDock();
         }
 
+        // Un changement d'étape (surtout un retour en arrière du MJ) invalide tout geste, aperçu, aire ou tuile survolée en cours :
+        // sans cette remise à zéro, des étiquettes ou des zones de l'étape précédente restaient affichées à l'écran.
+        function resetLandTransient() {
+            if (LAND.drag) { LAND.drag.ghost.remove(); LAND.drag = null; }
+            if (LAND.press) { clearTimeout(LAND.press.timer); LAND.press = null; }
+            LAND.hover = null;
+            LAND.pressHide = null;
+            LAND.preview = null;
+            LAND.lastTap = null;
+            LAND.showArea = null;
+            LAND.areaSig = '';
+            LAND.areaSet = new Set();
+            LAND.hits = [];
+            hideRangeInfo();
+        }
+
         function onLandingView(next) {
             const prev = LAND.view.phase;
+            if ((next?.phase || 'off') !== prev) resetLandTransient();
             LAND.view = next || { phase: 'off' };
             LAND.units = buildUnits(LAND.view);
             if (LAND.preview && LAND.units.find((u) => u.id === LAND.preview.unit.id)?.tile !== LAND.preview.start) { LAND.preview = null; hideRangeInfo(); }
@@ -3974,8 +4029,7 @@
             const b = e.target.closest('[data-land]');
             if (!b) return;
             const k = b.dataset.land;
-            if (k === 'teams') openFiches({ tab: 'players' });
-            else if (k === 'next' && state.isAdmin) adminNext();
+            if (k === 'next' && state.isAdmin) adminNext();
             else if (k === 'prev' && state.isAdmin) adminPrev();
             else if (k === 'help') phaseNotice(true);
             else if (k === 'toggle') {
@@ -3993,7 +4047,7 @@
                 const sec = z ? zoneSections(z).find((x) => x.key === b.dataset.section) : null;
                 if (sec) landEmit('landing-bonus', { zone: z.id, section: sec.key, value: Math.max(0, Math.min(9, sec.bonus + Number(b.dataset.d))) });
             } else if (k === 'area') { const key = `${b.dataset.zone}:${b.dataset.section}`; LAND.showArea = LAND.showArea === key ? null : key; LAND.areaSig = ''; renderLandingPanel(); requestDraw(); }
-            else if (k === 'barfold') { LAND.barCollapsed = !LAND.barCollapsed; renderUnitBar(); }
+            else if (k === 'barfold') { LAND.barCollapsed = true; renderUnitBar(); }
             else if (k === 'choose') chooseZone(b.dataset.zone);
             else if (k === 'freeze' && state.isAdmin) adminStep('landing-freeze', {}, 'Figer quand même');
             else if (k === 'lock' && state.isAdmin) adminStep('landing-lock', {}, 'Verrouiller quand même');
