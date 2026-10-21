@@ -1444,6 +1444,23 @@ function historyOf(name) {
     return histories.get(name);
 }
 
+// Les dépôts d'unités partagent l'historique des modifications de tuiles : une entrée de débarquement est { landing: true, unit, before, after }
+// où before / after = { tile: 'col,ligne' | null, std: booléen }. Annuler / rétablir suit donc l'ordre réel des actions de chaque joueur.
+const isLandingBatch = (batch) => Boolean(batch?.[0]?.landing);
+
+function recordLandingMove(name, unitId, before, after) {
+    if (before.tile === after.tile && before.std === after.std) return;
+    recordHistory(name, [{ landing: true, unit: unitId, before, after }]);
+}
+
+// Le débarquement vient de changer d'étape ou de recommencer : les anciennes entrées de dépôt n'ont plus de sens.
+function purgeLandingHistory() {
+    for (const history of histories.values()) {
+        history.undo = history.undo.filter((b) => !isLandingBatch(b));
+        history.redo = history.redo.filter((b) => !isLandingBatch(b));
+    }
+}
+
 function recordHistory(name, batch) {
     const history = historyOf(name);
     history.undo.push(batch);
@@ -1497,9 +1514,11 @@ function applyEdits(keys, action, options, author) {
 
 function runHistory(socket, ack, from, to) {
     if (!socket.data.name) return reply(ack, { success: false, message: 'Connectez-vous d’abord.' });
-    if (state.isLocked) return reply(ack, { success: false, message: 'Le plateau est verrouillé.' });
 
     const history = historyOf(socket.data.name);
+    const top = history[from][history[from].length - 1];
+    if (isLandingBatch(top)) return runLandingHistory(socket, ack, from, to, history);
+    if (state.isLocked) return reply(ack, { success: false, message: 'Le plateau est verrouillé.' });
     const batch = history[from].pop();
     if (!batch) return reply(ack, { success: false, message: from === 'undo' ? 'Rien à annuler.' : 'Rien à rétablir.' });
 
@@ -1512,6 +1531,31 @@ function runHistory(socket, ack, from, to) {
     broadcastTiles(changes);
     const label = from === 'undo' ? 'Annulé' : 'Rétabli';
     return reply(ack, { success: true, message: `${label} (${inverse.length} case${inverse.length > 1 ? 's' : ''}).` });
+}
+
+// Annuler / rétablir un dépôt d'unité : l'unité retrouve sa tuile (ou le sélecteur) et son étendard d'avant.
+function runLandingHistory(socket, ack, from, to, history) {
+    const L = state.landing;
+    const name = socket.data.name;
+    const entry = history[from].pop()[0];
+    const label = from === 'undo' ? 'Annulé' : 'Rétabli';
+    const target = from === 'undo' ? entry.before : entry.after;
+    const current = from === 'undo' ? entry.after : entry.before;
+    const found = findLine(name, entry.unit);
+    if (L.phase !== 'place' || !found) return reply(ack, { success: false, message: 'Le dépôt des unités n’est plus ouvert : rien à ' + (from === 'undo' ? 'annuler' : 'rétablir') + '.' });
+    if ((L.placed[found.id] ?? null) !== current.tile || Boolean(L.std[found.id]) !== current.std) {
+        return reply(ack, { success: false, message: 'Cette unité a été modifiée depuis : impossible.' });
+    }
+    if (target.tile) {
+        const zone = zoneById(L.choices[keyOf(L.choices, name) ?? ''] ?? '');
+        if (!zone || !zone.tiles.includes(target.tile)) return reply(ack, { success: false, message: 'Cette tuile n’appartient plus à votre zone.' });
+        L.placed[found.id] = target.tile;
+    } else delete L.placed[found.id];
+    if (target.tile && target.std) L.std[found.id] = true; else delete L.std[found.id];
+    history[to].push([entry]);
+    scheduleSave();
+    emitLanding();
+    return reply(ack, { success: true, message: `${label} : unité ${target.tile ? 'replacée' : 'retirée de la carte'}.` });
 }
 
 // Évite qu'une erreur de stockage ne fasse tomber le serveur : le client reçoit un message clair.
@@ -2029,6 +2073,7 @@ io.on('connection', (socket) => {
     socket.on('landing-start', (payload, ack) => {
         if (!requireAdmin(socket, ack)) return;
         state.landing = defaultLanding();
+        purgeLandingHistory();
         refreshZones();
         if (!state.landing.zones.length) { state.landing = defaultLanding(); return landingFail(ack, 'Aucune zone : placez au moins 2 losanges (ou triangles) sur des tuiles voisines.'); }
         state.landing.phase = 'zones';
@@ -2119,6 +2164,7 @@ io.on('connection', (socket) => {
         for (const n of players) if (keyOf(L.choices, n)) L.roster[n] = rosterFor(n);
         L.placed = {};
         L.std = {};
+        purgeLandingHistory();
         L.phase = 'place';
         landingOk(ack);
     });
@@ -2135,13 +2181,20 @@ io.on('connection', (socket) => {
         const found = ids.map((id) => findLine(name, id));
         if (found.some((f) => !f)) return landingFail(ack, 'Unité inconnue.');
         if (payload?.tile == null) {
-            for (const f of found) { delete L.placed[f.id]; delete L.std[f.id]; }
+            for (const f of found) {
+                recordLandingMove(name, f.id, { tile: L.placed[f.id] ?? null, std: Boolean(L.std[f.id]) }, { tile: null, std: false });
+                delete L.placed[f.id]; delete L.std[f.id];
+            }
             return landingOk(ack);
         }
         const zone = zoneById(L.choices[keyOf(L.choices, name) ?? ''] ?? '');
         const tile = String(payload.tile);
         if (!zone || !zone.tiles.includes(tile)) return landingFail(ack, 'Cette tuile n’appartient pas à votre zone de débarquement.');
-        for (const f of found) L.placed[f.id] = tile;
+        for (const f of found) {
+            const std = Boolean(L.std[f.id]);
+            recordLandingMove(name, f.id, { tile: L.placed[f.id] ?? null, std }, { tile, std });
+            L.placed[f.id] = tile;
+        }
         landingOk(ack);
     });
 
@@ -2159,8 +2212,12 @@ io.on('connection', (socket) => {
             let used = 0;
             for (let i = 1; i <= f.line.qty; i++) if (L.std[unitIdOf(f.owner, f.line.uid, i)]) used++;
             if (used >= f.line.stdMax) return landingFail(ack, f.line.stdMax ? `Tous les étendards de cette ligne sont attribués (${f.line.stdMax}).` : 'Cette ligne n’a pas d’étendard.');
+            recordLandingMove(name, f.id, { tile: L.placed[f.id], std: false }, { tile: L.placed[f.id], std: true });
             L.std[f.id] = true;
-        } else delete L.std[f.id];
+        } else {
+            recordLandingMove(name, f.id, { tile: L.placed[f.id], std: Boolean(L.std[f.id]) }, { tile: L.placed[f.id], std: false });
+            delete L.std[f.id];
+        }
         landingOk(ack);
     });
 
@@ -2171,6 +2228,7 @@ io.on('connection', (socket) => {
         if (L.phase !== 'place') return landingFail(ack, 'Étape incorrecte.');
         const left = Object.entries(L.roster).reduce((t, [o, list]) => t + list.reduce((k, l) => { let n = 0; for (let i = 1; i <= l.qty; i++) if (!L.placed[unitIdOf(o, l.uid, i)]) n++; return k + n; }, 0), 0);
         if (left && !payload?.force) return reply(ack, { success: false, code: 'missing', left, message: `${left} unité(s) ne sont pas encore placées.` });
+        purgeLandingHistory();
         L.phase = 'locked';
         landingOk(ack);
     });
@@ -2180,6 +2238,7 @@ io.on('connection', (socket) => {
         if (!requireAdmin(socket, ack)) return;
         const L = state.landing;
         const target = payload?.phase;
+        purgeLandingHistory();
         if (target === 'off') { state.landing = defaultLanding(); return landingOk(ack); }
         const order = ['zones', 'choose', 'place', 'locked'];
         if (!order.includes(target) || order.indexOf(target) > order.indexOf(L.phase)) return landingFail(ack, 'Étape invalide.');
