@@ -508,7 +508,9 @@ function createSupabaseStorage() {
                 author: row.author,
                 savedAt: Number(row.saved_at),
                 config: { cols: row.cols, rows: row.rows },
-                terrainsList: row.terrains,
+                // Sans changement de schéma : le débarquement est rangé avec les terrains ({ list, landing }).
+                terrainsList: Array.isArray(row.terrains) ? row.terrains : row.terrains?.list,
+                landing: Array.isArray(row.terrains) ? null : (row.terrains?.landing ?? null),
                 gridData: row.grid
             };
         },
@@ -522,7 +524,7 @@ function createSupabaseStorage() {
                 cols: map.config.cols,
                 rows: map.config.rows,
                 tiles: Object.keys(map.gridData).length,
-                terrains: map.terrainsList,
+                terrains: map.landing ? { list: map.terrainsList, landing: map.landing } : map.terrainsList,
                 grid: map.gridData
             }));
         },
@@ -636,7 +638,10 @@ async function saveMap({ id, name, auto = false }, author) {
         savedAt: Date.now(),
         config: { ...state.config },
         terrainsList: state.terrainsList.map((t) => ({ ...t })),
-        gridData: state.gridData
+        gridData: state.gridData,
+        // Débarquement en cours (zones, groupes, bonus, choix, unités posées, étendards) : tout est conservé ;
+        // chacun ne voit ensuite que ce que les règles de visibilité de son équipe lui montrent.
+        landing: state.landing.phase === 'off' ? null : JSON.parse(JSON.stringify(state.landing))
     };
     await storage.putMap(map);
     const meta = metaOf(map);
@@ -1713,6 +1718,7 @@ io.on('connection', (socket) => {
         broadcastUsers();
         await saveNow();
         io.emit('update-config', { config: state.config, gridData: state.gridData });
+        emitLanding();
         broadcastMaps();
         reply(ack, { success: true, message: 'Nouvelle carte créée. L’ancienne a été sauvegardée automatiquement.' });
     }));
@@ -2284,7 +2290,7 @@ io.on('connection', (socket) => {
 
         state.config = config;
         state.gridData = gridData;
-        state.landing = defaultLanding();
+        state.landing = normalizeLanding(map.landing);
         histories.clear();
         rebuildContributors();
         broadcastUsers();
@@ -2293,8 +2299,9 @@ io.on('connection', (socket) => {
 
         io.emit('update-config', { config: state.config, gridData: state.gridData });
         io.emit('update-terrains', state.terrainsList);
+        emitLanding();
         broadcastMaps();
-        reply(ack, { success: true, message: `Carte « ${map.name} » chargée.` });
+        reply(ack, { success: true, message: `Carte « ${map.name} » chargée${state.landing.phase !== 'off' ? ' avec son débarquement' : ''}.` });
     }));
 
     // Export du jeu complet (serveur, pages, cartes, fiches, état) : un dossier à lancer sur un PC ou un téléphone, sans internet.
@@ -2314,10 +2321,10 @@ io.on('connection', (socket) => {
             if (!MAP_ID.test(id) || !mapsIndex.has(id)) return reply(ack, { success: false, message: 'Carte introuvable.' });
             map = await storage.getMap(id);
         } else {
-            map = { name: 'Carte en cours', config: state.config, terrainsList: state.terrainsList, gridData: state.gridData };
+            map = { name: 'Carte en cours', config: state.config, terrainsList: state.terrainsList, gridData: state.gridData, landing: state.landing.phase === 'off' ? null : state.landing };
         }
         if (!map) return reply(ack, { success: false, message: 'Carte introuvable.' });
-        reply(ack, { success: true, file: { kind: 'carte', format: 1, name: map.name, savedAt: Date.now(), config: map.config, terrainsList: map.terrainsList, gridData: map.gridData } });
+        reply(ack, { success: true, file: { kind: 'carte', format: 1, name: map.name, savedAt: Date.now(), config: map.config, terrainsList: map.terrainsList, gridData: map.gridData, landing: map.landing ?? null } });
     }));
 
     // Import d'une carte depuis un fichier local : elle s'ajoute à la liste, sans toucher au plateau en cours.
@@ -2340,7 +2347,8 @@ io.on('connection', (socket) => {
             savedAt: Date.now(),
             config,
             terrainsList: terrains.map((t) => ({ ...t })),
-            gridData
+            gridData,
+            landing: file.landing && file.landing.phase !== 'off' ? normalizeLanding(file.landing) : null
         };
         await storage.putMap(map);
         mapsIndex.set(map.id, metaOf(map));
