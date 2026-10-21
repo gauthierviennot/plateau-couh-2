@@ -1745,12 +1745,12 @@
             units: $('unitBar'), // unités à déposer (débarquement)
             stack: el.stackBr // boussole, impression, verrou, quitter et étapes du débarquement
         };
-        const FOLDING = ['terrains', 'objects', 'marks', 'tools', 'history']; // se replient en mode déplacer
+        const FOLDING = ['terrains', 'objects', 'marks', 'tools', 'history', 'protect']; // se replient en mode déplacer (10 s sans usage)
         const EDGES = ['left', 'right', 'top', 'bottom'];
         const DEFAULT_DOCK = { left: ['terrains', 'units'], top: ['objects'], right: ['tools', 'history', 'stack'], bottom: ['marks', 'protect'] };
         let softOpen = false; // dépliage temporaire (10 s) des sélecteurs d'unités et de boutons quand le plateau est verrouillé
         let softTimer = null;
-        const SOFT_FOLDING = ['units', 'stack']; // se replient aussi (10 s) quand le plateau est verrouillé et que le mode peindre est impossible
+        const SOFT_FOLDING = ['units', 'stack', 'protect']; // se replient aussi (10 s) quand le plateau est verrouillé et que le mode peindre est impossible
         const PANEL_GAP = 4; // espace entre deux boutons d'un sélecteur
         const PANEL_CHROME = 12; // marges internes et bordures d'un sélecteur
         const PANEL_SPACE = 6; // espace minimal entre deux sélecteurs d'un même bord
@@ -1963,6 +1963,9 @@
             applyFolding();
             requestLayout();
         }
+
+        // Modifier la carte (déplacer, retirer une unité, étendard…) exige qu'au moins un sélecteur soit ouvert.
+        const selectorsOpen = () => ACTIVE_MODES.has(state.mode) || softOpen;
 
         // Un sélecteur n'est vert que si quelque chose y est sélectionné (en mode peindre ou outil actif).
         function updatePanelStates() {
@@ -2768,6 +2771,7 @@
         function fireMapLongPress() {
             const active = gesture;
             mapPress = null;
+            if (typeof LAND !== 'undefined' && LAND.press && !LAND.press.moved) return; // appui long sur une unité : portée, pas de changement de mode
             if (!active || active.type !== 'single') return;
             active.consumed = true; // le relâchement ne déclenche plus rien
             dragRect = null;
@@ -2981,6 +2985,8 @@
             return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
         }
         const canMove = () => LAND.view.phase === 'place';
+        // Déposer, déplacer, retirer ou marquer une unité : seulement quand un sélecteur est ouvert (sinon la carte ne fait que se déplacer).
+        const canEditUnits = () => canMove() && selectorsOpen();
 
         function landNeighbors(col, row) {
             const dirs = row % 2 === 1
@@ -3585,7 +3591,7 @@
         const batchOf = (list) => list.slice(0, 1);
 
         function startDrag(unit, list, e, fromMap) {
-            if (!canMove() || !ciEq(unit.owner, state.username) || !list.length) return false;
+            if (!canEditUnits() || !ciEq(unit.owner, state.username) || !list.length) return false;
             const chosen = batchOf(list);
             // Au doigt, la pastille est affichée 28 px au-dessus pour rester visible : c'est elle qui vise. À la souris elle est sous le pointeur.
             LAND.drag = { unit, units: chosen.map((u) => u.id), ghost: makeGhost(unit, chosen.length), fromMap, tile: fromMap ? unit.tile : null, off: e.pointerType === 'touch' ? 28 : 0 };
@@ -3630,15 +3636,26 @@
                 LAND.tap = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
                 return;
             }
-            e.stopImmediatePropagation();
-            e.preventDefault();
-            el.canvas.setPointerCapture(e.pointerId);
+            const open = selectorsOpen();
+            const secondTap = LAND.lastTap && LAND.lastTap.id === unit.id && performance.now() - LAND.lastTap.t < 380;
+            // Sélecteurs repliés : le toucher sur une unité laisse la carte se déplacer (appui long = portée, double toucher = fiche).
+            if (open || secondTap) {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                el.canvas.setPointerCapture(e.pointerId);
+            }
             LAND.tap = null;
             const cr = hit.cross;
             if (cr) {
                 const px = e.clientX - rect.left;
                 const py = e.clientY - rect.top;
-                if (px >= cr.x && px <= cr.x + cr.w && py >= cr.y && py <= cr.y + cr.h && canMove()) {
+                if (px >= cr.x && px <= cr.x + cr.w && py >= cr.y && py <= cr.y + cr.h && !open && canMove()) {
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    toast('Ouvrez un sélecteur (appui long sur la carte) pour modifier vos unités.');
+                    return;
+                }
+                if (px >= cr.x && px <= cr.x + cr.w && py >= cr.y && py <= cr.y + cr.h && canEditUnits()) {
                     landEmit('landing-place', { units: [unit.id], tile: null }).then((r) => { if (r.success) toast('Unité retirée de la carte : elle est de nouveau dans le sélecteur.'); });
                     return;
                 }
@@ -3648,13 +3665,19 @@
                 const px = e.clientX - rect.left;
                 const py = e.clientY - rect.top;
                 if (px >= fl.x && px <= fl.x + fl.w && py >= fl.y && py <= fl.y + fl.h) {
+                    if (!open) {
+                        e.stopImmediatePropagation();
+                        e.preventDefault();
+                        toast('Ouvrez un sélecteur (appui long sur la carte) pour modifier vos unités.');
+                        return;
+                    }
                     const next = !unit.std;
                     landEmit('landing-standard', { unit: unit.id, on: next }).then((r) => { if (r.success) toast(next ? 'Étendard attribué à cette unité.' : 'Étendard retiré.'); });
                     return;
                 }
             }
             const now = performance.now();
-            if (LAND.lastTap && LAND.lastTap.id === unit.id && now - LAND.lastTap.t < 380) {
+            if (secondTap) {
                 LAND.lastTap = null;
                 LAND.press = null;
                 openUnitInfo(unit);
@@ -3674,7 +3697,7 @@
             if (!p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) {
                 p.moved = true;
                 clearTimeout(p.timer);
-                if (!p.long) startDrag(p.unit, p.units, e, true);
+                if (!p.long && selectorsOpen()) startDrag(p.unit, p.units, e, true);
             }
             if (LAND.drag) moveGhost(e);
         }, true);
