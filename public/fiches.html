@@ -289,7 +289,7 @@ const COLS='ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
 const SHORT={A:'nb',B:'nom',C:'att',D:'typ att',E:'dis',F:"att'",G:'PV',H:'A',I:'dep',J:"dep'",K:'typ dép',L:"dep''",M:'val brute',N:'T',O:'C',P:'U',Q:'val+bonus',R:'val armée',S:'I',T:'c',U:'E',V:'G',W:'fig',X:'ligne'};
 const LONG={A:'nb : quantité totale de cette unité dans l\'armée',B:'nom de l\'unité',C:'att : attaque',D:'typ : type d\'attaque (cc, ttc, cd2…)',E:'dis : portée / distance de tir',F:"att' : attaque pondérée (calculée)",G:'PV : points de vie',H:'A : armure',I:'dep : déplacement',J:"dep' : déplacement pondéré (calculé)",K:'typ : type de déplacement (m, vs, j…)',L:"dep'' : déplacement avec type (calculé)",M:'val fig sans modif (calculée)',N:'T (modificateur)',O:'C (modificateur)',P:'U (modificateur)',Q:'val fig avec bonus communs et bonus armée (calculée)',R:'valeur fig de base avec bonus armée sans I (calculée)',S:'I (calculée ou saisie)',T:'c : total',U:'E : total',V:'G / S : spécialité',W:'fig : valeur d\'une figurine en points (calculée)',X:'ligne : valeur totale de la ligne = fig × nb (calculée)'};
 const COMPUTED=new Set(['S','F','J','L','M','Q','R','W','X']);
-const DEFCOLS=['B','C','E','G','H','I','K','P','S','U','V','W'];
+const DEFCOLS=['B','C','E','G','H','I','K','P','S','V','W'];
 const FAMORDER=['S','F','J','L','M','Q','R','W','X','val'];
 const FAMNAME={S:'I (indicateur)',F:"att' (attaque pondérée)",J:"dep' (déplacement)",L:"dep'' (déplacement + type)",M:'val fig sans modif',Q:'val fig avec bonus',R:'val fig avec bonus armée',W:'fig (valeur finale d\'une figurine)',X:'ligne (fig × nb)',val:'val ligne d\'une légion'};
 const FAMDESC={S:'Copie le bonus « I » de l\'armée sur la ligne.',F:'Attaque pondérée selon le type (cc, ttc, cd2…).',J:'Coefficient de déplacement de base.',L:'Coefficient de déplacement ajusté par le type de mouvement.',M:'Valeur brute : attaque, PV, armure × déplacement.',Q:'Ajoute les bonus communs et d\'armée (T, C, U, tir…).',R:'Applique les multiplicateurs d\'armée (portée, PV, déplacement, typ).',W:'Valeur finale d\'une figurine (× 1,2 si colonne I).',X:'Valeur totale de la ligne = fig × nombre.',val:'Points d\'une ligne dans une légion (selon quantité, c et E).'};
@@ -1345,7 +1345,7 @@ function mjHelp(force){
 }
 
 /* ---- fiche d'une unité posée sur la carte (fenêtre contextuelle) ---- */
-const CARD_HIDE=new Set(['S','F','J','L','M','Q','R','X']); // résultats intermédiaires : masqués dans la fiche d'une unité
+const CARD_HIDE=new Set(['S','F','J','L','M','Q','R','X','T','U']); // résultats intermédiaires : masqués dans la fiche d'une unité
 function showUnitCard(t){
   const a=getArmy(t.army);const u=a&&a.units.find(x=>x.uid===t.uid);
   if(!u){openModal('Unité introuvable',`<div class="small">Cette unité n'est plus disponible dans les fiches.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
