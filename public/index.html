@@ -1,18 +1,18 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
- <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-  <title>Couhé Warhamer Battlefield</title>
-  <meta name="theme-color" content="#2c3e50">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Plateau">
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" type="image/png" href="/icon-192.png">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <title>Couhé Warhamer Battlefield</title>
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Plateau">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/png" href="/icon-192.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <script>
         // Diagnostic : si le script principal ne démarre pas (fichier incomplet, erreur), un bandeau rouge l'indique.
         (function () {
             var errors = [];
@@ -30,8 +30,8 @@
             });
         })();
     </script>
-  <script src="/socket.io/socket.io.js" defer></script>
-  <style>
+    <script src="/socket.io/socket.io.js" defer></script>
+    <style>
         :root {
             --bg: #f0f2f5;
             --dark: #2c3e50;
@@ -208,7 +208,7 @@
         .lp-seg.on { background: #222; color: #fff; border-color: #222; }
         .lp-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         .lp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
-        .unit-bar { position: fixed; left: 8px; right: calc(68px + var(--safe-right, 0px)); bottom: calc(76px + var(--safe-bottom)); z-index: 95; background: rgba(255,255,255,.96); border-radius: 12px; padding: 6px 8px; box-shadow: 0 4px 18px rgba(0,0,0,.35); touch-action: pan-x; }
+        .unit-bar { position: fixed; z-index: 95; background: rgba(255,255,255,.96); border-radius: 12px; padding: 6px 8px; box-shadow: 0 4px 18px rgba(0,0,0,.35); touch-action: pan-x; }
         .ub-title { font-size: .72rem; color: #555; margin-bottom: 4px; }
         .ub-list { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
         .ub-chip { flex: none; border: 3px solid #555; border-radius: 10px; padding: 6px 9px; background: #fff; font-size: .8rem; font-weight: 600; cursor: grab; touch-action: pan-x; user-select: none; -webkit-user-select: none; }
@@ -224,8 +224,20 @@
         .stack-br.folded::after, .unit-bar.folded::after { content: ''; position: absolute; background: rgba(0,0,0,.4); border-radius: 3px; }
         .stack-br.folded { transform: translateX(calc(100% + 8px + var(--safe-right) - 14px)); background: var(--pal-inactive); border-radius: 9px; }
         .stack-br.folded::after { left: 3px; top: 50%; width: 4px; height: 24px; margin-top: -12px; }
-        .unit-bar.folded { transform: translateY(calc(100% + 76px + var(--safe-bottom) - 14px)); }
-        .unit-bar.folded::after { top: 3px; left: 50%; height: 4px; width: 24px; margin-left: -12px; }
+        .unit-bar[data-edge="bottom"].folded { transform: translateY(calc(100% + 76px + var(--safe-bottom) - 14px)); }
+        .unit-bar[data-edge="top"].folded { transform: translateY(calc(-100% - 64px - var(--safe-top) + 14px)); }
+        .unit-bar[data-edge="left"].folded { transform: translateX(calc(-100% - 64px - var(--safe-left) + 14px)); }
+        .unit-bar[data-edge="right"].folded { transform: translateX(calc(100% + 64px + var(--safe-right) - 14px)); }
+        .unit-bar[data-edge="bottom"].folded::after { top: 3px; left: 50%; height: 4px; width: 24px; margin-left: -12px; }
+        .unit-bar[data-edge="top"].folded::after { bottom: 3px; left: 50%; height: 4px; width: 24px; margin-left: -12px; }
+        .unit-bar[data-edge="left"].folded::after { right: 3px; top: 50%; width: 4px; height: 24px; margin-top: -12px; }
+        .unit-bar[data-edge="right"].folded::after { left: 3px; top: 50%; width: 4px; height: 24px; margin-top: -12px; }
+        /* Sélecteur d'unités rangé sur un bord vertical : la liste défile de haut en bas */
+        .unit-bar[data-edge="left"], .unit-bar[data-edge="right"] { touch-action: pan-y; display: flex; flex-direction: column; }
+        .unit-bar[data-edge="left"] .ub-list, .unit-bar[data-edge="right"] .ub-list { flex-direction: column; overflow-x: hidden; overflow-y: auto; min-height: 0; }
+        .unit-bar[data-edge="left"] .ub-chip, .unit-bar[data-edge="right"] .ub-chip { touch-action: pan-y; }
+        .unit-bar.dragging { box-shadow: 0 0 0 3px rgba(31,120,255,.55), 0 8px 20px rgba(0,0,0,.4); }
+        .ub-grip { cursor: grab; user-select: none; -webkit-user-select: none; }
         .stack-br .fold-btn { width: 28px; height: 28px; }
         .stack-br .phase-btn { width: 36px; height: 36px; }
         .stack-br .phase-btn[hidden], .stack-br .phase-lbl[hidden] { display: none; }
@@ -268,217 +280,243 @@
         .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; max-width: 90vw; padding: 10px 16px; border-radius: 8px; background: var(--dark); color: #fff; font-size: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,.3); pointer-events: none; text-align: center; }
         .toast.error { background: var(--red); }
     </style>
- </head>
- <body>
-  <!-- Connexion -->
-  <main id="pageLogin" class="page active">
-   <button id="btnClose" class="btn-close" title="Fermer" aria-label="Fermer l'application">✖</button>
-   <div class="login-card">
-    <h1>Couhé Warhamer Battlefield</h1>
-    <input type="text" id="usernameInput" placeholder="Entrez votre pseudo" maxlength="15" autocomplete="off" autofocus> <input type="password" id="passwordInput" placeholder="Code secret" autocomplete="current-password" hidden>
-    <p id="loginError" class="error" role="alert" hidden></p>
-    <button id="btnLogin" class="btn btn-primary">Rejoindre</button>
-    <button id="btnInstall" class="btn btn-dark" hidden>📲 Installer sur l'écran d'accueil</button>
-    <p id="iosHint" class="install-hint" hidden>Sur iPhone : touchez « Partager » puis « Sur l'écran d'accueil » pour installer l'application en plein écran.</p>
-    <div class="presence">
-     <div class="presence-title">En ligne</div>
-     <div id="presenceOnline" class="presence-list"></div>
-     <div class="presence-title">Hors ligne · ont modifié la carte</div>
-     <div id="presenceOffline" class="presence-list"></div>
+</head>
+<body>
+
+    <!-- Connexion -->
+    <main id="pageLogin" class="page active">
+        <button id="btnClose" class="btn-close" title="Fermer" aria-label="Fermer l'application">✖</button>
+        <div class="login-card">
+            <h1>Couhé Warhamer Battlefield</h1>
+            <input type="text" id="usernameInput" placeholder="Entrez votre pseudo" maxlength="15" autocomplete="off" autofocus>
+            <input type="password" id="passwordInput" placeholder="Code secret" autocomplete="current-password" hidden>
+            <p id="loginError" class="error" role="alert" hidden></p>
+            <button id="btnLogin" class="btn btn-primary">Rejoindre</button>
+            <button id="btnInstall" class="btn btn-dark" hidden>📲 Installer sur l'écran d'accueil</button>
+            <p id="iosHint" class="install-hint" hidden>Sur iPhone : touchez « Partager » puis « Sur l'écran d'accueil » pour installer l'application en plein écran.</p>
+            <div class="presence">
+                <div class="presence-title">En ligne</div>
+                <div id="presenceOnline" class="presence-list"></div>
+                <div class="presence-title">Hors ligne · ont modifié la carte</div>
+                <div id="presenceOffline" class="presence-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Tableau de bord : réservé au MJ -->
+    <main id="pageDashboard" class="page">
+        <div class="dashboard-card">
+            <div class="dashboard-header">
+                <h2 id="welcomeUser">MJ</h2>
+                <div class="header-actions">
+                    <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
+                    <button class="btn btn-secondary" data-fiche="open">📜 Fiches d'armée</button>
+                    <button id="btnLogout" class="btn btn-secondary">Déconnexion</button>
+                </div>
+            </div>
+
+            <div class="section-title">Couleurs des terrains</div>
+            <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain. Les objets se posent sur le terrain : forêt, fortifications (une ou deux entrées), maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
+            <div id="terrainContainer" class="terrain-palette"></div>
+
+            <div class="section-title">Image de fond de la page de connexion</div>
+            <p class="hint">Elle sera visible par tous les joueurs sur la première page.</p>
+            <div class="add-row">
+                <button id="btnPickBackground" class="btn btn-primary">🖼️ Choisir une image</button>
+                <button id="btnClearBackground" class="btn btn-secondary">Retirer</button>
+                <input type="file" id="backgroundInput" accept="image/*" hidden>
+            </div>
+
+            <button id="btnGo" class="btn-go">🚀 Ouvrir la carte</button>
+        </div>
+    </main>
+
+    <!-- Carte -->
+    <main id="pageMap" class="page">
+        <div id="miniOnlineUsers" class="mini-user-list" aria-label="Personnes connectées"></div>
+        <div id="palTerrains" class="pal pal-terrains" role="toolbar" aria-label="Terrains"></div>
+        <div id="palObjects" class="pal pal-objects" role="toolbar" aria-label="Objets"></div>
+        <div id="palMarks" class="pal pal-marks admin-only" role="toolbar" aria-label="Marqueurs" hidden></div>
+        <div id="palTools" class="pal pal-tools admin-only" role="toolbar" aria-label="Outils du MJ" hidden>
+            <button id="btnSelect" class="btn-round" title="Sélectionner une zone" aria-label="Sélectionner une zone avec un rectangle">⛶</button>
+            <button id="btnErase" class="btn-round" title="Supprimer des tuiles" aria-label="Supprimer des tuiles">✂️</button>
+            <button id="btnRestore" class="btn-tile-add" title="Ajouter des tuiles" aria-label="Ajouter des tuiles">★</button>
+            <div id="selectionInfo" class="selection-info" hidden>
+                <span id="selectionCount"></span>
+                <button id="btnSelClear" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
+            </div>
+        </div>
+        <div id="palHistory" class="pal pal-history" role="toolbar" aria-label="Annuler et rétablir">
+            <button id="btnUndo" class="btn-round" title="Annuler" aria-label="Annuler ma dernière modification">↶</button>
+            <button id="btnRedo" class="btn-round" title="Rétablir" aria-label="Rétablir la modification annulée">↷</button>
+        </div>
+        <div id="palProtect" class="pal pal-protect" role="toolbar" aria-label="Protection de mes modifications">
+            <button id="btnProtect" class="btn-round on" title="Protection active" aria-label="Protection de mes modifications">🛡️</button>
+            <button id="btnRelease" class="btn-round" title="Libérer définitivement mes modifications" aria-label="Libérer définitivement mes modifications">🏳️</button>
+        </div>
+
+        <div id="printBanner" class="print-banner" hidden>
+            <span>Tracez la zone à imprimer</span>
+            <button id="btnPrintBannerCancel" class="btn btn-secondary btn-small">Annuler</button>
+        </div>
+
+        <div id="stackBr" class="stack-br">
+            <button id="btnStackFold" class="btn-round fold-btn" data-fold="stack" title="Replier ces boutons sur le côté" aria-label="Replier ces boutons sur le côté">▸</button>
+            <span id="landPhaseLbl" class="phase-lbl" hidden></span>
+            <button class="btn-round phase-btn" data-land="prev" hidden aria-label="Phase précédente">◀</button>
+            <button class="btn-round phase-btn" data-land="next" hidden aria-label="Phase suivante">▶</button>
+            <button id="btnCompass" class="btn-compass" title="Boussole : toucher pour pivoter de 90°, maintenir pour remettre le nord en haut" aria-label="Boussole : pivoter la carte de 90 degrés">
+                <svg id="compassDial" viewBox="0 0 48 48" aria-hidden="true">
+                    <circle cx="24" cy="24" r="21" fill="#ffffff" stroke="#2c3e50" stroke-width="2.5"/>
+                    <text x="24" y="12" font-size="9" font-weight="700" text-anchor="middle" fill="#2c3e50">N</text>
+                    <polygon points="24,15 29,25 19,25" fill="#e74c3c"/>
+                    <polygon points="24,35 29,25 19,25" fill="#7f8c8d"/>
+                    <circle cx="24" cy="25" r="2" fill="#2c3e50"/>
+                </svg>
+            </button>
+            <button id="btnExport" class="btn-round" title="Imprimer (JPEG A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
+            <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
+            <button id="btnExitMap" class="btn-round quit" title="Quitter" aria-label="Quitter">🚪</button>
+        </div>
+
+        <canvas id="hexCanvas" class="board"></canvas>
+
+        <div id="overrideModal" class="modal-overlay" hidden>
+            <div class="modal-content">
+                <h3>Remplacer ?</h3>
+                <p id="overrideMessage"></p>
+                <div class="modal-actions">
+                    <button id="btnCancelOverride" class="btn btn-secondary">Annuler</button>
+                    <button id="btnConfirmOverride" class="btn btn-danger">Confirmer</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="paletteTooltip" class="palette-tooltip" hidden></div>
+    </main>
+
+    <!-- Impression -->
+    <div id="printModal" class="modal-overlay" hidden>
+        <div class="modal-content">
+            <h3>Imprimer en JPEG (A4)</h3>
+            <p>Quelle partie de la carte voulez-vous exporter ?</p>
+            <div class="stack">
+                <button id="btnPrintAll" class="btn btn-primary">🗺️ Carte complète</button>
+                <button id="btnPrintZone" class="btn btn-dark">▭ Zone à définir (rectangle)</button>
+            </div>
+            <div class="modal-actions">
+                <button id="btnPrintCancel" class="btn btn-secondary">Annuler</button>
+            </div>
+        </div>
     </div>
-   </div>
-  </main>
-  <!-- Tableau de bord : réservé au MJ -->
-  <main id="pageDashboard" class="page">
-   <div class="dashboard-card">
-    <div class="dashboard-header">
-     <h2 id="welcomeUser">MJ</h2>
-     <div class="header-actions">
-      <button id="btnOpenMaps" class="btn btn-primary">🗺️ Cartes</button>
-      <button class="btn btn-secondary" data-fiche="open">📜 Fiches d'armée</button>
-      <button id="btnLogout" class="btn btn-secondary">Déconnexion</button>
-     </div>
+
+    <div id="exportViewer" class="modal-overlay" hidden>
+        <div class="modal-content modal-wide export-viewer">
+            <h3>Image prête (A4, 300 dpi)</h3>
+            <img id="exportImage" alt="Aperçu de la carte à imprimer">
+            <p>Touchez « Enregistrer / Partager », ou maintenez le doigt sur l'image puis choisissez « Enregistrer l'image ».</p>
+            <div class="modal-actions">
+                <button id="btnExportClose" class="btn btn-secondary">Fermer</button>
+                <button id="btnExportShare" class="btn btn-primary">📤 Enregistrer / Partager</button>
+            </div>
+        </div>
     </div>
-    <div class="section-title">Couleurs des terrains</div>
-    <p class="hint">Changer une couleur recolore immédiatement toutes les cases de ce terrain. Les objets se posent sur le terrain : forêt, fortifications (une ou deux entrées), maisons et muret sur plaine ou colline ; pont uniquement sur l'eau.</p>
-    <div id="terrainContainer" class="terrain-palette"></div>
-    <div class="section-title">Image de fond de la page de connexion</div>
-    <p class="hint">Elle sera visible par tous les joueurs sur la première page.</p>
-    <div class="add-row">
-     <button id="btnPickBackground" class="btn btn-primary">🖼️ Choisir une image</button>
-     <button id="btnClearBackground" class="btn btn-secondary">Retirer</button>
-     <input type="file" id="backgroundInput" accept="image/*" hidden>
+
+    <!-- Cartes enregistrées et nouvelle carte (MJ) -->
+    <div id="mapsModal" class="modal-overlay" hidden>
+        <div class="modal-content modal-wide">
+            <h3>Cartes</h3>
+            <div class="map-actions-top">
+                <button id="btnNewMap" class="btn btn-danger">＋ Nouvelle carte</button>
+            </div>
+            <div class="map-actions-top">
+                <button id="btnExportMapNow" class="btn btn-dark" title="Télécharger la carte en cours sur cet appareil">⬇️ Exporter la carte en cours</button>
+                <button id="btnImportMap" class="btn btn-dark" title="Ajouter une carte depuis un fichier de cet appareil">⬆️ Importer une carte</button>
+                <button id="btnExportGame" class="btn btn-dark" title="Télécharger le jeu complet à lancer sur un PC ou un téléphone, sans internet">📦 Exporter le jeu complet (serveur local)</button>
+                <input type="file" id="importMapFile" accept=".json,application/json" hidden>
+            </div>
+            <div class="map-save">
+                <input type="text" id="mapNameInput" placeholder="Nom pour enregistrer la carte en cours" maxlength="60" autocomplete="off">
+                <button id="btnSaveMap" class="btn btn-primary">💾 Enregistrer</button>
+            </div>
+            <div id="mapList" class="map-list"></div>
+            <div class="modal-actions">
+                <button id="btnCloseMaps" class="btn btn-secondary">Fermer</button>
+            </div>
+        </div>
     </div>
-    <button id="btnGo" class="btn-go">🚀 Ouvrir la carte</button>
-   </div>
-  </main>
-  <!-- Carte -->
-  <main id="pageMap" class="page">
-   <div id="miniOnlineUsers" class="mini-user-list" aria-label="Personnes connectées"></div>
-   <div id="palTerrains" class="pal pal-terrains" role="toolbar" aria-label="Terrains"></div>
-   <div id="palObjects" class="pal pal-objects" role="toolbar" aria-label="Objets"></div>
-   <div id="palMarks" class="pal pal-marks admin-only" role="toolbar" aria-label="Marqueurs" hidden></div>
-   <div id="palTools" class="pal pal-tools admin-only" role="toolbar" aria-label="Outils du MJ" hidden>
-    <button id="btnSelect" class="btn-round" title="Sélectionner une zone" aria-label="Sélectionner une zone avec un rectangle">⛶</button>
-    <button id="btnErase" class="btn-round" title="Supprimer des tuiles" aria-label="Supprimer des tuiles">✂️</button>
-    <button id="btnRestore" class="btn-tile-add" title="Ajouter des tuiles" aria-label="Ajouter des tuiles">★</button>
-    <div id="selectionInfo" class="selection-info" hidden>
-     <span id="selectionCount"></span>
-     <button id="btnSelClear" title="Annuler la sélection" aria-label="Annuler la sélection">✖</button>
+
+    <div id="newMapModal" class="modal-overlay" hidden>
+        <div class="modal-content">
+            <h3>Nouvelle carte</h3>
+            <div class="control-group">
+                <label for="cols">Colonnes (largeur)</label>
+                <input type="number" id="cols" value="150" min="2" max="300">
+            </div>
+            <div class="control-group">
+                <label for="rows">Lignes (longueur)</label>
+                <input type="number" id="rows" value="100" min="2" max="300">
+            </div>
+            <p>La carte en cours est sauvegardée automatiquement, puis remplacée par une carte vierge : toutes les cases sont des plaines.</p>
+            <div class="modal-actions">
+                <button id="btnCancelNewMap" class="btn btn-secondary">Annuler</button>
+                <button id="btnCreateMap" class="btn btn-danger">Créer</button>
+            </div>
+        </div>
     </div>
-   </div>
-   <div id="palHistory" class="pal pal-history" role="toolbar" aria-label="Annuler et rétablir">
-    <button id="btnUndo" class="btn-round" title="Annuler" aria-label="Annuler ma dernière modification">↶</button>
-    <button id="btnRedo" class="btn-round" title="Rétablir" aria-label="Rétablir la modification annulée">↷</button>
-   </div>
-   <div id="palProtect" class="pal pal-protect" role="toolbar" aria-label="Protection de mes modifications">
-    <button id="btnProtect" class="btn-round on" title="Protection active" aria-label="Protection de mes modifications">🛡️</button>
-    <button id="btnRelease" class="btn-round" title="Libérer définitivement mes modifications" aria-label="Libérer définitivement mes modifications">🏳️</button>
-   </div>
-   <div id="printBanner" class="print-banner" hidden>
-    <span>Tracez la zone à imprimer</span>
-    <button id="btnPrintBannerCancel" class="btn btn-secondary btn-small">Annuler</button>
-   </div>
-   <div id="stackBr" class="stack-br">
-    <button id="btnStackFold" class="btn-round fold-btn" data-fold="stack" title="Replier ces boutons sur le côté" aria-label="Replier ces boutons sur le côté">▸</button>
-    <span id="landPhaseLbl" class="phase-lbl" hidden></span>
-    <button class="btn-round phase-btn" data-land="prev" hidden aria-label="Phase précédente">◀</button>
-    <button class="btn-round phase-btn" data-land="next" hidden aria-label="Phase suivante">▶</button>
-    <button id="btnCompass" class="btn-compass" title="Boussole : toucher pour pivoter de 90°, maintenir pour remettre le nord en haut" aria-label="Boussole : pivoter la carte de 90 degrés">
-     <svg id="compassDial" viewBox="0 0 48 48" aria-hidden="true">
-      <circle cx="24" cy="24" r="21" fill="#ffffff" stroke="#2c3e50" stroke-width="2.5" /> <text x="24" y="12" font-size="9" font-weight="700" text-anchor="middle" fill="#2c3e50">N</text> <polygon points="24,15 29,25 19,25" fill="#e74c3c" /> <polygon points="24,35 29,25 19,25" fill="#7f8c8d" /> <circle cx="24" cy="25" r="2" fill="#2c3e50" />
-     </svg>
-    </button>
-    <button id="btnExport" class="btn-round" title="Imprimer (JPEG A4)" aria-label="Exporter la carte en JPEG pour impression A4">🖨️</button>
-    <button id="btnLockToggle" class="btn-round lock admin-only" title="Verrouiller le plateau" aria-label="Verrouiller le plateau" hidden>🔓</button>
-    <button id="btnExitMap" class="btn-round quit" title="Quitter" aria-label="Quitter">🚪</button>
-   </div>
-   <canvas id="hexCanvas" class="board"></canvas>
-   <div id="overrideModal" class="modal-overlay" hidden>
-    <div class="modal-content">
-     <h3>Remplacer ?</h3>
-     <p id="overrideMessage"></p>
-     <div class="modal-actions">
-      <button id="btnCancelOverride" class="btn btn-secondary">Annuler</button>
-      <button id="btnConfirmOverride" class="btn btn-danger">Confirmer</button>
-     </div>
+
+    <div id="helpModal" class="modal-overlay" hidden>
+        <div class="modal-content">
+            <h3>Gestes sur la carte</h3>
+            <ul class="help-list">
+                <li><strong>Appui long sur la carte</strong> en mode déplacer : les sélecteurs se déplient et le mode peindre s'active. Un nouvel appui long en mode peindre les replie et ramène au mode déplacer.</li>
+                <li><strong>Double toucher</strong> sur un objet orienté (pont, muret, fortification), en mode déplacer ou peindre : il pivote d'un sixième de tour et le mode peindre s'active.</li>
+                <li><strong>Appui long sur un sélecteur</strong>, puis glisser : le poser où vous voulez sur un bord de l'écran.</li>
+                <li><strong>Annuler / rétablir</strong> forment un sélecteur à part, qui se déplie avec les sélecteurs de peinture. Le bouclier est vert à l'ouverture de la carte : les autres doivent confirmer pour modifier vos tuiles.</li>
+            </ul>
+            <label class="help-check"><input type="checkbox" id="helpNever"> Ne plus afficher ce message</label>
+            <div class="modal-actions"><button id="btnHelpOk" class="btn btn-primary">Compris</button></div>
+        </div>
     </div>
-   </div>
-   <div id="paletteTooltip" class="palette-tooltip" hidden></div>
-  </main>
-  <!-- Impression -->
-  <div id="printModal" class="modal-overlay" hidden>
-   <div class="modal-content">
-    <h3>Imprimer en JPEG (A4)</h3>
-    <p>Quelle partie de la carte voulez-vous exporter ?</p>
-    <div class="stack">
-     <button id="btnPrintAll" class="btn btn-primary">🗺️ Carte complète</button>
-     <button id="btnPrintZone" class="btn btn-dark">▭ Zone à définir (rectangle)</button>
+
+    <div id="pickTip" class="palette-tooltip" hidden></div>
+    <div id="landingPanel" class="landing-panel" hidden></div>
+    <div id="unitBar" class="unit-bar" hidden></div>
+    <div id="rangeInfo" class="range-info" hidden></div>
+    <div id="landingModal" class="modal-overlay" hidden>
+        <div class="modal-content">
+            <h3 id="landingModalTitle"></h3>
+            <div id="landingModalBody"></div>
+            <div class="modal-actions" id="landingModalActions"></div>
+        </div>
     </div>
-    <div class="modal-actions">
-     <button id="btnPrintCancel" class="btn btn-secondary">Annuler</button>
+    <div id="fichesOverlay" class="fiches-overlay" hidden>
+        <div class="fiches-bar">
+            <b id="fichesTitle">📜 Fiches d'armée</b>
+            <span class="fiches-modes">
+                <button class="btn btn-secondary btn-small" data-fiche="mini" title="Fenêtre miniature : la carte reste visible" aria-label="Fenêtre miniature">🗗</button>
+                <button class="btn btn-secondary btn-small" data-fiche="bar" title="Réduire en barre" aria-label="Réduire en barre">—</button>
+                <button class="btn btn-secondary btn-small" data-fiche="fullscreen" title="Plein écran" aria-label="Plein écran">⛶</button>
+            </span>
+            <span class="fiches-admin">
+                <button class="btn btn-secondary btn-small" data-fiche="access" data-long="1" hidden></button>
+                <button class="btn btn-secondary btn-small" data-fiche="freeze" data-long="1" hidden></button>
+            </span>
+            <button id="btnFichesClose" class="btn btn-secondary btn-small" data-fiche="close">Fermer</button>
+        </div>
+        <iframe id="fichesFrame" title="Fiches d'armée"></iframe>
     </div>
-   </div>
-  </div>
-  <div id="exportViewer" class="modal-overlay" hidden>
-   <div class="modal-content modal-wide export-viewer">
-    <h3>Image prête (A4, 300 dpi)</h3>
-    <img id="exportImage" alt="Aperçu de la carte à imprimer">
-    <p>Touchez « Enregistrer / Partager », ou maintenez le doigt sur l'image puis choisissez « Enregistrer l'image ».</p>
-    <div class="modal-actions">
-     <button id="btnExportClose" class="btn btn-secondary">Fermer</button>
-     <button id="btnExportShare" class="btn btn-primary">📤 Enregistrer / Partager</button>
+
+    <div id="closedScreen" hidden>
+        <p>L'application est fermée.<br>Vous pouvez quitter cet onglet ou revenir à l'écran d'accueil.</p>
+        <button id="btnReopen" class="btn btn-primary">Rouvrir</button>
     </div>
-   </div>
-  </div>
-  <!-- Cartes enregistrées et nouvelle carte (MJ) -->
-  <div id="mapsModal" class="modal-overlay" hidden>
-   <div class="modal-content modal-wide">
-    <h3>Cartes</h3>
-    <div class="map-actions-top">
-     <button id="btnNewMap" class="btn btn-danger">＋ Nouvelle carte</button>
-    </div>
-    <div class="map-actions-top">
-     <button id="btnExportMapNow" class="btn btn-dark" title="Télécharger la carte en cours sur cet appareil">⬇️ Exporter la carte en cours</button>
-     <button id="btnImportMap" class="btn btn-dark" title="Ajouter une carte depuis un fichier de cet appareil">⬆️ Importer une carte</button>
-     <button id="btnExportGame" class="btn btn-dark" title="Télécharger le jeu complet à lancer sur un PC ou un téléphone, sans internet">📦 Exporter le jeu complet (serveur local)</button>
-     <input type="file" id="importMapFile" accept=".json,application/json" hidden>
-    </div>
-    <div class="map-save">
-     <input type="text" id="mapNameInput" placeholder="Nom pour enregistrer la carte en cours" maxlength="60" autocomplete="off">
-     <button id="btnSaveMap" class="btn btn-primary">💾 Enregistrer</button>
-    </div>
-    <div id="mapList" class="map-list"></div>
-    <div class="modal-actions">
-     <button id="btnCloseMaps" class="btn btn-secondary">Fermer</button>
-    </div>
-   </div>
-  </div>
-  <div id="newMapModal" class="modal-overlay" hidden>
-   <div class="modal-content">
-    <h3>Nouvelle carte</h3>
-    <div class="control-group">
-     <label for="cols">Colonnes (largeur)</label> <input type="number" id="cols" value="150" min="2" max="300">
-    </div>
-    <div class="control-group">
-     <label for="rows">Lignes (longueur)</label> <input type="number" id="rows" value="100" min="2" max="300">
-    </div>
-    <p>La carte en cours est sauvegardée automatiquement, puis remplacée par une carte vierge : toutes les cases sont des plaines.</p>
-    <div class="modal-actions">
-     <button id="btnCancelNewMap" class="btn btn-secondary">Annuler</button>
-     <button id="btnCreateMap" class="btn btn-danger">Créer</button>
-    </div>
-   </div>
-  </div>
-  <div id="helpModal" class="modal-overlay" hidden>
-   <div class="modal-content">
-    <h3>Gestes sur la carte</h3>
-    <ul class="help-list">
-     <li><strong>Appui long sur la carte</strong> en mode déplacer : les sélecteurs se déplient et le mode peindre s'active. Un nouvel appui long en mode peindre les replie et ramène au mode déplacer.</li>
-     <li><strong>Double toucher</strong> sur un objet orienté (pont, muret, fortification), en mode déplacer ou peindre : il pivote d'un sixième de tour et le mode peindre s'active.</li>
-     <li><strong>Appui long sur un sélecteur</strong>, puis glisser : le poser où vous voulez sur un bord de l'écran.</li>
-     <li><strong>Annuler / rétablir</strong> forment un sélecteur à part, qui se déplie avec les sélecteurs de peinture. Le bouclier est vert à l'ouverture de la carte : les autres doivent confirmer pour modifier vos tuiles.</li>
-    </ul>
-    <label class="help-check"><input type="checkbox" id="helpNever"> Ne plus afficher ce message</label>
-    <div class="modal-actions">
-     <button id="btnHelpOk" class="btn btn-primary">Compris</button>
-    </div>
-   </div>
-  </div>
-  <div id="pickTip" class="palette-tooltip" hidden></div>
-  <div id="landingPanel" class="landing-panel" hidden></div>
-  <div id="unitBar" class="unit-bar" hidden></div>
-  <div id="rangeInfo" class="range-info" hidden></div>
-  <div id="landingModal" class="modal-overlay" hidden>
-   <div class="modal-content">
-    <h3 id="landingModalTitle"></h3>
-    <div id="landingModalBody"></div>
-    <div class="modal-actions" id="landingModalActions"></div>
-   </div>
-  </div>
-  <div id="fichesOverlay" class="fiches-overlay" hidden>
-   <div class="fiches-bar">
-    <b id="fichesTitle">📜 Fiches d'armée</b> <span class="fiches-modes"> 
-     <button class="btn btn-secondary btn-small" data-fiche="mini" title="Fenêtre miniature : la carte reste visible" aria-label="Fenêtre miniature">🗗</button> 
-     <button class="btn btn-secondary btn-small" data-fiche="bar" title="Réduire en barre" aria-label="Réduire en barre">—</button> 
-     <button class="btn btn-secondary btn-small" data-fiche="fullscreen" title="Plein écran" aria-label="Plein écran">⛶</button> 
-    </span> <span class="fiches-admin"> 
-     <button class="btn btn-secondary btn-small" data-fiche="access" data-long="1" hidden></button> 
-     <button class="btn btn-secondary btn-small" data-fiche="freeze" data-long="1" hidden></button> 
-    </span>
-    <button id="btnFichesClose" class="btn btn-secondary btn-small" data-fiche="close">Fermer</button>
-   </div>
-   <iframe id="fichesFrame" title="Fiches d'armée"></iframe>
-  </div>
-  <div id="closedScreen" hidden>
-   <p>L'application est fermée.
-    <br>
-    Vous pouvez quitter cet onglet ou revenir à l'écran d'accueil.</p>
-   <button id="btnReopen" class="btn btn-primary">Rouvrir</button>
-  </div>
-  <div id="safeProbe" aria-hidden="true"></div>
-  <div id="toast" class="toast" role="status" hidden></div>
-  <script>
+
+    <div id="safeProbe" aria-hidden="true"></div>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+
+    <script>
     (() => {
         'use strict';
 
@@ -3394,12 +3432,32 @@
                     c.font = `600 ${chipH * 0.46}px system-ui, sans-serif`;
                     c.textAlign = 'left';
                     c.textBaseline = 'middle';
-                    const textW = w - (hasFlag ? chipH * 1.05 : chipH * 0.3);
+                    // Croix de suppression (mes unités, pendant le dépôt) : l'unité retourne dans le sélecteur.
+                    const hasCross = !opt && mine && LAND.view.phase === 'place';
+                    const leftPad = hasCross ? chipH * 1.0 : chipH * 0.28;
+                    const textW = w - (hasFlag ? chipH * 1.05 : chipH * 0.3) - (leftPad - chipH * 0.28);
+                    let cross = null;
+                    if (hasCross) {
+                        const cx = ox - w / 2 + chipH * 0.5;
+                        c.beginPath();
+                        c.arc(cx, oy, chipH * 0.3, 0, Math.PI * 2);
+                        c.fillStyle = '#d32f2f';
+                        c.fill();
+                        c.strokeStyle = '#fff';
+                        c.lineWidth = chipH * 0.08;
+                        c.lineCap = 'round';
+                        c.beginPath();
+                        c.moveTo(cx - chipH * 0.12, oy - chipH * 0.12); c.lineTo(cx + chipH * 0.12, oy + chipH * 0.12);
+                        c.moveTo(cx + chipH * 0.12, oy - chipH * 0.12); c.lineTo(cx - chipH * 0.12, oy + chipH * 0.12);
+                        c.stroke();
+                        cross = { x: sp.x + (ox - w / 2) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 0.95 * VW.scale, h: chipH * VW.scale };
+                        c.fillStyle = '#1b1b1b';
+                    }
                     // Le numéro de l'unité reste toujours visible : c'est le nom qui est raccourci si besoin.
                     const num = ` ${u.idx}`;
                     let nm = shortName(u.name, 12);
                     while (c.measureText(nm + num).width > textW && nm.length > 3) nm = `${nm.slice(0, -2)}…`;
-                    c.fillText(nm + num, ox - w / 2 + chipH * 0.28, oy + chipH * 0.03);
+                    c.fillText(nm + num, ox - w / 2 + leftPad, oy + chipH * 0.03);
                     let flag = null;
                     if (hasFlag) {
                         const used = stdUsed.get(u.line) || 0;
@@ -3410,7 +3468,7 @@
                         }
                     }
                     c.globalAlpha = 1;
-                    LAND.hits.push({ unit: u, units: [u], flag, x: sp.x + (ox - w / 2) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: w * VW.scale, h: chipH * VW.scale });
+                    LAND.hits.push({ unit: u, units: [u], flag, cross, x: sp.x + (ox - w / 2) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: w * VW.scale, h: chipH * VW.scale });
                 };
                 if (list.length === 1) {
                     place(list[0], 0, 0, unitW);
@@ -3588,6 +3646,15 @@
             e.preventDefault();
             el.canvas.setPointerCapture(e.pointerId);
             LAND.tap = null;
+            const cr = hit.cross;
+            if (cr) {
+                const px = e.clientX - rect.left;
+                const py = e.clientY - rect.top;
+                if (px >= cr.x && px <= cr.x + cr.w && py >= cr.y && py <= cr.y + cr.h && canMove()) {
+                    landEmit('landing-place', { units: [unit.id], tile: null }).then((r) => { if (r.success) toast('Unité retirée de la carte : elle est de nouveau dans le sélecteur.'); });
+                    return;
+                }
+            }
             const fl = hit.flag;
             if (fl) {
                 const px = e.clientX - rect.left;
@@ -3662,7 +3729,7 @@
             const chip = e.target.closest?.('#unitBar [data-line]');
             if (!chip || (e.pointerType === 'mouse' && e.button !== 0)) return;
             const free = LAND.units.filter((u) => u.line === chip.dataset.line && !u.tile && ciEq(u.owner, state.username));
-            if (!free.length) { toast('Toutes les unités de cette ligne sont posées : déplacez-les depuis la carte.'); return; }
+            if (!free.length) return; // ligne conservée seulement pour ses étendards : rien à glisser, pas de message
             if (e.pointerType !== 'touch') e.preventDefault();
             chip.setPointerCapture(e.pointerId);
             const start = { x: e.clientX, y: e.clientY };
@@ -3807,7 +3874,7 @@
                     h += playersTable(v.players || []);
                 } else if (v.phase === 'place') {
                     const units = myUnits();
-                    h += `<p class="lp-hint">Glissez vos unités depuis le sélecteur du bas vers une tuile de votre zone <b>${(v.myZone || '?').toUpperCase()}</b>, une par une. Vous pouvez les déplacer ensuite. Vos coéquipiers voient vos unités en direct. <b>${units.filter((u) => u.tile).length}/${units.length}</b> posées.</p>`;
+                    h += `<p class="lp-hint">Glissez vos unités depuis le sélecteur d’unités vers une tuile de votre zone <b>${(v.myZone || '?').toUpperCase()}</b>, une par une. Vous pouvez les déplacer ensuite. Vos coéquipiers voient vos unités en direct. <b>${units.filter((u) => u.tile).length}/${units.length}</b> posées.</p>`;
                 } else if (v.phase === 'locked') {
                     h += '<p class="lp-hint">Les placements sont verrouillés : vous voyez toutes les unités. Appui long sur une unité : portée de déplacement (cases bleues = bonus de sa section). Double toucher : la fiche de cette unité.</p>';
                 }
@@ -3825,9 +3892,46 @@
         // Place le panneau du débarquement au-dessus du sélecteur d'unités pour que rien ne cache les boutons de la carte.
         function layoutLanding() {
             const bar = $('unitBar');
-            const gap = bar.hidden || bar.classList.contains('folded') ? 0 : bar.offsetHeight + 8;
+            layoutUnitBar();
+            const gap = bar.hidden || bar.classList.contains('folded') || LAND.barDock.edge !== 'bottom' ? 0 : bar.offsetHeight + 8;
             $('landingPanel').style.bottom = `calc(${76 + gap}px + var(--safe-bottom))`;
         }
+
+        // Sélecteur d'unités : rangé sur un bord de l'écran (appui long sur son titre, puis glisser), mémorisé sur l'appareil.
+        try { const saved = JSON.parse(localStorage.getItem('unitBarDock') || 'null'); if (saved && ['top', 'bottom', 'left', 'right'].includes(saved.edge)) LAND.barDock = { edge: saved.edge, t: Math.max(0, Math.min(1, Number(saved.t) || 0)) }; } catch (e) { /* ignoré */ }
+        LAND.barDock = LAND.barDock || { edge: 'bottom', t: 0 };
+
+        function layoutUnitBar() {
+            const bar = $('unitBar');
+            const { edge, t } = LAND.barDock;
+            bar.dataset.edge = edge;
+            if (bar.hidden) return;
+            const W = window.innerWidth;
+            const H = window.innerHeight;
+            const inset = safeInsets();
+            const horizontal = edge === 'top' || edge === 'bottom';
+            for (const k of ['top', 'bottom', 'left', 'right']) bar.style[k] = 'auto';
+            bar.style.width = '';
+            bar.style.maxHeight = '';
+            const stackH = el.stackBr.classList.contains('folded') ? 0 : el.stackBr.offsetHeight + 16;
+            if (horizontal) {
+                const from = 8 + inset.left;
+                const to = W - 68 - inset.right;
+                const len = Math.max(160, Math.min(460, to - from));
+                bar.style.width = `${len}px`;
+                bar.style.left = `${from + t * Math.max(0, to - from - len)}px`;
+                if (edge === 'bottom') bar.style.bottom = `${76 + inset.bottom}px`; else bar.style.top = `${64 + inset.top}px`;
+            } else {
+                const from = 70 + inset.top;
+                const to = H - (edge === 'right' ? stackH : 0) - 80 - inset.bottom;
+                bar.style.width = '150px';
+                bar.style.maxHeight = `${Math.max(120, to - from)}px`;
+                const len = bar.offsetHeight;
+                bar.style.top = `${from + t * Math.max(0, to - from - len)}px`;
+                if (edge === 'left') bar.style.left = `${64 + inset.left}px`; else bar.style.right = `${64 + inset.right}px`;
+            }
+        }
+        window.addEventListener('resize', () => { if (!$('unitBar').hidden) layoutUnitBar(); });
 
         function renderUnitBar() {
             const bar = $('unitBar');
@@ -3836,16 +3940,77 @@
             const lines = new Map();
             for (const u of units) { if (!lines.has(u.line)) lines.set(u.line, []); lines.get(u.line).push(u); }
             const done = units.filter((u) => u.tile).length;
-            const fold = `<button class="ub-fold" data-land="barfold" aria-label="Replier le sélecteur d’unités sur le côté">▾</button>`;
-            bar.innerHTML = `<div class="ub-title">${fold}<span>${done}/${units.length} unités posées · zone ${(LAND.view.myZone || '').toUpperCase()} — une unité par glissement</span></div><div class="ub-list">${[...lines.values()].map((g) => {
+            const glyph = { bottom: '▾', top: '▴', left: '◂', right: '▸' }[LAND.barDock.edge];
+            const fold = `<button class="ub-fold" data-land="barfold" aria-label="Replier le sélecteur d’unités sur le côté">${glyph}</button>`;
+            // Une ligne disparaît quand toutes ses unités sont posées et que tous ses étendards sont attribués.
+            const pending = [...lines.values()].filter((g) => g.some((u) => !u.tile) || (g[0].stdMax > 0 && g.filter((u) => u.std).length < g[0].stdMax));
+            const chips = pending.map((g) => {
                 const rest = g.filter((u) => !u.tile).length;
                 const flags = g.filter((u) => u.std).length;
-                return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '✓ '}${shortName(g[0].name, 16)} <b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${flags}/${g[0].stdMax}` : ''}</div>`;
-            }).join('')}</div>`;
+                return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '⚑ '}${shortName(g[0].name, 16)} <b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${flags}/${g[0].stdMax}` : ''}</div>`;
+            }).join('');
+            const head = `${done}/${units.length} unités posées · zone ${(LAND.view.myZone || '').toUpperCase()}`;
+            bar.innerHTML = `<div class="ub-title">${fold}<span class="ub-grip" title="Appui long puis glisser : déplacer ce sélecteur">⠿ ${head}</span></div>`
+                + (chips ? `<div class="ub-list">${chips}</div>` : '<div class="ub-title">✓ Toutes vos unités et leurs étendards sont posés.</div>');
             bar.classList.toggle('folded', Boolean(LAND.barCollapsed));
             bar.hidden = false;
             layoutLanding();
         }
+
+        // Déplacement du sélecteur d'unités : appui long puis glisser ; il se range sur le bord le plus proche.
+        (function setupUnitBarDrag() {
+            const bar = $('unitBar');
+            let drag = null;
+            bar.addEventListener('pointerdown', (e) => {
+                if ((e.pointerType === 'mouse' && e.button !== 0) || bar.classList.contains('folded')) return;
+                if (e.target.closest('.ub-chip, .ub-fold')) return;
+                drag = { pid: e.pointerId, x: e.clientX, y: e.clientY, active: false, timer: null };
+                drag.timer = setTimeout(() => {
+                    if (!drag) return;
+                    drag.active = true;
+                    bar.classList.add('dragging');
+                    try { bar.setPointerCapture(drag.pid); } catch (err) { /* ignoré */ }
+                    if (navigator.vibrate) navigator.vibrate(15);
+                }, 450);
+            });
+            bar.addEventListener('touchmove', (e) => { if (drag?.active) e.preventDefault(); }, { passive: false });
+            bar.addEventListener('contextmenu', (e) => { if (drag) e.preventDefault(); });
+            document.addEventListener('pointermove', (e) => {
+                if (!drag || e.pointerId !== drag.pid) return;
+                if (!drag.active) { if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 10) { clearTimeout(drag.timer); drag = null; } return; }
+                const W = window.innerWidth;
+                const H = window.innerHeight;
+                const d = { left: e.clientX, right: W - e.clientX, top: e.clientY, bottom: H - e.clientY };
+                const edge = Object.keys(d).reduce((a, b) => (d[b] < d[a] ? b : a));
+                const inset = safeInsets();
+                LAND.barDock.edge = edge;
+                bar.dataset.edge = edge;
+                const horizontal = edge === 'top' || edge === 'bottom';
+                const stackH = el.stackBr.classList.contains('folded') ? 0 : el.stackBr.offsetHeight + 16;
+                const from = horizontal ? 8 + inset.left : 70 + inset.top;
+                const to = horizontal ? W - 68 - inset.right : H - (edge === 'right' ? stackH : 0) - 80 - inset.bottom;
+                layoutUnitBar();
+                const len = horizontal ? bar.offsetWidth : bar.offsetHeight;
+                const pos = (horizontal ? e.clientX : e.clientY) - len / 2;
+                LAND.barDock.t = Math.max(0, Math.min(1, to - from - len > 0 ? (pos - from) / (to - from - len) : 0));
+                layoutUnitBar();
+                const glyph = { bottom: '▾', top: '▴', left: '◂', right: '▸' }[edge];
+                const fb = bar.querySelector('.ub-fold');
+                if (fb) fb.textContent = glyph;
+            });
+            const end = (e) => {
+                if (!drag || e.pointerId !== drag.pid) return;
+                clearTimeout(drag.timer);
+                if (drag.active) {
+                    bar.classList.remove('dragging');
+                    try { localStorage.setItem('unitBarDock', JSON.stringify(LAND.barDock)); } catch (err) { /* ignoré */ }
+                    layoutLanding();
+                }
+                drag = null;
+            };
+            document.addEventListener('pointerup', end);
+            document.addEventListener('pointercancel', end);
+        })();
 
         /* ---------- Messages d'avertissement par phase ---------- */
 
@@ -3862,7 +4027,7 @@
                     'Vous ne voyez pas les choix de l’équipe adverse (seulement s’ils ont choisi).',
                     '<b>▶ Figer</b> les affectations quand tout le monde a choisi (un avertissement liste les absents). ◀ revient au regroupement.'] },
                 place: { title: 'Phase 3 · Dépôt des unités', items: [
-                    'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur du bas</b> vers une tuile de votre zone. Glissez un jeton de la carte pour déplacer une unité.',
+                    'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur d’unités</b> (appui long sur son titre pour le ranger sur un autre bord) vers une tuile de votre zone. Glissez un jeton pour le déplacer ; la <b>croix rouge</b> d’une étiquette le remet dans le sélecteur.',
                     'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de sa section s’applique.',
                     'Vous ne voyez pas les unités de l’équipe adverse avant le verrouillage.',
                     '<b>▶ Verrouiller</b> quand tout est placé : tout le monde voit alors tous les débarquements. ◀ revient aux choix.'] },
@@ -3879,7 +4044,7 @@
                     'Votre équipe débarque à un seul groupe d’entrées. <b>Touchez une zone</b> de ce groupe sur la carte, ou utilisez la liste du panneau ⚔️, puis confirmez.',
                     'Vous pouvez changer de zone tant que le MJ n’a pas figé les affectations. Vous voyez les choix de votre équipe, pas ceux de l’autre.'] },
                 place: { title: 'Déposez vos unités', items: [
-                    'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur du bas</b> vers une tuile de votre zone.',
+                    'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur d’unités</b> vers une tuile de votre zone.',
                     'Pour déplacer une unité déjà posée, glissez son jeton sur une autre tuile de votre zone. Plusieurs unités peuvent partager une tuile.',
                     'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de la section s’applique.',
                     'Vos coéquipiers voient vos unités en direct ; l’autre équipe ne voit rien avant le verrouillage.'] },
@@ -3971,7 +4136,7 @@
             range: (unit) => { const r = computeRange(unit); return { end: r.end, bonusEnd: r.bonusEnd, pass: r.pass, dep: r.dep, extra: r.extra, bonus: r.bonus, total: r.total, section: r.section, sectionKind: r.sectionKind, zone: r.zone }; },
             area: (zoneId, sectionKey) => { const z = (LAND.view.zones || []).find((x) => x.id === zoneId); return z ? [...(zoneAreas(z).get(sectionKey) || [])] : []; },
             sections: (zoneId) => { const z = (LAND.view.zones || []).find((x) => x.id === zoneId); return z ? zoneSections(z).map((x) => ({ key: x.key, kind: x.kind, n: x.n, bonus: x.bonus, tiles: x.tiles.length })) : []; },
-            hits: () => LAND.hits.map((h) => { const r = el.canvas.getBoundingClientRect(); return { id: h.unit.id, count: h.units.length, x: h.x + r.left + h.w / 2, y: h.y + r.top + h.h / 2, flag: h.flag ? { x: h.flag.x + r.left + h.flag.w / 2, y: h.flag.y + r.top + h.flag.h / 2 } : null }; }),
+            hits: () => LAND.hits.map((h) => { const r = el.canvas.getBoundingClientRect(); return { id: h.unit.id, count: h.units.length, x: h.x + r.left + h.w / 2, y: h.y + r.top + h.h / 2, flag: h.flag ? { x: h.flag.x + r.left + h.flag.w / 2, y: h.flag.y + r.top + h.flag.h / 2 } : null, cross: h.cross ? { x: h.cross.x + r.left + h.cross.w / 2, y: h.cross.y + r.top + h.cross.h / 2 } : null }; }),
             tileScreen: (key) => {
                 const [c, r] = keyToHex(key);
                 const p = hexCenter(c, r);
@@ -4550,5 +4715,5 @@
         window.__hexReady = true;
     })();
     </script>
- </body>
+</body>
 </html>
