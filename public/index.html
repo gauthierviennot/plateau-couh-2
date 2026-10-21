@@ -160,9 +160,7 @@
         .mini-user-list { position: absolute; top: calc(8px + var(--safe-top)); left: calc(8px + var(--safe-left)); z-index: 40; max-width: 120px; max-height: 70px; overflow: hidden; pointer-events: none; font-size: .72rem; font-weight: 800; color: #e01b1b; text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff, 0 1px 2px #fff; }
         .mini-user-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* Coin bas droit : boussole, impression, verrou (MJ), quitter */
-        .stack-br { position: absolute; z-index: 50; bottom: calc(8px + var(--safe-bottom)); right: calc(8px + var(--safe-right)); display: flex; flex-direction: column; align-items: center; gap: 6px; }
-
+        
         .btn-round { width: var(--btn); height: var(--btn); padding: 0; border: none; border-radius: 50%; background: #fff; font-size: .8rem; line-height: 1; box-shadow: 0 2px 6px rgba(0,0,0,.25); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-round.lock { background: var(--green); }
         .btn-round.lock.locked { background: var(--red); }
@@ -181,10 +179,6 @@
         .print-banner { position: absolute; z-index: 55; top: calc(64px + var(--safe-top)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; width: max-content; max-width: calc(100% - 140px); padding: 6px 10px; background: #fff; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,.3); font-size: .78rem; font-weight: 600; color: var(--dark); }
         #safeProbe { position: absolute; visibility: hidden; pointer-events: none; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 
-        /* Téléphone tenu en largeur : la pile du bas droit se couche sur le bord du bas */
-        @media (max-height: 520px) {
-            .stack-br { flex-direction: row; }
-        }
 
         /* Fiches d'armée : fenêtre plein écran contenant fiches.html */
         .fiches-overlay { position: fixed; inset: 0; z-index: 120; background: var(--bg); display: flex; flex-direction: column; padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); }
@@ -195,8 +189,8 @@
             border: 2px solid var(--dark); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); overflow: hidden; z-index: 90; }
         .fiches-overlay.mini .fiches-bar { cursor: move; touch-action: none; padding: 4px 8px; flex-wrap: wrap; }
         .fiches-overlay.mini .fiches-admin { display: none; }
-        .landing-panel { position: fixed; left: 8px; right: calc(68px + var(--safe-right, 0px)); bottom: calc(76px + var(--safe-bottom)); max-width: 460px; max-height: 46vh; overflow: auto; z-index: 90; background: #fff; border-radius: 12px; padding: 10px 12px; box-shadow: 0 4px 18px rgba(0,0,0,.35); font-size: .85rem; }
-        .landing-panel[hidden], .unit-bar[hidden] { display: none; }
+        .landing-panel { position: fixed; left: calc(68px + var(--safe-left, 0px)); right: calc(68px + var(--safe-right, 0px)); bottom: calc(76px + var(--safe-bottom)); max-width: 460px; max-height: 46vh; overflow: auto; z-index: 90; background: #fff; border-radius: 12px; padding: 10px 12px; box-shadow: 0 4px 18px rgba(0,0,0,.35); font-size: .85rem; }
+        .landing-panel[hidden] { display: none; }
         .lp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
         .lp-phase { flex: 1; color: #666; font-size: .75rem; }
         .lp-x { border: none; background: #eee; border-radius: 8px; width: 30px; height: 28px; cursor: pointer; }
@@ -208,45 +202,23 @@
         .lp-seg.on { background: #222; color: #fff; border-color: #222; }
         .lp-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         .lp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
-        .unit-bar { position: fixed; z-index: 95; background: rgba(255,255,255,.96); border-radius: 12px; padding: 6px 8px; box-shadow: 0 4px 18px rgba(0,0,0,.35); touch-action: pan-x; }
-        .ub-title { font-size: .72rem; color: #555; margin-bottom: 4px; }
-        .ub-list { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
-        .ub-chip { flex: none; border: 3px solid #555; border-radius: 10px; padding: 6px 9px; background: #fff; font-size: .8rem; font-weight: 600; cursor: grab; touch-action: pan-x; user-select: none; -webkit-user-select: none; }
         .ub-chip.done { opacity: .6; }
         .land-ghost { position: fixed; z-index: 400; transform: translate(-50%, -50%); background: #fff; border: 3px solid #555; border-radius: 10px; padding: 6px 10px; font: 700 .85rem system-ui, sans-serif; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
         [data-land="toggle"].on { box-shadow: 0 0 0 3px #1f78ff inset; }
-        .range-info { position: fixed; top: calc(8px + var(--safe-top)); left: 50%; transform: translateX(-50%); z-index: 92; background: rgba(255,255,255,.97); border-radius: 12px; padding: 8px 12px; box-shadow: 0 4px 18px rgba(0,0,0,.35); font-size: .82rem; text-align: center; max-width: 92vw; }
+        .range-info { position: fixed; top: calc(72px + var(--safe-top)); left: 50%; transform: translateX(-50%); z-index: 92; background: rgba(255,255,255,.97); border-radius: 12px; padding: 8px 12px; box-shadow: 0 4px 18px rgba(0,0,0,.35); font-size: .82rem; text-align: center; max-width: 92vw; }
         .range-info[hidden] { display: none; }
         .range-info small { display: block; color: #555; margin-top: 2px; }
-        /* Groupe de boutons du coin bas droit et sélecteur d'unités : repli complet sur le côté, comme les sélecteurs de tuiles */
-        .stack-br.folded, .unit-bar.folded { cursor: pointer; overflow: hidden; }
-        .stack-br.folded > *, .unit-bar.folded > * { visibility: hidden; }
-        .stack-br.folded::after, .unit-bar.folded::after { content: ''; position: absolute; background: rgba(0,0,0,.4); border-radius: 3px; }
-        .stack-br.folded { transform: translateX(calc(100% + 8px + var(--safe-right) - 14px)); background: var(--pal-inactive); border-radius: 9px; }
-        .stack-br.folded::after { left: 3px; top: 50%; width: 4px; height: 24px; margin-top: -12px; }
-        .unit-bar[data-edge="bottom"].folded { transform: translateY(calc(100% + 76px + var(--safe-bottom) - 14px)); }
-        .unit-bar[data-edge="top"].folded { transform: translateY(calc(-100% - 64px - var(--safe-top) + 14px)); }
-        .unit-bar[data-edge="left"].folded { transform: translateX(calc(-100% - 64px - var(--safe-left) + 14px)); }
-        .unit-bar[data-edge="right"].folded { transform: translateX(calc(100% + 64px + var(--safe-right) - 14px)); }
-        .unit-bar[data-edge="bottom"].folded::after { top: 3px; left: 50%; height: 4px; width: 24px; margin-left: -12px; }
-        .unit-bar[data-edge="top"].folded::after { bottom: 3px; left: 50%; height: 4px; width: 24px; margin-left: -12px; }
-        .unit-bar[data-edge="left"].folded::after { right: 3px; top: 50%; width: 4px; height: 24px; margin-top: -12px; }
-        .unit-bar[data-edge="right"].folded::after { left: 3px; top: 50%; width: 4px; height: 24px; margin-top: -12px; }
-        /* Sélecteur d'unités rangé sur un bord vertical : la liste défile de haut en bas */
-        .unit-bar[data-edge="left"], .unit-bar[data-edge="right"] { touch-action: pan-y; display: flex; flex-direction: column; }
-        .unit-bar[data-edge="left"] .ub-list, .unit-bar[data-edge="right"] .ub-list { flex-direction: column; overflow-x: hidden; overflow-y: auto; min-height: 0; }
-        .unit-bar[data-edge="left"] .ub-chip, .unit-bar[data-edge="right"] .ub-chip { touch-action: pan-y; }
-        .unit-bar.dragging { box-shadow: 0 0 0 3px rgba(31,120,255,.55), 0 8px 20px rgba(0,0,0,.4); }
-        .ub-grip { cursor: grab; user-select: none; -webkit-user-select: none; }
-        .stack-br .fold-btn { width: 28px; height: 28px; }
-        .stack-br .phase-btn { width: 36px; height: 36px; }
-        .stack-br .phase-btn[hidden], .stack-br .phase-lbl[hidden] { display: none; }
-        .phase-lbl { background: rgba(255,255,255,.95); border-radius: 8px; padding: 2px 5px; font-size: .6rem; text-align: center; max-width: 72px; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+                        /* Sélecteur d'unités et groupe de boutons : mêmes sélecteurs que les tuiles (bords, fond gris, repli automatique) */
+        .pal-units .ub-chip { flex: none; width: max-content; max-width: 150px; border: 3px solid #555; border-radius: 10px; padding: 4px 7px; background: #fff; font-size: .72rem; font-weight: 600; line-height: 1.25; cursor: grab; user-select: none; -webkit-user-select: none; text-align: center; }
+        .pal-units .ub-chip.done { opacity: .6; }
+        .pal-units .ub-info { flex: none; font-size: .62rem; font-weight: 700; color: var(--dark); text-align: center; line-height: 1.2; }
+        .pal-units[data-edge="left"] .ub-chip, .pal-units[data-edge="right"] .ub-chip { touch-action: pan-y; }
+        .pal-units[data-edge="top"] .ub-chip, .pal-units[data-edge="bottom"] .ub-chip { touch-action: pan-x; }
+        .pal-stack .phase-btn { width: var(--btn); height: var(--btn); }
+        .phase-lbl { background: rgba(255,255,255,.95); border-radius: 8px; padding: 2px 5px; font-size: .6rem; text-align: center; max-width: 60px; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
         .lp-list { margin: 6px 0; padding-left: 18px; line-height: 1.45; font-size: .88rem; }
         .lp-chk { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-size: .85rem; }
         .lp-chk input { width: 18px; height: 18px; }
-        .ub-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .ub-fold { border: 1px solid #ccc; background: #f4f4f4; border-radius: 8px; width: 32px; height: 28px; font-size: 1rem; cursor: pointer; flex: none; }
         .lp-sub { font-size: .76rem; color: #444; border-top: 1px dashed #ddd; padding-top: 4px; }
         .lp-sub-item { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; }
         .ub-b { border: 1px solid #ccc; background: #f4f4f4; border-radius: 8px; padding: 3px 8px; margin-left: 3px; font-size: .75rem; cursor: pointer; }
@@ -360,8 +332,7 @@
             <button id="btnPrintBannerCancel" class="btn btn-secondary btn-small">Annuler</button>
         </div>
 
-        <div id="stackBr" class="stack-br">
-            <button id="btnStackFold" class="btn-round fold-btn" data-fold="stack" title="Replier ces boutons sur le côté" aria-label="Replier ces boutons sur le côté">▸</button>
+        <div id="stackBr" class="pal pal-stack" role="toolbar" aria-label="Boussole, impression et navigation du débarquement">
             <span id="landPhaseLbl" class="phase-lbl" hidden></span>
             <button class="btn-round phase-btn" data-land="prev" hidden aria-label="Phase précédente">◀</button>
             <button class="btn-round phase-btn" data-land="next" hidden aria-label="Phase suivante">▶</button>
@@ -481,7 +452,7 @@
 
     <div id="pickTip" class="palette-tooltip" hidden></div>
     <div id="landingPanel" class="landing-panel" hidden></div>
-    <div id="unitBar" class="unit-bar" hidden></div>
+    <div id="unitBar" class="pal pal-units" role="toolbar" aria-label="Unités à déposer" hidden></div>
     <div id="rangeInfo" class="range-info" hidden></div>
     <div id="landingModal" class="modal-overlay" hidden>
         <div class="modal-content">
@@ -1770,11 +1741,16 @@
             marks: el.palMarks,
             tools: el.palTools, // outils du MJ : sélection au rectangle, supprimer, ajouter des tuiles
             history: el.palHistory, // annuler / rétablir (tous)
-            protect: el.palProtect
+            protect: el.palProtect,
+            units: $('unitBar'), // unités à déposer (débarquement)
+            stack: el.stackBr // boussole, impression, verrou, quitter et étapes du débarquement
         };
         const FOLDING = ['terrains', 'objects', 'marks', 'tools', 'history']; // se replient en mode déplacer
         const EDGES = ['left', 'right', 'top', 'bottom'];
-        const DEFAULT_DOCK = { left: ['terrains'], top: ['objects'], right: ['tools', 'history'], bottom: ['marks', 'protect'] };
+        const DEFAULT_DOCK = { left: ['terrains', 'units'], top: ['objects'], right: ['tools', 'history', 'stack'], bottom: ['marks', 'protect'] };
+        let softOpen = false; // dépliage temporaire (10 s) des sélecteurs d'unités et de boutons quand le plateau est verrouillé
+        let softTimer = null;
+        const SOFT_FOLDING = ['units', 'stack']; // se replient aussi (10 s) quand le plateau est verrouillé et que le mode peindre est impossible
         const PANEL_GAP = 4; // espace entre deux boutons d'un sélecteur
         const PANEL_CHROME = 12; // marges internes et bordures d'un sélecteur
         const PANEL_SPACE = 6; // espace minimal entre deux sélecteurs d'un même bord
@@ -1887,9 +1863,6 @@
             const hasList = el.miniUsers.children.length > 0;
             const listW = hasList ? el.miniUsers.offsetWidth : 0;
             const listH = hasList ? el.miniUsers.offsetHeight : 0;
-            const stackFolded = el.stackBr.classList.contains('folded');
-            const stackW = stackFolded ? 0 : el.stackBr.offsetWidth;
-            const stackH = stackFolded ? 0 : el.stackBr.offsetHeight;
 
             const xMin = inset.left + M;
             const xMax = width - inset.right - M;
@@ -1900,11 +1873,10 @@
 
             const range = {
                 top: { from: xMin + (listW ? listW + M : 0), to: xMax },
-                bottom: { from: xMin, to: xMax - (stackW ? stackW + M : 0) },
+                bottom: { from: xMin, to: xMax },
                 left: { from: yMin + (listH ? listH + M : (topUsed ? thick.top + M : 0)), to: yMax - (bottomUsed ? thick.bottom + M : 0) },
-                right: { from: yMin + (topUsed ? thick.top + M : 0), to: yMax - (stackH ? stackH + M : 0) }
+                right: { from: yMin + (topUsed ? thick.top + M : 0), to: yMax - (bottomUsed ? thick.bottom + M : 0) }
             };
-            const cross = { left: xMin, right: xMax - thick.right, top: yMin, bottom: yMax - thick.bottom };
 
             const result = [];
             for (const edge of EDGES) {
@@ -1925,7 +1897,9 @@
                     const t = dock.pos[name];
                     const desired = t === undefined ? cursor : from + t * travel;
                     cursor = desired + length + PANEL_SPACE;
-                    return { name, edge, vertical, length, from, to, travel, desired, thickness: thick[edge], cross: cross[edge], start: desired };
+                    const own = measurePanel(PANELS[name], vertical).thickness; // chaque sélecteur a sa propre épaisseur, collé au bord
+                    const ownCross = { left: xMin, right: xMax - own, top: yMin, bottom: yMax - own }[edge];
+                    return { name, edge, vertical, length, from, to, travel, desired, thickness: own, cross: ownCross, start: desired };
                 });
 
                 // Écarte au minimum les sélecteurs qui se chevauchent : d'abord vers la fin du bord, puis en retour vers le début.
@@ -1978,6 +1952,16 @@
         function applyFolding() {
             const folded = !ACTIVE_MODES.has(state.mode);
             for (const name of FOLDING) PANELS[name].classList.toggle('folded', folded);
+            // Unités et boutons : mêmes règles. Plateau verrouillé (pas de mode peindre), un appui les déplie pour 10 secondes.
+            for (const name of SOFT_FOLDING) PANELS[name].classList.toggle('folded', folded && !softOpen);
+        }
+
+        function softUnfold() {
+            softOpen = true;
+            clearTimeout(softTimer);
+            softTimer = setTimeout(() => { softOpen = false; applyFolding(); requestLayout(); }, IDLE_MODE_MS);
+            applyFolding();
+            requestLayout();
         }
 
         // Un sélecteur n'est vert que si quelque chose y est sélectionné (en mode peindre ou outil actif).
@@ -2062,6 +2046,7 @@
             panel.addEventListener('pointerdown', (e) => {
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
                 if (panel.classList.contains('folded') || dockDrag) return;
+                if (softOpen) softUnfold(); else resetIdleTimer(); // toucher un sélecteur prolonge son ouverture
                 dockDrag = {
                     name,
                     pointerId: e.pointerId,
@@ -2079,7 +2064,7 @@
                 } else if (panel.classList.contains('folded')) {
                     e.stopPropagation();
                     e.preventDefault();
-                    unfoldSelectors();
+                    if (state.isLocked) softUnfold(); else unfoldSelectors();
                 }
             }, true);
             panel.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -2794,6 +2779,8 @@
             } else if (!state.isLocked) {
                 unfoldSelectors();
                 toast('Mode peindre : choisissez un sélecteur');
+            } else {
+                softUnfold();
             }
         }
 
@@ -3563,6 +3550,7 @@
 
         function moveGhost(e) {
             if (!LAND.drag) return;
+            if (softOpen) softUnfold(); else resetIdleTimer(); // un glissement en cours garde les sélecteurs ouverts
             LAND.drag.ghost.style.left = `${e.clientX}px`;
             LAND.drag.ghost.style.top = `${e.clientY - LAND.drag.off}px`;
             const over = document.elementFromPoint(e.clientX, e.clientY);
@@ -3730,6 +3718,7 @@
             if (!chip || (e.pointerType === 'mouse' && e.button !== 0)) return;
             const free = LAND.units.filter((u) => u.line === chip.dataset.line && !u.tile && ciEq(u.owner, state.username));
             if (!free.length) return; // ligne conservée seulement pour ses étendards : rien à glisser, pas de message
+            resetIdleTimer();
             if (e.pointerType !== 'touch') e.preventDefault();
             chip.setPointerCapture(e.pointerId);
             const start = { x: e.clientX, y: e.clientY };
@@ -3737,8 +3726,9 @@
             const move = (ev) => {
                 const dx = Math.abs(ev.clientX - start.x);
                 const dy = Math.abs(ev.clientY - start.y);
-                // Au doigt : un geste horizontal fait défiler la liste, un geste vertical saisit les unités.
-                const grab = ev.pointerType === 'touch' ? dy > 8 && dy >= dx : Math.hypot(dx, dy) > 6;
+                // Au doigt : un geste le long du bord fait défiler la liste, un geste vers l'intérieur de l'écran saisit l'unité.
+                const vertical = $('unitBar').dataset.edge === 'left' || $('unitBar').dataset.edge === 'right';
+                const grab = ev.pointerType === 'touch' ? (vertical ? dx > 8 && dx >= dy : dy > 8 && dy >= dx) : Math.hypot(dx, dy) > 6;
                 if (!LAND.drag && grab) startDrag(free[0], free, ev, false);
                 if (LAND.drag) moveGhost(ev);
             };
@@ -3880,7 +3870,6 @@
             }
             panel.innerHTML = h;
             panel.hidden = false;
-            layoutLanding();
         }
 
         function playersTable(players) {
@@ -3888,128 +3877,26 @@
             return players.map((p) => `<div class="lp-row"><span class="lp-dot" style="background:${TEAM_COL[p.team] || '#888'}"></span><span class="lp-grow">${p.name}${p.pick ? '' : ' <i>(sans légion)</i>'}</span><b>${p.zone ? 'zone ' + p.zone.toUpperCase() : (p.chosen ? 'zone choisie ✓' : '—')}</b></div>`).join('');
         }
 
-        // Place le panneau du débarquement au-dessus du sélecteur d'unités pour que rien ne cache les boutons de la carte.
-        function layoutLanding() {
-            const bar = $('unitBar');
-            layoutUnitBar();
-            const gap = bar.hidden || bar.classList.contains('folded') || LAND.barDock.edge !== 'bottom' ? 0 : bar.offsetHeight + 8;
-            $('landingPanel').style.bottom = `calc(${76 + gap}px + var(--safe-bottom))`;
-        }
-
-        // Sélecteur d'unités : rangé sur un bord de l'écran (appui long sur son titre, puis glisser), mémorisé sur l'appareil.
-        try { const saved = JSON.parse(localStorage.getItem('unitBarDock') || 'null'); if (saved && ['top', 'bottom', 'left', 'right'].includes(saved.edge)) LAND.barDock = { edge: saved.edge, t: Math.max(0, Math.min(1, Number(saved.t) || 0)) }; } catch (e) { /* ignoré */ }
-        LAND.barDock = LAND.barDock || { edge: 'bottom', t: 0 };
-
-        function layoutUnitBar() {
-            const bar = $('unitBar');
-            const { edge, t } = LAND.barDock;
-            bar.dataset.edge = edge;
-            if (bar.hidden) return;
-            const W = window.innerWidth;
-            const H = window.innerHeight;
-            const inset = safeInsets();
-            const horizontal = edge === 'top' || edge === 'bottom';
-            for (const k of ['top', 'bottom', 'left', 'right']) bar.style[k] = 'auto';
-            bar.style.width = '';
-            bar.style.maxHeight = '';
-            const stackH = el.stackBr.classList.contains('folded') ? 0 : el.stackBr.offsetHeight + 16;
-            if (horizontal) {
-                const from = 8 + inset.left;
-                const to = W - 68 - inset.right;
-                const len = Math.max(160, Math.min(460, to - from));
-                bar.style.width = `${len}px`;
-                bar.style.left = `${from + t * Math.max(0, to - from - len)}px`;
-                if (edge === 'bottom') bar.style.bottom = `${76 + inset.bottom}px`; else bar.style.top = `${64 + inset.top}px`;
-            } else {
-                const from = 70 + inset.top;
-                const to = H - (edge === 'right' ? stackH : 0) - 80 - inset.bottom;
-                bar.style.width = '150px';
-                bar.style.maxHeight = `${Math.max(120, to - from)}px`;
-                const len = bar.offsetHeight;
-                bar.style.top = `${from + t * Math.max(0, to - from - len)}px`;
-                if (edge === 'left') bar.style.left = `${64 + inset.left}px`; else bar.style.right = `${64 + inset.right}px`;
-            }
-        }
-        window.addEventListener('resize', () => { if (!$('unitBar').hidden) layoutUnitBar(); });
-
+        // Sélecteur d'unités à déposer : un sélecteur comme les autres (bord de l'écran, fond gris, repli automatique, déplaçable).
+        // Une ligne en sort quand toutes ses unités sont posées et que tous ses étendards sont attribués.
         function renderUnitBar() {
             const bar = $('unitBar');
             const units = myUnits();
-            if (LAND.view.phase !== 'place' || !units.length) { bar.hidden = true; bar.classList.remove('folded'); layoutLanding(); return; }
+            if (LAND.view.phase !== 'place' || !units.length) { bar.hidden = true; bar.replaceChildren(); requestLayout(); return; }
             const lines = new Map();
             for (const u of units) { if (!lines.has(u.line)) lines.set(u.line, []); lines.get(u.line).push(u); }
             const done = units.filter((u) => u.tile).length;
-            const glyph = { bottom: '▾', top: '▴', left: '◂', right: '▸' }[LAND.barDock.edge];
-            const fold = `<button class="ub-fold" data-land="barfold" aria-label="Replier le sélecteur d’unités sur le côté">${glyph}</button>`;
-            // Une ligne disparaît quand toutes ses unités sont posées et que tous ses étendards sont attribués.
             const pending = [...lines.values()].filter((g) => g.some((u) => !u.tile) || (g[0].stdMax > 0 && g.filter((u) => u.std).length < g[0].stdMax));
             const chips = pending.map((g) => {
                 const rest = g.filter((u) => !u.tile).length;
                 const flags = g.filter((u) => u.std).length;
-                return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '⚑ '}${shortName(g[0].name, 16)} <b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${flags}/${g[0].stdMax}` : ''}</div>`;
+                return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '⚑ '}${shortName(g[0].name, 14)}<br><b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${flags}/${g[0].stdMax}` : ''}</div>`;
             }).join('');
-            const head = `${done}/${units.length} unités posées · zone ${(LAND.view.myZone || '').toUpperCase()}`;
-            bar.innerHTML = `<div class="ub-title">${fold}<span class="ub-grip" title="Appui long puis glisser : déplacer ce sélecteur">⠿ ${head}</span></div>`
-                + (chips ? `<div class="ub-list">${chips}</div>` : '<div class="ub-title">✓ Toutes vos unités et leurs étendards sont posés.</div>');
-            bar.classList.toggle('folded', Boolean(LAND.barCollapsed));
+            const info = `<div class="ub-info" title="Unités posées · zone ${(LAND.view.myZone || '').toUpperCase()}">${done}/${units.length}<br>zone ${(LAND.view.myZone || '').toUpperCase()}</div>`;
+            bar.innerHTML = info + (chips || '<div class="ub-info">✓<br>tout est posé</div>');
             bar.hidden = false;
-            layoutLanding();
+            requestLayout();
         }
-
-        // Déplacement du sélecteur d'unités : appui long puis glisser ; il se range sur le bord le plus proche.
-        (function setupUnitBarDrag() {
-            const bar = $('unitBar');
-            let drag = null;
-            bar.addEventListener('pointerdown', (e) => {
-                if ((e.pointerType === 'mouse' && e.button !== 0) || bar.classList.contains('folded')) return;
-                if (e.target.closest('.ub-chip, .ub-fold')) return;
-                drag = { pid: e.pointerId, x: e.clientX, y: e.clientY, active: false, timer: null };
-                drag.timer = setTimeout(() => {
-                    if (!drag) return;
-                    drag.active = true;
-                    bar.classList.add('dragging');
-                    try { bar.setPointerCapture(drag.pid); } catch (err) { /* ignoré */ }
-                    if (navigator.vibrate) navigator.vibrate(15);
-                }, 450);
-            });
-            bar.addEventListener('touchmove', (e) => { if (drag?.active) e.preventDefault(); }, { passive: false });
-            bar.addEventListener('contextmenu', (e) => { if (drag) e.preventDefault(); });
-            document.addEventListener('pointermove', (e) => {
-                if (!drag || e.pointerId !== drag.pid) return;
-                if (!drag.active) { if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 10) { clearTimeout(drag.timer); drag = null; } return; }
-                const W = window.innerWidth;
-                const H = window.innerHeight;
-                const d = { left: e.clientX, right: W - e.clientX, top: e.clientY, bottom: H - e.clientY };
-                const edge = Object.keys(d).reduce((a, b) => (d[b] < d[a] ? b : a));
-                const inset = safeInsets();
-                LAND.barDock.edge = edge;
-                bar.dataset.edge = edge;
-                const horizontal = edge === 'top' || edge === 'bottom';
-                const stackH = el.stackBr.classList.contains('folded') ? 0 : el.stackBr.offsetHeight + 16;
-                const from = horizontal ? 8 + inset.left : 70 + inset.top;
-                const to = horizontal ? W - 68 - inset.right : H - (edge === 'right' ? stackH : 0) - 80 - inset.bottom;
-                layoutUnitBar();
-                const len = horizontal ? bar.offsetWidth : bar.offsetHeight;
-                const pos = (horizontal ? e.clientX : e.clientY) - len / 2;
-                LAND.barDock.t = Math.max(0, Math.min(1, to - from - len > 0 ? (pos - from) / (to - from - len) : 0));
-                layoutUnitBar();
-                const glyph = { bottom: '▾', top: '▴', left: '◂', right: '▸' }[edge];
-                const fb = bar.querySelector('.ub-fold');
-                if (fb) fb.textContent = glyph;
-            });
-            const end = (e) => {
-                if (!drag || e.pointerId !== drag.pid) return;
-                clearTimeout(drag.timer);
-                if (drag.active) {
-                    bar.classList.remove('dragging');
-                    try { localStorage.setItem('unitBarDock', JSON.stringify(LAND.barDock)); } catch (err) { /* ignoré */ }
-                    layoutLanding();
-                }
-                drag = null;
-            };
-            document.addEventListener('pointerup', end);
-            document.addEventListener('pointercancel', end);
-        })();
 
         /* ---------- Messages d'avertissement par phase ---------- */
 
@@ -4026,7 +3913,7 @@
                     'Vous ne voyez pas les choix de l’équipe adverse (seulement s’ils ont choisi).',
                     '<b>▶ Figer</b> les affectations quand tout le monde a choisi (un avertissement liste les absents). ◀ revient au regroupement.'] },
                 place: { title: 'Phase 3 · Dépôt des unités', items: [
-                    'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur d’unités</b> (appui long sur son titre pour le ranger sur un autre bord) vers une tuile de votre zone. Glissez un jeton pour le déplacer ; la <b>croix rouge</b> d’une étiquette le remet dans le sélecteur.',
+                    'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur d’unités</b> (comme les sélecteurs de tuiles : appui long puis glisser pour le ranger sur un autre bord ; il se replie seul après 10 s, appui long sur la carte pour le rouvrir) vers une tuile de votre zone. Glissez un jeton pour le déplacer ; la <b>croix rouge</b> d’une étiquette le remet dans le sélecteur.',
                     'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de sa section s’applique.',
                     'Vous ne voyez pas les unités de l’équipe adverse avant le verrouillage.',
                     '<b>▶ Verrouiller</b> quand tout est placé : tout le monde voit alors tous les débarquements. ◀ revient aux choix.'] },
@@ -4114,22 +4001,6 @@
             // Le panneau, le sélecteur d'unités et l'info de portée appartiennent à la page de la carte : ils ne couvrent pas le tableau de bord.
             for (const id of ['landingPanel', 'unitBar', 'rangeInfo']) el.palProtect.parentElement.appendChild($(id));
         })();
-
-        // Repli complet sur le côté (comme les sélecteurs de tuiles) : une poignée reste visible, un toucher déplie.
-        function setStackFolded(on) {
-            el.stackBr.classList.toggle('folded', on);
-            try { localStorage.setItem('stackFolded', on ? '1' : ''); } catch (e) { /* stockage indisponible */ }
-            requestLayout();
-        }
-        el.stackBr.addEventListener('click', (e) => {
-            if (el.stackBr.classList.contains('folded')) { e.stopPropagation(); e.preventDefault(); setStackFolded(false); }
-            else if (e.target.closest('[data-fold="stack"]')) setStackFolded(true);
-        }, true);
-        $('unitBar').addEventListener('click', (e) => {
-            const bar = $('unitBar');
-            if (bar.classList.contains('folded')) { e.stopPropagation(); e.preventDefault(); LAND.barCollapsed = false; renderUnitBar(); }
-        }, true);
-        try { if (localStorage.getItem('stackFolded')) el.stackBr.classList.add('folded'); } catch (e) { /* ignoré */ }
 
         function updateDock() {
             document.querySelectorAll('#stackBr .phase-btn, #landPhaseLbl').forEach((b) => { b.hidden = !state.isAdmin; });
@@ -4227,7 +4098,6 @@
                 const sec = z ? zoneSections(z).find((x) => x.key === b.dataset.section) : null;
                 if (sec) landEmit('landing-bonus', { zone: z.id, section: sec.key, value: Math.max(0, Math.min(9, sec.bonus + Number(b.dataset.d))) });
             } else if (k === 'area') { const key = `${b.dataset.zone}:${b.dataset.section}`; LAND.showArea = LAND.showArea === key ? null : key; LAND.areaSig = ''; renderLandingPanel(); requestDraw(); }
-            else if (k === 'barfold') { LAND.barCollapsed = true; renderUnitBar(); }
             else if (k === 'choose') chooseZone(b.dataset.zone);
             else if (k === 'freeze' && state.isAdmin) adminStep('landing-freeze', {}, 'Figer quand même');
             else if (k === 'lock' && state.isAdmin) adminStep('landing-lock', {}, 'Verrouiller quand même');
