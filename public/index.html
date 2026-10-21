@@ -3861,7 +3861,6 @@
                     h += '<p class="lp-hint">Placements verrouillés : tous les joueurs voient toutes les unités.</p>';
                 }
                 if (v.phase !== 'zones') h += '<div class="lp-actions"><button class="btn btn-dark" data-land="back">◀ Étape précédente</button></div>';
-                h += '<div class="lp-actions"><button class="btn btn-dark" data-land="stop">Arrêter le débarquement</button></div>';
             } else {
                 if (v.phase === 'zones') h += '<p class="lp-hint">Le MJ prépare les zones de débarquement…</p>';
                 else if (!v.myTeam) h += '<p class="lp-hint">Vous n’êtes dans aucune équipe : vous suivez le débarquement en spectateur.</p>';
@@ -4021,7 +4020,7 @@
                     '<b>Toucher une zone sur la carte</b> (mode Déplacer) ou utiliser la liste du panneau ⚔️ : la rattacher aux <b>entrées A</b> (bleu), aux <b>entrées B</b> (orange) ou à aucune (rouge).',
                     'Les joueurs voient les zones et leurs couleurs en direct, sans savoir quelle équipe ira où.',
                     'Chaque zone se découpe en <b>sections</b> : chaque extrémité (hors angle fermé de la carte) forme une section, les autres tuiles forment la section du centre. Réglez le <b>bonus de déplacement</b> de chacune (2 tuiles par défaut). <b>👁 aire</b> montre l’aire de la section, délimitée par vos marqueurs <b>+</b>, disques, triangles et par les bords de la carte.',
-                    'Avec au moins une zone en A et une en B, le bouton <b>Affecter les équipes</b> (ou ▶) apparaît. ◀ arrête le débarquement.'] },
+                    'Avec au moins une zone en A et une en B, le bouton <b>Affecter les équipes</b> (ou ▶) apparaît. ◀ revient à l’étape précédente (double confirmation si des choix ou des unités doivent être effacés).'] },
                 choose: { title: 'Phase 2 · Choix des zones', items: [
                     'Chaque joueur choisit une zone parmi celles de son équipe. Si vous jouez dans une équipe, touchez une zone de votre groupe : vous choisissez comme un joueur.',
                     'Vous ne voyez pas les choix de l’équipe adverse (seulement s’ils ont choisi).',
@@ -4083,17 +4082,32 @@
             return toast('C’est la dernière phase.');
         }
 
+        // Retour à l'étape précédente : si des choix ou des débarquements (les siens comme ceux des autres joueurs) doivent être effacés,
+        // le MJ doit confirmer deux fois. Il n'existe plus de bouton pour arrêter le débarquement.
         function adminPrev() {
             const v = LAND.view;
             if (v.phase === 'off') return toast('Le débarquement n’est pas lancé.');
-            if (v.phase === 'zones') {
-                return landingDialog('Arrêter le débarquement ?', '<p>Les zones, les choix et les unités posées seront effacés.</p>', [
-                    { label: 'Arrêter', cls: 'btn-danger', fn: () => landEmit('landing-goto', { phase: 'off' }) }, { label: 'Annuler' }
-                ]);
-            }
+            if (v.phase === 'zones') return toast('C’est la première étape : il n’y a pas d’étape précédente.');
             const prev = { choose: 'zones', place: 'choose', locked: 'place' }[v.phase];
-            const lose = { choose: 'Les affectations de zones et les équipes aux entrées seront effacées.', place: 'Les unités posées seront effacées.', locked: 'Les placements sont conservés.' }[v.phase];
-            landingDialog('Revenir à l’étape précédente ?', `<p>${lose}</p>`, [{ label: 'Revenir', cls: 'btn-danger', fn: () => landEmit('landing-goto', { phase: prev }) }, { label: 'Annuler' }]);
+            const go = () => landEmit('landing-goto', { phase: prev });
+            if (v.phase === 'locked') {
+                return landingDialog('Revenir au dépôt ?', '<p>Les placements sont conservés : les joueurs pourront de nouveau déplacer leurs unités, et l’équipe adverse redeviendra invisible.</p>', [{ label: 'Revenir', cls: 'btn-danger', fn: go }, { label: 'Annuler' }]);
+            }
+            const lose = {
+                choose: 'Les <b>zones choisies par tous les joueurs</b> et l’affectation des équipes aux entrées A et B seront effacées.',
+                place: 'Toutes les <b>unités déjà déposées par vous et par les autres joueurs</b> (avec leurs étendards) seront effacées.'
+            }[v.phase];
+            landingDialog('Revenir à l’étape précédente ?', `<p>${lose}</p><p><b>Cette action est irréversible.</b></p>`, [
+                {
+                    label: 'Continuer',
+                    cls: 'btn-danger',
+                    fn: () => landingDialog('Dernière confirmation', `<p>Confirmez-vous vraiment l’effacement ?</p><p>${lose}</p>`, [
+                        { label: 'Oui, tout effacer et revenir', cls: 'btn-danger', fn: go },
+                        { label: 'Non, annuler' }
+                    ])
+                },
+                { label: 'Annuler' }
+            ]);
         }
 
         (function placeLandingPanels() {
@@ -4122,9 +4136,10 @@
             if (!state.isAdmin) return;
             const names = { off: 'Débarquement arrêté', zones: '1 · Zones', choose: '2 · Choix', place: '3 · Dépôt', locked: '4 · Verrouillé' };
             const nextT = { off: 'Lancer le débarquement', zones: 'Affecter les équipes', choose: 'Figer les affectations', place: 'Verrouiller les placements', locked: 'Dernière phase' }[LAND.view.phase];
-            const prevT = { off: '—', zones: 'Arrêter le débarquement', choose: 'Retour au regroupement', place: 'Retour aux choix', locked: 'Retour au dépôt' }[LAND.view.phase];
+            const prevT = { off: '—', zones: 'Aucune étape précédente', choose: 'Retour au regroupement', place: 'Retour aux choix', locked: 'Retour au dépôt' }[LAND.view.phase];
             document.querySelector('#stackBr [data-land="next"]').title = `Suivant : ${nextT}`;
             document.querySelector('#stackBr [data-land="prev"]').title = `Précédent : ${prevT}`;
+            document.querySelector('#stackBr [data-land="prev"]').disabled = LAND.view.phase === 'zones' || LAND.view.phase === 'off';
             $('landPhaseLbl').textContent = names[LAND.view.phase];
         }
 
@@ -4216,14 +4231,7 @@
             else if (k === 'choose') chooseZone(b.dataset.zone);
             else if (k === 'freeze' && state.isAdmin) adminStep('landing-freeze', {}, 'Figer quand même');
             else if (k === 'lock' && state.isAdmin) adminStep('landing-lock', {}, 'Verrouiller quand même');
-            else if (k === 'back' && state.isAdmin) {
-                const prev = { choose: 'zones', place: 'choose', locked: 'place' }[LAND.view.phase];
-                if (prev) landEmit('landing-goto', { phase: prev });
-            } else if (k === 'stop' && state.isAdmin) {
-                landingDialog('Arrêter le débarquement ?', '<p>Les zones, les choix et les unités posées seront effacés.</p>', [
-                    { label: 'Arrêter', cls: 'btn-danger', fn: () => landEmit('landing-goto', { phase: 'off' }) }, { label: 'Annuler' }
-                ]);
-            }
+            else if (k === 'back' && state.isAdmin) adminPrev();
         });
 
         el.canvas.addEventListener('pointerdown', (e) => {
