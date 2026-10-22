@@ -2958,7 +2958,7 @@
         /* Débarquement : zones, choix, dépôt des unités                  */
         /* ============================================================ */
 
-        const LAND = { view: { phase: 'off' }, units: [], noticed: new Set(), open: false, hover: null, preview: null, hits: [], press: null, drag: null, lastTap: null, tap: null, prevPhase: 'off' };
+        const LAND = { view: { phase: 'off' }, simOn: false, units: [], noticed: new Set(), open: false, hover: null, preview: null, hits: [], press: null, drag: null, lastTap: null, tap: null, prevPhase: 'off' };
         const TEAM_COL = { t1: '#8e24aa', t2: '#00897b' };
         const GROUP_COL = { A: '#1f78ff', B: '#ff9800' };
         const ciEq = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
@@ -2977,11 +2977,18 @@
                 const genTile = genId ? placed[genId] ?? null : null;
                 for (let i = 1; i <= l.qty; i++) {
                     const id = `${l.owner}|${l.uid}#${i}`;
-                    const tile = placed[id] ?? null;
+                    let tile = placed[id] ?? null;
+                    const home = tile;
                     const isGen = genId === id;
                     // Chevron de général : proposé aux unités posées à 6 hexagones ou moins de l'unité qui porte le général.
                     const near = Boolean(tile && genTile && !isGen && hexDist(tile, genTile) <= 6);
-                    out.push({ id, owner: l.owner, team: l.team, name: l.name, line: `${l.owner}|${l.uid}`, uid: l.uid, army: l.army, legion: l.legion, dep: l.dep, stdMax: l.stdMax, figs: l.figs, type: l.type, idx: i, tile, std: std.has(id), comp: l.comp || null,
+                    const simTile = v.sim?.[id] ?? null;
+                    if (LAND.simOn) {
+                        // Carte virtuelle : seules les unités de mon équipe (ou toutes pour un MJ sans équipe), à leur position simulée.
+                        if (v.myTeam && l.team !== v.myTeam) continue;
+                        if (simTile) tile = simTile;
+                    }
+                    out.push({ id, home, simTile, owner: l.owner, team: l.team, name: l.name, line: `${l.owner}|${l.uid}`, uid: l.uid, army: l.army, legion: l.legion, dep: l.dep, stdMax: l.stdMax, figs: l.figs, type: l.type, idx: i, tile, std: std.has(id), comp: l.comp || null,
                         multi: l.figs / Math.max(1, l.qty) > 1, gen: isGen, near, chev: v.chev?.[l.owner] === id });
                 }
             }
@@ -2996,7 +3003,7 @@
         }
         const canMove = () => LAND.view.phase === 'place';
         // Déposer, déplacer, retirer ou marquer une unité : seulement quand un sélecteur est ouvert (sinon la carte ne fait que se déplacer).
-        const canEditUnits = () => canMove() && selectorsOpen();
+        const canEditUnits = () => canMove() && (selectorsOpen() || LAND.simOn);
 
         function landNeighbors(col, row) {
             const dirs = row % 2 === 1
@@ -3178,10 +3185,11 @@
         // Portée de déplacement. Une unité qui débarque dans une section reçoit le bonus de cette section (2 tuiles par défaut,
         // réglable par le MJ) uniquement pour une arrivée dans l'aire de cette section.
         function computeRange(unit) {
+            const origin = unit.home ?? unit.tile; // en simulation, la portée part toujours de la tuile de dépôt
             const base = Math.max(0, Math.floor(unit.dep || 0));
             const lim = limitInfo();
-            const zone = (LAND.view.zones || []).find((z) => z.tiles.includes(unit.tile));
-            const sec = zone ? zoneSections(zone).find((x) => x.tiles.includes(unit.tile)) : null;
+            const zone = (LAND.view.zones || []).find((z) => z.tiles.includes(origin));
+            const sec = zone ? zoneSections(zone).find((x) => x.tiles.includes(origin)) : null;
             const bonus = sec && base > 0 ? sec.bonus : 0;
             const area = zone && bonus > 0 ? zoneAreas(zone).get(sec.key) : null;
             // La tuile de débarquement compte pour 1 point de déplacement : dep 2 = 1 pas depuis la tuile (ses voisines, zone comprise), + le bonus de section.
@@ -3196,8 +3204,8 @@
                 if (terrain === 'water') return unit.army === 'saurus' || tile?.object === 'bridge';
                 return true;
             };
-            const dist = new Map([[unit.tile, 0]]);
-            let frontier = [unit.tile];
+            const dist = new Map([[origin, 0]]);
+            let frontier = [origin];
             for (let step = 1; step <= total; step++) {
                 const next = [];
                 for (const key of frontier) {
@@ -3216,7 +3224,7 @@
             const bonusEnd = [];
             const pass = [];
             for (const [key, d] of dist) {
-                if (key === unit.tile) continue;
+                if (key === origin) continue;
                 if (!canEnd(key)) { pass.push(key); continue; }
                 if (d <= reach) end.push(key);
                 else if (area && area.has(key)) bonusEnd.push(key);
@@ -3226,8 +3234,8 @@
             const genExtra = unit.gen || unit.chev ? 2 : 0;
             const genEnd = [];
             if (genExtra) {
-                const sources = end.length || bonusEnd.length ? [...end, ...bonusEnd] : [unit.tile];
-                const normal = new Set([...end, ...bonusEnd, unit.tile]);
+                const sources = end.length || bonusEnd.length ? [...end, ...bonusEnd] : [origin];
+                const normal = new Set([...end, ...bonusEnd, origin]);
                 const seen = new Map(sources.map((k) => [k, 0]));
                 let front = [...sources];
                 for (let step = 1; step <= genExtra; step++) {
@@ -3246,7 +3254,7 @@
                 }
                 for (const [key, d] of seen) if (d > 0 && !normal.has(key) && canEnd(key)) genEnd.push(key);
             }
-            return { dep: base, landCost, reach, extra: bonus, bonus, total, genExtra, genEnd, section: sec?.n ?? 0, sectionKind: sec?.kind ?? null, zone: zone?.id ?? null, start: unit.tile, end, bonusEnd, pass };
+            return { dep: base, landCost, reach, extra: bonus, bonus, total, genExtra, genEnd, section: sec?.n ?? 0, sectionKind: sec?.kind ?? null, zone: zone?.id ?? null, start: origin, end, bonusEnd, pass };
         }
 
         // Impression : les unités posées (telles que ce joueur les voit) sont dessinées sur l'image, sans aperçu ni geste en cours.
@@ -3342,6 +3350,23 @@
                         c.fill();
                     }
                 }
+            }
+
+            // Carte virtuelle : trait pointillé entre la tuile de dépôt et la position simulée.
+            if (LAND.simOn) {
+                c.save();
+                c.setLineDash([R * 0.25, R * 0.2]);
+                c.lineWidth = R * 0.07;
+                for (const u of LAND.units) {
+                    if (!u.home || !u.tile || u.home === u.tile) continue;
+                    const [hc, hr] = keyToHex(u.home);
+                    const [tc2, tr2] = keyToHex(u.tile);
+                    const a = hexCenter(hc, hr);
+                    const b = hexCenter(tc2, tr2);
+                    c.strokeStyle = TEAM_COL[u.team] || '#555';
+                    c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+                }
+                c.restore();
             }
 
             // Case survolée pendant un glisser-déposer.
@@ -3474,11 +3499,13 @@
                     c.textAlign = 'left';
                     c.textBaseline = 'middle';
                     // Croix de suppression (mes unités, pendant le dépôt) : l'unité retourne dans le sélecteur.
-                    const hasCross = !opt && mine && LAND.view.phase === 'place';
+                    const hasCross = !opt && mine && LAND.view.phase === 'place' && !LAND.simOn;
                     const leftPad = hasCross ? chipH * 1.0 : chipH * 0.28;
-                    const puz = (u.comp ? chipH * 0.8 : 0) + (u.gen ? chipH * 0.7 : 0); // unité composée : puzzle ; unité qui porte le général : étoile
                     const hasChev = u.near && (mine || u.chev);
-                    const textW = w - (hasFlag ? chipH * 1.05 : chipH * 0.3) - (hasChev ? chipH * 1.0 : 0) - (leftPad - chipH * 0.28) - puz;
+                    // Tous les symboles (drapeau, chevron, général, puzzle) sont rangés à droite de l'étiquette ; le nom reste à gauche.
+                    const wFlag = hasFlag ? chipH * 1.05 : 0, wChev = hasChev ? chipH * 1.0 : 0, wGen = u.gen ? chipH * 0.95 : 0, wPuz = u.comp ? chipH * 0.8 : 0;
+                    const rightW = wFlag + wChev + wGen + wPuz;
+                    const textW = w - leftPad - rightW - chipH * 0.15;
                     let cross = null;
                     if (hasCross) {
                         const cx = ox - w / 2 + chipH * 0.5;
@@ -3500,40 +3527,52 @@
                     const num = ` ${u.idx}`;
                     let nm = shortName(u.name, 12);
                     while (c.measureText(nm + num).width > textW && nm.length > 3) nm = `${nm.slice(0, -2)}…`;
-                    if (puz) {
+                    c.fillText(nm + num, ox - w / 2 + leftPad, oy + chipH * 0.03);
+                    const rEdge = ox + w / 2;
+                    if (u.gen) {
+                        // Général : trois chevrons dorés empilés.
+                        c.save();
+                        c.strokeStyle = '#d9a400'; c.lineWidth = chipH * 0.1; c.lineCap = 'round'; c.lineJoin = 'round';
+                        const gx = rEdge - wFlag - wChev - wGen / 2;
+                        for (const dy of [-0.27, 0, 0.27]) {
+                            c.beginPath();
+                            c.moveTo(gx - chipH * 0.19, oy + chipH * (dy + 0.1));
+                            c.lineTo(gx, oy + chipH * (dy - 0.08));
+                            c.lineTo(gx + chipH * 0.19, oy + chipH * (dy + 0.1));
+                            c.stroke();
+                        }
+                        c.restore();
+                    }
+                    if (u.comp) {
                         c.font = `${chipH * 0.55}px system-ui, "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-                        let px = ox - w / 2 + leftPad;
-                        if (u.gen) { c.fillStyle = '#c79100'; c.fillText('★', px, oy + chipH * 0.03); c.fillStyle = '#1b1b1b'; px += chipH * 0.7; }
-                        if (u.comp) c.fillText('🧩', px, oy + chipH * 0.03);
+                        c.fillText('🧩', rEdge - wFlag - wChev - wGen - wPuz + chipH * 0.08, oy + chipH * 0.03);
                         c.font = `600 ${chipH * 0.46}px system-ui, sans-serif`;
                     }
-                    c.fillText(nm + num, ox - w / 2 + leftPad + puz, oy + chipH * 0.03);
                     let flag = null;
                     if (hasFlag) {
                         const used = stdUsed.get(u.line) || 0;
                         const state = u.std ? 'on' : (used >= u.stdMax ? 'full' : 'off');
                         drawFlag(ox + w / 2 - chipH * 0.55, oy, chipH * 0.8, state);
-                        if (mine && LAND.view.phase === 'place') {
+                        if (mine && LAND.view.phase === 'place' && !LAND.simOn) {
                             flag = { x: sp.x + (ox + w / 2 - chipH * 1.05) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 1.05 * VW.scale, h: chipH * VW.scale };
                         }
                     }
                     // Chevron de général : gris = disponible, or = actif (2 tuiles de placement supplémentaires).
                     let chev = null;
                     if (hasChev) {
-                        const cxv = ox + w / 2 - (hasFlag ? chipH * 1.05 : 0) - chipH * 0.55;
+                        const cxv = ox + w / 2 - wFlag - chipH * 0.5;
                         const on = u.chev;
                         if (on) { c.beginPath(); c.arc(cxv, oy, chipH * 0.4, 0, Math.PI * 2); c.fillStyle = '#ffc107'; c.fill(); }
                         c.strokeStyle = on ? '#5d4300' : '#8a8a8a';
                         c.lineWidth = chipH * 0.09;
                         c.lineCap = 'round'; c.lineJoin = 'round';
-                        for (const dy of [-0.14, 0.12]) {
-                            c.beginPath();
-                            c.moveTo(cxv - chipH * 0.2, oy + chipH * (dy + 0.1));
-                            c.lineTo(cxv, oy + chipH * (dy - 0.08));
-                            c.lineTo(cxv + chipH * 0.2, oy + chipH * (dy + 0.1));
-                            c.stroke();
-                        }
-                        if (mine && LAND.view.phase === 'place') chev = { x: sp.x + (cxv - chipH * 0.5) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * VW.scale, h: chipH * VW.scale };
+                        c.lineWidth = chipH * 0.12;
+                        c.beginPath();
+                        c.moveTo(cxv - chipH * 0.22, oy + chipH * 0.12);
+                        c.lineTo(cxv, oy - chipH * 0.1);
+                        c.lineTo(cxv + chipH * 0.22, oy + chipH * 0.12);
+                        c.stroke();
+                        if (mine && LAND.view.phase === 'place' && !LAND.simOn) chev = { x: sp.x + (cxv - chipH * 0.5) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * VW.scale, h: chipH * VW.scale };
                     }
                     c.globalAlpha = 1;
                     LAND.hits.push({ unit: u, units: [u], flag, chev, cross, x: sp.x + (ox - w / 2) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: w * VW.scale, h: chipH * VW.scale });
@@ -3613,9 +3652,18 @@
             return (LAND.view.zones || []).find((z) => z.tiles.includes(key)) ?? null;
         }
 
+        // Carte virtuelle : une tuile est permise si elle est dans la portée de l'unité (depuis sa tuile de dépôt) et libre (hors tuiles de dépôt, une seule unité par tuile).
+        function simAllowed(unit, key) {
+            const r = computeRange(unit);
+            if (key !== r.start && ![...r.end, ...r.bonusEnd, ...(r.genEnd || [])].includes(key)) return false;
+            if (key === r.start || zoneAtKey(key)) return true;
+            return !LAND.units.some((u) => u.id !== unit.id && u.tile === key);
+        }
+
         function hoverFor(clientX, clientY, unit) {
             const key = tileKeyAt(clientX, clientY);
             if (!key) return null;
+            if (LAND.simOn) return { key, ok: simAllowed(unit, key) && ciEq(unit.owner, state.username) };
             const zone = (LAND.view.zones || []).find((z) => z.id === LAND.view.myZone);
             return { key, ok: Boolean(zone && zone.tiles.includes(key)) && ciEq(unit.owner, state.username) };
         }
@@ -3665,6 +3713,11 @@
             const key = tileKeyAt(e.clientX, e.clientY - d.off);
             if (!key) return;
             const h = hoverFor(e.clientX, e.clientY - d.off, d.unit);
+            if (LAND.simOn) {
+                if (!h || !h.ok) return toast('Tuile hors de portée de cette unité, ou déjà occupée.', true);
+                landEmit('landing-sim', { unit: d.unit.id, tile: key });
+                return;
+            }
             if (!h || !h.ok) return toast('Déposez les unités sur une tuile de votre zone de débarquement.', true);
             if (d.tile !== key) landEmit('landing-place', { units: d.units, tile: key });
         }
@@ -3695,7 +3748,7 @@
             const kind = r.sectionKind === 'mid' ? 'centre' : 'extrémité';
             const where = r.zone ? `section ${r.section} (${kind}) · zone ${r.zone.toUpperCase()}` : 'hors zone de débarquement';
             const n = r.end.length + r.bonusEnd.length + r.genEnd.length;
-            info.innerHTML = `<b>${shortName(unit.name, 22)}</b> ${unit.idx} · dep ${r.dep}${r.landCost ? ` − ${r.landCost} (tuile de débarquement)` : ''}${r.bonus ? ` <b>+ ${r.bonus}</b> tuile${r.bonus > 1 ? 's' : ''} supplémentaire${r.bonus > 1 ? 's' : ''}` : ''} = <b>${r.total}</b> pas${r.genExtra ? ` · <b>★ + ${r.genExtra}</b> tuiles (général)` : ''}`
+            info.innerHTML = `<b>${shortName(unit.name, 22)}</b> ${unit.idx} · dep ${r.dep}${r.landCost ? ` − ${r.landCost} (tuile de débarquement)` : ''}${r.bonus ? ` <b>+ ${r.bonus}</b> tuile${r.bonus > 1 ? 's' : ''} supplémentaire${r.bonus > 1 ? 's' : ''}` : ''} = <b>${r.total}</b> pas${r.genExtra ? ` · <b>+ ${r.genExtra}</b> tuiles (général)` : ''}`
                 + `<small>${r.genExtra ? 'cases dorées = tuiles du général, dans les frontières de placement · ' : ''}${where}${r.bonus ? ' · bonus seulement vers l’aire de cette section (cases bleues)' : ''} · ${n} case${n > 1 ? 's' : ''} d’arrivée</small>`;
             info.hidden = false;
             requestDraw();
@@ -3719,7 +3772,7 @@
                 LAND.tap = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
                 return;
             }
-            const open = selectorsOpen();
+            const open = selectorsOpen() || LAND.simOn;
             const secondTap = LAND.lastTap && LAND.lastTap.id === unit.id && performance.now() - LAND.lastTap.t < 380;
             // Sélecteurs repliés : le toucher sur une unité laisse la carte se déplacer (appui long = portée, double toucher = fiche).
             if (open || secondTap) {
@@ -3808,7 +3861,7 @@
             if (!p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) {
                 p.moved = true;
                 clearTimeout(p.timer);
-                if (!p.long && selectorsOpen()) startDrag(p.unit, p.units, e, true);
+                if (!p.long && (selectorsOpen() || LAND.simOn)) startDrag(p.unit, p.units, e, true);
             }
             if (LAND.drag) moveGhost(e);
         }, true);
@@ -4054,8 +4107,34 @@
                     h += '<p class="lp-hint">Les placements sont verrouillés : vous voyez toutes les unités. Appui long sur une unité : portée de déplacement (cases bleues = bonus de sa section). Double toucher : la fiche de cette unité.</p>';
                 }
             }
+            if (v.myTeam && (v.phase === 'place' || v.phase === 'locked')) {
+                h += `<div class="lp-actions"><button class="btn ${LAND.simOn ? 'btn-primary' : 'btn-dark'}" data-land="sim">🗺️ ${LAND.simOn ? 'Quitter la simulation' : 'Simulation (carte virtuelle)'}</button></div>`;
+            }
             panel.innerHTML = h;
             panel.hidden = false;
+        }
+
+        function setSim(on) {
+            const v = LAND.view;
+            on = Boolean(on) && Boolean(v.myTeam) && (v.phase === 'place' || v.phase === 'locked');
+            if (LAND.simOn === on) return;
+            resetLandTransient();
+            LAND.simOn = on;
+            LAND.units = buildUnits(v);
+            let ban = document.getElementById('simBanner');
+            if (on) {
+                if (!ban) {
+                    ban = document.createElement('div');
+                    ban.id = 'simBanner';
+                    ban.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:8px;z-index:60;background:#1b3a6b;color:#fff;border-radius:10px;padding:6px 10px;font:13px/1.3 system-ui,sans-serif;box-shadow:0 2px 8px #0006;display:flex;gap:8px;align-items:center;max-width:94vw';
+                    ban.innerHTML = '<span id="simBanTxt"></span><button data-land="sim" style="background:#fff;color:#1b3a6b;border:0;border-radius:6px;padding:4px 8px;font-weight:600">Quitter</button>';
+                    document.body.appendChild(ban);
+                }
+                document.getElementById('simBanTxt').textContent = v.phase === 'locked' ? '🗺️ Simulation de l’équipe (lecture seule)' : '🗺️ Simulation : déplacez vos unités dans leur portée (une seule unité par tuile hors dépôt)';
+                ban.hidden = false;
+            } else if (ban) ban.hidden = true;
+            updateLandingUI();
+            requestDraw();
         }
 
         // Bouton « Choisir » d'une zone : grisé si la zone est prise par un autre joueur ou si ma zone est figée.
@@ -4077,7 +4156,7 @@
         function renderUnitBar() {
             const bar = $('unitBar');
             const units = myUnits();
-            if (LAND.view.phase !== 'place' || !units.length) { bar.hidden = true; bar.replaceChildren(); requestLayout(); return; }
+            if (LAND.view.phase !== 'place' || !units.length || LAND.simOn) { bar.hidden = true; bar.replaceChildren(); requestLayout(); return; }
             const lines = new Map();
             for (const u of units) { if (!lines.has(u.line)) lines.set(u.line, []); lines.get(u.line).push(u); }
             const done = units.filter((u) => u.tile).length;
@@ -4089,7 +4168,7 @@
             }).join('');
             // Unité fictive « Général » : à affecter à l'une de ses unités posées (plusieurs figurines) ; 2 tuiles de placement supplémentaires.
             const genUnit = units.find((u) => u.gen);
-            const genChip = `<div class="ub-chip ${genUnit ? 'done' : ''} ${LAND.genMode ? 'gen-on' : ''}" data-general="1" style="border-color:#c79100">★ Général<br><b>${genUnit ? `→ ${shortName(genUnit.name, 10)} ${genUnit.idx}` : (LAND.genMode ? 'touchez une unité' : 'à affecter')}</b></div>`;
+            const genChip = `<div class="ub-chip ${genUnit ? 'done' : ''} ${LAND.genMode ? 'gen-on' : ''}" data-general="1" style="border-color:#c79100"><svg viewBox="0 0 20 20" width="16" height="16" style="vertical-align:-3px" fill="none" stroke="#c79100" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7 L10 1 L17 7"/><path d="M3 13 L10 7 L17 13"/><path d="M3 19 L10 13 L17 19"/></svg> Général<br><b>${genUnit ? `→ ${shortName(genUnit.name, 10)} ${genUnit.idx}` : (LAND.genMode ? 'touchez une unité' : 'à affecter')}</b></div>`;
             const info = `<div class="ub-info" title="Unités posées · zone ${(LAND.view.myZone || '').toUpperCase()}">${done}/${units.length}<br>zone ${(LAND.view.myZone || '').toUpperCase()}</div>`;
             bar.innerHTML = info + genChip + (chips || '<div class="ub-info">✓<br>tout est posé</div>');
             bar.hidden = false;
@@ -4113,7 +4192,7 @@
                 place: { title: 'Phase 3 · Dépôt des unités', items: [
                     'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur d’unités</b> (comme les sélecteurs de tuiles : appui long puis glisser pour le ranger sur un autre bord ; il se replie seul après 10 s, appui long sur la carte pour le rouvrir) vers une tuile de votre zone. Glissez un jeton pour le déplacer ; la <b>croix rouge</b> d’une étiquette le remet dans le sélecteur.',
                     'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de sa section s’applique.',
-                    '<b>★ Général</b> : touchez la puce « Général » du sélecteur puis l’une de vos unités posées (plusieurs figurines). Elle peut se poser jusqu’à <b>2 tuiles plus loin</b> (cases dorées à l’appui long), sans dépasser les frontières. Les unités à <b>6 hexagones ou moins</b> du général reçoivent un <b>chevron</b> : touchez-le pour l’activer sur <b>une seule</b> unité, qui reçoit le même bonus.',
+                    '<b>Général (trois chevrons dorés)</b> : touchez la puce « Général » du sélecteur puis l’une de vos unités posées (plusieurs figurines). Elle peut se poser jusqu’à <b>2 tuiles plus loin</b> (cases dorées à l’appui long), sans dépasser les frontières. Les unités à <b>6 hexagones ou moins</b> du général reçoivent un <b>chevron seul</b> (gris) : touchez-le pour l’activer (doré) sur <b>une seule</b> unité, qui reçoit le même bonus.',
                     'Vous ne voyez pas les unités de l’équipe adverse avant le verrouillage.',
                     '<b>▶ Verrouiller</b> quand tout est placé : tout le monde voit alors tous les débarquements. ◀ revient aux choix.'] },
                 locked: { title: 'Phase 4 · Placements verrouillés', items: [
@@ -4132,7 +4211,7 @@
                     'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur d’unités</b> vers une tuile de votre zone.',
                     'Pour déplacer une unité déjà posée, glissez son jeton sur une autre tuile de votre zone. Plusieurs unités peuvent partager une tuile.',
                     'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de la section s’applique.',
-                    '<b>★ Général</b> : touchez la puce « Général » du sélecteur puis l’une de vos unités posées (plusieurs figurines). Elle peut se poser jusqu’à <b>2 tuiles plus loin</b> (cases dorées à l’appui long), sans dépasser les frontières. Les unités à <b>6 hexagones ou moins</b> du général reçoivent un <b>chevron</b> : touchez-le pour l’activer sur <b>une seule</b> unité, qui reçoit le même bonus.',
+                    '<b>Général (trois chevrons dorés)</b> : touchez la puce « Général » du sélecteur puis l’une de vos unités posées (plusieurs figurines). Elle peut se poser jusqu’à <b>2 tuiles plus loin</b> (cases dorées à l’appui long), sans dépasser les frontières. Les unités à <b>6 hexagones ou moins</b> du général reçoivent un <b>chevron seul</b> (gris) : touchez-le pour l’activer (doré) sur <b>une seule</b> unité, qui reçoit le même bonus.',
                     'Vos coéquipiers voient vos unités en direct ; l’autre équipe ne voit rien avant le verrouillage.'] },
                 locked: { title: 'Placements verrouillés', items: [
                     'Tous les débarquements sont maintenant visibles.',
@@ -4268,6 +4347,7 @@
             const prev = LAND.view.phase;
             if ((next?.phase || 'off') !== prev) resetLandTransient();
             LAND.view = next || { phase: 'off' };
+            if (LAND.simOn && !(LAND.view.myTeam && (LAND.view.phase === 'place' || LAND.view.phase === 'locked'))) { LAND.simOn = false; const bn = document.getElementById('simBanner'); if (bn) bn.hidden = true; }
             LAND.units = buildUnits(LAND.view);
             if (LAND.preview && LAND.units.find((u) => u.id === LAND.preview.unit.id)?.tile !== LAND.preview.start) { LAND.preview = null; hideRangeInfo(); }
 
@@ -4287,6 +4367,7 @@
             if (k === 'next' && state.isAdmin) adminNext();
             else if (k === 'prev' && state.isAdmin) adminPrev();
             else if (k === 'help') phaseNotice(true);
+            else if (k === 'sim') setSim(!LAND.simOn);
             else if (k === 'toggle') { if (landOn()) { LAND.open = !LAND.open; updateLandingUI(); } } else if (k === 'close') { LAND.open = false; updateLandingUI(); }
             else if (k === 'focus') focusZone(b.dataset.zone);
             else if (k === 'group' && state.isAdmin) landEmit('landing-group', { zone: b.dataset.zone, group: b.dataset.group || null });
