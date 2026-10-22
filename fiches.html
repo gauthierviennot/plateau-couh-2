@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fiches d'armée</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--fg:#1f1d1a;--muted:#6b665e;--border:#ddd8cd;--accent:#8a2b1d;--accent-fg:#fff;--hl:#f6e3d8;--head:#ece7db;--cat:#e4ddcc;--stick:#fff;--err:#b3261e;--ok:#2e6b34;--ovc:#c77b00}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#16140f;--card:#201d17;--fg:#ece7da;--muted:#9a9384;--border:#37332a;--accent:#d9795f;--accent-fg:#1a1410;--hl:#3b2a22;--head:#2a261e;--cat:#332e24;--stick:#201d17;--err:#ff8a80;--ok:#8fd19a;--ovc:#ffb74d}}
+:root[data-theme="dark"]{--bg:#16140f;--card:#201d17;--fg:#ece7da;--muted:#9a9384;--border:#37332a;--accent:#d9795f;--accent-fg:#1a1410;--hl:#3b2a22;--head:#2a261e;--cat:#332e24;--stick:#201d17;--err:#ff8a80;--ok:#8fd19a;--ovc:#ffb74d}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Georgia,"Times New Roman",serif;font-size:15px;line-height:1.4}
+.wrap{max-width:1200px;margin:0 auto;padding:12px 12px 60px}
+h1{font-size:22px;margin:4px 0 2px}h2{font-size:17px;margin:22px 0 2px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 12px;font-family:system-ui,sans-serif}
+.small{font:13px system-ui,sans-serif;color:var(--muted)}.up{text-transform:uppercase;letter-spacing:.07em;font-size:12px}
+code{font:12px ui-monospace,Menlo,Consolas,monospace;background:var(--head);padding:1px 5px;border-radius:5px}
+label.lbl,.lbl2{display:block;font:600 12px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:12px 0 6px}
+select,input.ft,textarea.ft,input[type=text],input[type=number]{font:15px system-ui,sans-serif;padding:10px 11px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--fg);width:100%}
+select{font-weight:600;font-size:16px}
+textarea.ft{font:13px ui-monospace,Menlo,Consolas,monospace;resize:vertical;line-height:1.45}
+.top{margin-bottom:6px}
+.tabs{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tab{font:600 14px system-ui,sans-serif;padding:8px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer}
+.tab.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.badge{font:600 11px system-ui,sans-serif;padding:3px 9px;border-radius:999px;border:1px solid var(--border);color:var(--muted);margin-left:auto}
+.badge.mj{margin-left:0;background:var(--accent);color:var(--accent-fg);border-color:var(--accent);display:none}
+.pseudo{display:flex;gap:8px;align-items:center;margin:10px 0 0}
+.pseudo label{font:600 12px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.pseudo input{max-width:200px;padding:8px 10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:500 14px system-ui,sans-serif;text-align:left;padding:9px 12px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer;line-height:1.25}
+.chip small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.chip.sm{padding:6px 9px;font-size:13px}
+.chip.on{border-color:var(--accent);background:var(--hl);box-shadow:inset 0 0 0 1px var(--accent)}
+.chip.on small{color:var(--fg)}.chip:disabled{cursor:default;opacity:.9}
+.btn{font:600 14px system-ui,sans-serif;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}.btn:disabled{opacity:.45;cursor:default}
+.mini{font:13px system-ui,sans-serif;padding:3px 7px;margin:0 1px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin:12px 0}
+.kpis{display:flex;gap:18px;flex-wrap:wrap;margin-top:6px}
+.kpi b{display:block;font:700 20px system-ui,sans-serif}.kpi span{font:12px system-ui,sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.scroll{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--card);-webkit-overflow-scrolling:touch}
+table{border-collapse:separate;border-spacing:0;width:100%;font:14px system-ui,sans-serif}
+th,td{padding:6px 9px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap}
+th{background:var(--head);font-weight:600;font-size:12px}
+th.wrapth{white-space:normal;min-width:62px;max-width:110px}
+td.name,th.name{text-align:left;position:sticky;left:0;z-index:2;background:var(--stick);border-right:1px solid var(--border);font-family:Georgia,serif;min-width:130px;max-width:180px;white-space:normal}
+th.name{background:var(--head);z-index:3}
+tr.cat td{background:var(--cat);text-align:left;font:700 12px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+tr.cat td.name{background:var(--cat)}
+tr.l2 td{background:color-mix(in srgb,var(--head) 40%,transparent);font-size:13px}
+tr.l2 td.name{background:var(--stick);color:var(--muted);font-size:12px;padding-left:18px}
+td.cell.calc{color:var(--muted)}td.cell.ov{box-shadow:inset 0 0 0 1px var(--ovc);color:var(--ovc)}td.cell.bad{color:var(--err);font-weight:700}
+td[data-cell],td[data-lq]{cursor:cell}
+td[data-cell]:hover,td[data-lq]:hover{background:var(--hl)}
+.sep{border-left:3px double var(--border)}.qty{font-weight:700}.dim{color:var(--muted);opacity:.5}
+th.lg{cursor:pointer;min-width:52px}th.lg.on,td.lg.on{background:var(--hl)}th.lg.on{box-shadow:inset 0 -3px 0 var(--accent)}
+td.act{white-space:nowrap}
+tr.total td{font-weight:700;background:var(--head);border-bottom:none}tr.total td.name{background:var(--head)}
+.notes{font:13px system-ui,sans-serif;color:var(--muted);margin-top:10px}
+.tag{display:inline-block;font:600 11px system-ui,sans-serif;background:var(--hl);border:1px solid var(--accent);color:var(--fg);border-radius:20px;padding:2px 9px;margin-left:8px;vertical-align:middle}
+.comp{font:13px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);margin-top:8px;word-break:break-word}
+.hint{font:13px system-ui,sans-serif;color:var(--muted);margin:8px 0}
+.colb{font:600 11px system-ui,sans-serif;background:var(--head);border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:8px;vertical-align:middle;color:var(--muted)}
+.famh{font:13px system-ui,sans-serif;margin-bottom:6px}
+.ftres{font:13px system-ui,sans-serif;margin-top:6px;min-height:0}.ftres.err{color:var(--err)}.ftres.ok{color:var(--ok)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.fl{display:block;font:600 12px system-ui,sans-serif;color:var(--muted)}.fl .ft{margin-top:4px;font-weight:400}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100;padding:0}
+#modal.open{display:flex}
+.sheet{background:var(--card);color:var(--fg);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));max-height:88%;overflow:auto}
+@media(min-width:700px){#modal{align-items:center}.sheet{border-radius:18px}}
+.sh{font:700 17px system-ui,sans-serif;margin-bottom:10px}.sf{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;justify-content:flex-end}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);font:14px system-ui,sans-serif;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:200;max-width:90%}
+.toast.show{opacity:1}
+@media print{:root,:root[data-theme="dark"]{--bg:#fff;--card:#fff;--fg:#000;--muted:#444;--border:#bbb;--head:#eee;--cat:#e6e6e6;--stick:#fff;--hl:#eee;--accent:#000}
+ body{background:#fff;font-size:12px}.noprint,.top,.act,#modal,.toast{display:none!important}.scroll{overflow:visible;border:none}td.name,th.name{position:static}.wrap{padding:0;max-width:none}table{width:max-content}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{break-inside:avoid}thead{display:table-header-group}}
+
+tr.compr td{box-shadow:inset 0 -1px 0 #7b3fe4,inset 0 1px 0 #7b3fe4}td.name.compn{border-left:4px solid #7b3fe4;background:#efe7ff!important;color:#000}.compwith{display:block;font:11px system-ui,sans-serif;color:#5b2fb0;margin-top:1px}
+tr.compr td.name{border-left:4px solid #7b3fe4}tr.compr1 td{border-top:2px solid #7b3fe4}tr.compr2 td{border-bottom:2px solid #7b3fe4}
+tr.compr td.name{background:#efe7ff;color:#000}td.compu{background:#efe7ff;color:#000;font-weight:700;vertical-align:middle}
+.chip.me{border-color:var(--accent)}
+.pk{display:inline-flex;align-items:center;gap:2px}
+th.lg.gs,td.lg.gs{border-left:2px solid var(--border)}
+th.lg.sub{font-weight:500;color:var(--muted);min-width:34px;padding:4px 6px}
+.secb{margin-left:8px;display:inline-flex;gap:2px}
+.fcode{display:block;font:13px ui-monospace,Menlo,Consolas,monospace;background:var(--head);padding:8px 10px;border-radius:8px;word-break:break-word;white-space:pre-wrap}
+.tree{border:1px solid var(--border);border-radius:10px;max-height:46vh;overflow:auto;padding:6px 8px;background:var(--bg)}
+.tn.l1{margin-left:18px}.tr{display:flex;align-items:center;gap:6px;padding:3px 0;font:14px system-ui,sans-serif}
+.tr.leaf{margin-left:20px}.tr.leaf label{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.tr.leaf span{overflow-wrap:anywhere}
+.tr input[type=checkbox]{width:18px;height:18px;flex:none}
+.tg{border:none;background:none;color:var(--fg);font-size:14px;width:22px;cursor:pointer;padding:0}
+.badge2{font:600 10px system-ui,sans-serif;border:1px solid var(--border);border-radius:20px;padding:1px 7px;color:var(--muted);white-space:nowrap}
+.badge2.ov{border-color:var(--ovc);color:var(--ovc)}
+#modal.big .sheet{max-width:760px;max-height:94%}
+
+/* en-têtes de colonnes toujours visibles */
+.scroll{overflow:auto;max-height:calc(100vh - 64px);max-height:calc(100dvh - 64px)}
+thead th{position:sticky;top:0;z-index:5;height:34px}
+thead tr:nth-child(2) th{top:34px;height:28px}
+thead th.name{z-index:7;left:0}
+td.name{z-index:3}
+.menu{display:flex;flex-direction:column;gap:8px}.menu .btn{text-align:left}
+/* page joueurs */
+.pgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start}
+@media(max-width:760px){.pgrid{grid-template-columns:1fr}}
+.pcol{background:var(--card);border:2px dashed var(--border);border-radius:14px;padding:8px;min-height:90px}
+.pcol.over{border-color:var(--accent);background:var(--hl)}
+.phead{display:flex;align-items:center;gap:8px;margin-bottom:8px}.phead .tname{font-weight:700;padding:7px 9px}
+.pcard{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px;margin-bottom:8px}
+.pcard.dragging{opacity:.35}
+.pcard.ghost{position:fixed;z-index:400;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.3);background:var(--card)}
+.grip{cursor:grab;font-size:20px;line-height:1;padding:6px 4px;touch-action:none;user-select:none;color:var(--muted)}
+.pbody{flex:1;min-width:0}.pname{font:700 14px system-ui,sans-serif;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.pl-sel{padding:7px 8px;font-size:13px;font-weight:400}.pbtn{display:flex;flex-direction:column;gap:4px}
+.dot{width:8px;height:8px;border-radius:50%;background:#2e9d4a;display:inline-block}
+
+.sh{display:flex;align-items:center;gap:8px}.sht{flex:1;min-width:0}
+.wc{display:flex;gap:4px}.wc button{font:600 14px system-ui,sans-serif;width:32px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer;padding:0}
+#modal.min{background:transparent;pointer-events:none;align-items:flex-end}
+#modal.min .sheet{pointer-events:auto;max-height:none;border:1px solid var(--border);box-shadow:0 4px 18px rgba(0,0,0,.25);padding-bottom:12px}
+#modal.min .sb,#modal.min .sf{display:none}#modal.min .sh{margin-bottom:0}
+#modal.fsc .sheet{max-width:none;width:100%;height:100%;max-height:100%;border-radius:0}
+.scroll{max-height:72vh}
+.parmy{margin:2px 0 4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top noprint">
+    <div class="tabs">
+      <button id="tabA" class="tab" data-a="tab-army">Armées</button>
+      <button id="tabF" class="tab" data-a="tab-form">Formules</button>
+      <button id="tabP" class="tab" data-a="tab-players" style="display:none">Équipes</button>
+      <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
+      <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
+      <span id="mjBadge" class="badge mj">MJ</span>
+      <span id="dbBadge" class="badge">local</span>
+    </div>
+    <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
+    <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
+  </div>
+  <div id="view"></div>
+</div>
+<div id="modal"></div>
+<div class="toast" id="toast"></div>
+<script>
+/* ===== Mini-moteur de formules (sous-ensemble d'Excel) ===== */
+const FE=(function(){
+  function fail(m){const e=new Error(m);e.fe=true;throw e;}
+  function tokenize(src){
+    const t=[];let i=0;const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(/\s/.test(ch)){i++;continue;}
+      if(/[0-9.]/.test(ch)){let j=i;while(j<n&&/[0-9.]/.test(src[j]))j++;t.push({k:'n',v:parseFloat(src.slice(i,j))});i=j;continue;}
+      if(ch==='"'){let j=i+1,s='';while(j<n){if(src[j]==='"'){if(src[j+1]==='"'){s+='"';j+=2;continue;}break;}s+=src[j++];}
+        if(j>=n)fail('Guillemet non fermé');t.push({k:'s',v:s});i=j+1;continue;}
+      if(/[@A-Za-z_]/.test(ch)){let j=i+1;while(j<n&&/[A-Za-z_0-9]/.test(src[j]))j++;
+        let id=src.slice(i,j);
+        if(src[j]!=='('){ // référence éventuelle
+          let off=null,abs=null;
+          if(src[j]==='['){const m=/^\[([+-]\d+)\]/.exec(src.slice(j));if(!m)fail('Référence invalide près de '+id);off=parseInt(m[1],10);j+=m[0].length;}
+          else if(src[j]==='$'){const m=/^\$(\d+)/.exec(src.slice(j));if(m){abs=parseInt(m[1],10);j+=m[0].length;}}
+          t.push({k:'r',id,off,abs});i=j;continue;}
+        t.push({k:'f',id:id.toUpperCase()});i=j;continue;}
+      if(ch==='$'){i++;continue;}
+      const two=src.slice(i,i+2);
+      if(two==='<>'||two==='<='||two==='>='){t.push({k:'o',v:two});i+=2;continue;}
+      if('+-*/()=<>,'.includes(ch)){t.push({k:'o',v:ch});i++;continue;}
+      fail('Caractère inattendu « '+ch+' »');
+    }
+    return t;
+  }
+  function parse(src){
+    const t=tokenize(src);let p=0;
+    const peek=()=>t[p],isO=v=>t[p]&&t[p].k==='o'&&t[p].v===v;
+    function expect(v){if(!isO(v))fail('« '+v+' » attendu');p++;}
+    function cmp(){let a=add();while(t[p]&&t[p].k==='o'&&['=','<>','<','>','<=','>='].includes(t[p].v)){const op=t[p++].v;a={t:'c',op,a,b:add()};}return a;}
+    function add(){let a=mul();while(isO('+')||isO('-')){const op=t[p++].v;a={t:'b',op,a,b:mul()};}return a;}
+    function mul(){let a=un();while(isO('*')||isO('/')){const op=t[p++].v;a={t:'b',op,a,b:un()};}return a;}
+    function un(){if(isO('-')){p++;return {t:'u',a:un()};}if(isO('+')){p++;return un();}return prim();}
+    function prim(){
+      const x=t[p];if(!x)fail('Formule incomplète');
+      if(x.k==='n'){p++;return {t:'n',v:x.v};}
+      if(x.k==='s'){p++;return {t:'s',v:x.v};}
+      if(x.k==='r'){p++;
+        if(x.id==='TRUE')return {t:'n',v:true};if(x.id==='FALSE')return {t:'n',v:false};
+        if(/^@(nb|c|E)$/.test(x.id))return {t:'l',name:x.id.slice(1)};
+        if(/^[A-Z]{1,2}$/.test(x.id)||(x.abs!=null&&/^[A-Z]{1,2}\d{1,2}$/.test(x.id)))return {t:'r',col:x.id,off:x.abs!=null?null:(x.off||0),abs:x.abs};
+        fail('Référence inconnue « '+x.id+' » (colonnes en majuscules)');}
+      if(x.k==='f'){p++;expect('(');const args=[];if(!isO(')')){args.push(cmp());while(isO(',')){p++;args.push(cmp());}}expect(')');
+        if(!['IF','AND','OR','NOT','MIN','MAX','ROUND','ABS','SUM'].includes(x.id))fail('Fonction inconnue '+x.id);return {t:'f',id:x.id,args};}
+      if(isO('(')){p++;const e=cmp();expect(')');return e;}
+      fail('Élément inattendu');
+    }
+    const ast=cmp();if(p<t.length)fail('Texte en trop après la formule');return ast;
+  }
+  function num(v){if(v==null||v==='')return 0;if(typeof v==='boolean')return v?1:0;if(typeof v==='number'){if(v!==v)fail('#ERR');return v;}
+    const f=Number(v);if(!isFinite(f)||String(v).trim()==='')fail('#VALEUR');return f;}
+  function truthy(v){if(typeof v==='string')fail('#VALEUR');return num(v)!==0;}
+  function eq(a,b){
+    if(a==null)a=(typeof b==='string')?'':0; if(b==null)b=(typeof a==='string')?'':0;
+    if(typeof a==='string'&&typeof b==='string')return a.toLowerCase()===b.toLowerCase();
+    if(typeof a==='string'||typeof b==='string')return false;
+    return num(a)===num(b);
+  }
+  function ev(n,cx){
+    switch(n.t){
+      case 'n':return n.v;case 's':return n.v;
+      case 'r':return cx.get(n.col,n.off,n.abs);
+      case 'l':return cx.leg(n.name);
+      case 'u':return -num(ev(n.a,cx));
+      case 'b':{const a=num(ev(n.a,cx)),b=num(ev(n.b,cx));let r;
+        if(n.op==='+')r=a+b;else if(n.op==='-')r=a-b;else if(n.op==='*')r=a*b;else{if(b===0)fail('#DIV/0');r=a/b;}
+        if(!isFinite(r))fail('#ERR');return r;}
+      case 'c':{const a=ev(n.a,cx),b=ev(n.b,cx);
+        if(n.op==='=')return eq(a,b);if(n.op==='<>')return !eq(a,b);
+        const x=num(a),y=num(b);return n.op==='<'?x<y:n.op==='>'?x>y:n.op==='<='?x<=y:x>=y;}
+      case 'f':{const a=n.args;
+        switch(n.id){
+          case 'IF':return truthy(ev(a[0],cx))?(a[1]?ev(a[1],cx):true):(a[2]?ev(a[2],cx):false);
+          case 'AND':return a.every(x=>truthy(ev(x,cx)));
+          case 'OR':return a.some(x=>truthy(ev(x,cx)));
+          case 'NOT':return !truthy(ev(a[0],cx));
+          case 'MIN':return Math.min(...a.map(x=>num(ev(x,cx))));
+          case 'MAX':return Math.max(...a.map(x=>num(ev(x,cx))));
+          case 'SUM':return a.reduce((s,x)=>s+num(ev(x,cx)),0);
+          case 'ABS':return Math.abs(num(ev(a[0],cx)));
+          case 'ROUND':{const d=a[1]?num(ev(a[1],cx)):0,k=Math.pow(10,d);return Math.round(num(ev(a[0],cx))*k)/k;}
+        }}
+    }
+    fail('Nœud inconnu');
+  }
+  const cache=new Map();
+  function compile(src){let c=cache.get(src);if(!c){c=parse(src);if(cache.size>2000)cache.clear();cache.set(src,c);}return c;}
+  function run(src,cx){return ev(compile(src),cx);}
+  return {compile,run,num};
+})();
+
+/* ===== Calcul d'une unité ===== */
+const ORDER=['S','F','J','L','M','Q','R','W','X'];
+function famText(FAM,id){const f=FAM[id];return f?f.text:null;}
+function calcRow(row,next,params,FAM,legCtx){
+  const get=(col,off,abs)=>{
+    if(abs!=null){const v=params[col];return v==null?null:v;}
+    const R=off===0?row:(off===1?next:null);if(!R)return null;
+    if(R.fm[col]||R.fo[col]){const v=R.v[col];if(v!==undefined&&v!==null&&v!==v)FE.num(NaN);return v===undefined?null:v;}
+    const v=R.in_[col];return v===undefined?null:v;
+  };
+  const cx={get,leg:n=>{if(!legCtx)throw Object.assign(new Error('#LEG'),{fe:true});return legCtx[n];}};
+  const ev1=col=>{
+    const f=row.fo[col]||famText(FAM,row.fm[col]);if(f==null)return;
+    try{const v=FE.run(f,cx);row.v[col]=(typeof v==='boolean')?(v?1:0):v;}catch(e){if(!e.fe)throw e;row.v[col]=NaN;row.err=row.err||{};row.err[col]=e.message;}
+  };
+  row.err=null;
+  for(const col of Object.keys(row.fo))if(!ORDER.includes(col))ev1(col);
+  for(const col of ORDER)if(row.fm[col]||row.fo[col])ev1(col);
+}
+function calcUnit(u,army,FAM){
+  const params=army.params||{};
+  if(u.l2)calcRow(u.l2,null,params,FAM,null);
+  calcRow(u,u.l2||null,params,FAM,null);
+  for(const lid in u.q){
+    const q=u.q[lid];const fid=q[4]||army.defVal;const f=famText(FAM,fid);if(!f){continue;}
+    const row=u;
+    const get=(col,off,abs)=>{const f2=row.fm[col]||row.fo[col];const v=f2?row.v[col]:row.in_[col];if(typeof v==='number'&&v!==v)FE.num(NaN);return v===undefined?null:v;};
+    try{const v=FE.run(f,{get,leg:n=>n==='nb'?q[0]:(n==='c'?q[1]:q[2])});q[3]=(typeof v==='boolean')?(v?1:0):v;}catch(e){if(!e.fe)throw e;q[3]=NaN;}
+  }
+}
+function legionValue(army,lid){
+  let s=0,n=0,bad=false;
+  for(const u of army.units){const q=u.q[lid];if(!q)continue;n+=q[0];if(q[3]!==q[3]||q[3]==null)bad=true;else s+=q[3];}
+  const l=army.legions.find(x=>x.id===lid);
+  return {val:s+(l&&l.sup||0),figs:n,bad};
+}
+if(typeof module!=='undefined')module.exports={FE,calcUnit,calcRow,legionValue};
+
+</script>
+<script>
+/* ===================== DONNÉES ===================== */
+const SEED='v18_1-b';
+const COLS='ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
+const SHORT={A:'nb',B:'nom',C:'att',D:'typ att',E:'dis',F:"att'",G:'PV',H:'A',I:'dep',J:"dep'",K:'typ dép',L:"dep''",M:'val brute',N:'T',O:'C',P:'U',Q:'val+bonus',R:'val armée',S:'I',T:'c',U:'E',V:'G',W:'fig',X:'ligne'};
+const LONG={A:'nb : quantité totale de cette unité dans l\'armée',B:'nom de l\'unité',C:'att : attaque',D:'typ : type d\'attaque (cc, ttc, cd2…)',E:'dis : portée / distance de tir',F:"att' : attaque pondérée (calculée)",G:'PV : points de vie',H:'A : armure',I:'dep : déplacement',J:"dep' : déplacement pondéré (calculé)",K:'typ : type de déplacement (m, vs, j…)',L:"dep'' : déplacement avec type (calculé)",M:'val fig sans modif (calculée)',N:'T (modificateur)',O:'C (modificateur)',P:'U (modificateur)',Q:'val fig avec bonus communs et bonus armée (calculée)',R:'valeur fig de base avec bonus armée sans I (calculée)',S:'I (calculée ou saisie)',T:'c : total',U:'E : total',V:'G / S : spécialité',W:'fig : valeur d\'une figurine en points (calculée)',X:'ligne : valeur totale de la ligne = fig × nb (calculée)'};
+const COMPUTED=new Set(['S','F','J','L','M','Q','R','W','X']);
+const DEFCOLS=['B','C','E','G','H','I','K','P','S','V','W'];
+const FAMORDER=['S','F','J','L','M','Q','R','W','X','val'];
+const FAMNAME={S:'I (indicateur)',F:"att' (attaque pondérée)",J:"dep' (déplacement)",L:"dep'' (déplacement + type)",M:'val fig sans modif',Q:'val fig avec bonus',R:'val fig avec bonus armée',W:'fig (valeur finale d\'une figurine)',X:'ligne (fig × nb)',val:'val ligne d\'une légion'};
+const FAMDESC={S:'Copie le bonus « I » de l\'armée sur la ligne.',F:'Attaque pondérée selon le type (cc, ttc, cd2…).',J:'Coefficient de déplacement de base.',L:'Coefficient de déplacement ajusté par le type de mouvement.',M:'Valeur brute : attaque, PV, armure × déplacement.',Q:'Ajoute les bonus communs et d\'armée (T, C, U, tir…).',R:'Applique les multiplicateurs d\'armée (portée, PV, déplacement, typ).',W:'Valeur finale d\'une figurine (× 1,2 si colonne I).',X:'Valeur totale de la ligne = fig × nombre.',val:'Points d\'une ligne dans une légion (selon quantité, c et E).'};
+let FAM={},ARMIES=[];
+const HOSTED=(typeof DATA==='undefined');
+const S={hq:new Set(),restricted:false,admin:false,access:true,picks:{},myPick:null,catalog:null,loaded:!HOSTED,tab:'army',army:null,sel:null,view:'full',cols:new Set(DEFCOLS),pseudo:'',canWrite:null,dbOn:false,showCols:false,frozen:false,ft:null,pendingOpen:null,teams:null,mercs:{},roster:[],online:[]};
+const isMJ=()=>HOSTED?S.admin:S.pseudo.trim().toLowerCase()==='mj';
+// Les modifications ne sont possibles que sur la fiche armée complète (jamais sur une fiche légion).
+const ED=()=>isMJ()&&S.tab==='army'&&S.view==='full';
+
+const pretty=t=>String(t).replace(/\[\+0\]/g,'');
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fnum(v){if(v==null||v==='')return '';if(typeof v==='number'){if(v!==v)return '#ERR';return Number.isInteger(v)?String(v):(Math.round(v*100)/100).toLocaleString('fr-FR');}return String(v);}
+function pts(v){return (v==null||v!==v)?'–':Math.round(v).toLocaleString('fr-FR');}
+function uid(a){return a.id+'-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';clearTimeout(toast.t);toast.t=setTimeout(()=>t.className='toast',2800);}
+const getArmy=id=>ARMIES.find(a=>a.id===id);
+const curArmy=()=>getArmy(S.army);
+/* Impression : on choisit paysage ou portrait selon la forme du tableau, et on réduit l'ensemble pour tout voir (colonnes et lignes). */
+function printFit(){
+  // L'impression montre toujours la valeur d'une figurine (fig), la valeur de la ligne (ligne) et les points par légion, même si ces colonnes sont masquées à l'écran.
+  const keepCols=new Set(S.cols);let forced=false;
+  ['W','X','$pts'].forEach(c=>{if(!S.cols.has(c)){S.cols.add(c);forced=true;}});
+  const keepHq=new Set(S.hq);if(S.hq.size){S.hq.clear();forced=true;}
+  if(forced)render();
+  const restoreCols=()=>{if(forced){forced=false;S.cols=keepCols;S.hq=keepHq;render();}};
+  const view=document.getElementById('view');const tb=view&&view.querySelector('.scroll table');
+  document.querySelectorAll('#printfit').forEach(x=>x.remove());const st=document.createElement('style');st.id='printfit';let sc=null,undo=()=>{};
+  try{
+    if(tb){
+      sc=tb.parentElement;const old={w:tb.style.width,o:sc.style.overflow};
+      tb.style.width='max-content';sc.style.overflow='visible';
+      const W=Math.max(tb.offsetWidth,300);let extra=0;
+      [...view.children].forEach(ch=>{if(ch===sc||ch.classList.contains('noprint'))return;const cs=getComputedStyle(ch);extra+=ch.offsetHeight+parseFloat(cs.marginTop||0)+parseFloat(cs.marginBottom||0);});
+      const H=tb.offsetHeight+extra+20;const mm=3.7795,m=8;
+      const dims=o=>o==='L'?{w:(297-2*m)*mm,h:(210-2*m)*mm}:{w:(210-2*m)*mm,h:(297-2*m)*mm};
+      const fit=o=>{const d=dims(o);return Math.min(d.w/W,d.h/H);};
+      const land=fit('L')>fit('P');const s=Math.min(1.25,(land?fit('L'):fit('P'))*0.96); // toujours une seule page : pas de taille minimale
+      st.textContent=`@page{size:A4 ${land?'landscape':'portrait'};margin:${m}mm}@media print{#view{zoom:${s.toFixed(3)}}html,body{height:auto;overflow:hidden}}`;
+      document.head.appendChild(st);
+      undo=()=>{tb.style.width=old.w;sc.style.overflow=old.o;st.remove();restoreCols();};
+    }
+    window.addEventListener('afterprint',function f(){window.removeEventListener('afterprint',f);undo();restoreCols();});
+    window.print();
+  }catch(x){undo();restoreCols();toast('Impression indisponible ici');}
+}
+function colLabel(a,c){if(c==='V'&&a.hdr&&a.hdr.V)return String(a.hdr.V);return SHORT[c];}
+
+function recompute(){let dv=null;ARMIES.forEach(a=>{if(a.defVal)dv=dv||a.defVal;});ARMIES.forEach(a=>{if(!a.defVal)a.defVal=dv;a.units.forEach(u=>calcUnit(u,a,FAM));});}
+function initData(){
+  FAM={};DATA.families.forEach(f=>FAM[f.id]={id:f.id,col:f.col,text:pretty(f.rel),orig:pretty(f.rel)});
+  ARMIES=JSON.parse(JSON.stringify(DATA.armies));ARMIES.forEach(prepArmy);
+  ARMIES.forEach(a=>{a.legions.forEach(l=>{delete l.val;});});
+  loadLocal();recompute();
+}
+function usage(fid){let n=0;const ar=new Set();
+  ARMIES.forEach(a=>a.units.forEach(u=>{[u,u.l2].forEach(r=>{if(!r)return;for(const c in r.fm)if(r.fm[c]===fid&&!r.fo[c]){n++;ar.add(a.id);}});
+    for(const l in u.q)if((u.q[l][4]||a.defVal)===fid){n++;ar.add(a.id);}}));return {n,armies:ar.size};}
+function legStats(a,l){const r=legionValue(a,l.id);return {figs:r.figs,val:r.val,bad:r.bad,units:a.units.filter(u=>u.q[l.id]).length};}
+
+/* ===================== PERSISTANCE ===================== */
+let DB=null;const myRevs=new Set();const pending={};let timer=null;
+const akey=id=>'a_'+id.replace(/[^A-Za-z0-9_-]/g,'_');
+const strip=(k,v)=>(k==='v'||k==='err'||k==='_niFigs'||k==='_stats')?undefined:v;
+function ser(key){if(key==='fams'){const o={};for(const id in FAM)o[id]={col:FAM[id].col,text:FAM[id].text,custom:!!FAM[id].custom};return JSON.stringify(o);}
+  const a=ARMIES.find(x=>akey(x.id)===key);return a?JSON.stringify(a,strip):null;}
+function saveArmy(id){queueSave(akey(id));}
+function saveFams(){queueSave('fams');}
+function queueSave(key){pending[key]=1;clearTimeout(timer);timer=setTimeout(flush,350);}
+async function flush(){const keys=Object.keys(pending);
+  if(HOSTED){if(!keys.length||!S.admin)return;const payload={armies:{},fams:null};
+    keys.forEach(k=>{delete pending[k];if(k==='fams'){payload.fams={};for(const id in FAM)payload.fams[id]={col:FAM[id].col,text:FAM[id].text};}
+      else{const a=ARMIES.find(x=>akey(x.id)===k);if(a)payload.armies[a.id]=JSON.parse(JSON.stringify(a,strip));}});
+    const r=await hostReq('fiches-save',payload);if(!r.success)toast(r.message||'Enregistrement impossible.');return;}
+  for(const k of keys){delete pending[k];const json=ser(k);if(json==null)continue;await writeDoc(k,json);}}
+async function writeDoc(key,json){
+  if(!DB){try{localStorage.setItem('fa2:'+key,json);}catch(e){}return;}
+  const rev=Date.now()+'-'+Math.random().toString(36).slice(2,7);myRevs.add(rev);
+  try{await DB.doc('state/'+key).set({seed:SEED,rev,json});}
+  catch(e){toast("Enregistrement refusé : seul l'éditeur de la page peut enregistrer pour tous.");S.canWrite=false;}
+}
+function loadLocal(){try{
+  const f=localStorage.getItem('fa2:fams');if(f)applyFams(f);
+  ARMIES.forEach((a,i)=>{const s=localStorage.getItem('fa2:'+akey(a.id));if(s)applyArmy(s,false);});}catch(e){}}
+function applyFams(json){try{const o=JSON.parse(json);for(const id in o){if(FAM[id])FAM[id].text=o[id].text;else if(o[id].custom&&o[id].col)FAM[id]={id,col:o[id].col,text:o[id].text,orig:null,custom:true};}}catch(e){}}
+function applyArmy(json){try{const a=JSON.parse(json);const i=ARMIES.findIndex(x=>x.id===a.id);if(i<0)return;prepArmy(a);ARMIES[i]=a;}catch(e){}}
+function onSnapshot(snap){
+  let changed=false;
+  snap.docs.forEach(d=>{if(!d.exists)return;const x=d.data();if(!x||x.seed!==SEED||myRevs.has(x.rev))return;
+    if(d.id==='fams')applyFams(x.json);else if(d.id.startsWith('a_'))applyArmy(x.json);changed=true;});
+  if(changed){recompute();if(!document.getElementById('modal').classList.contains('open'))render();}
+}
+
+/* ===================== AFFICHAGE ===================== */
+function visCols(){return ['B'].concat(COLS.filter(c=>c!=='B'&&S.cols.has(c)));}
+function cellRaw(row,c){return (row.fm[c]||row.fo[c])?row.v[c]:row.in_[c];}
+function cellTd(a,u,which,c,extra){
+  const row=which==='l2'?u.l2:u;const v=cellRaw(row,c);const calc=!!(row.fm[c]||row.fo[c]);
+  const ov=row.fo[c]!=null;const bad=typeof v==='number'&&v!==v;
+  const cls=['cell'];if(calc)cls.push('calc');if(ov)cls.push('ov');if(bad)cls.push('bad');
+  const attr=ED()?` data-cell="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-w="${which}" data-col="${c}"`:'';
+  const tip=ov?' title="Formule propre à cette cellule"':(bad&&row.err?` title="${esc(Object.values(row.err)[0])}"`:'');
+  const bg=xcol(a,c);
+  return `<td class="${cls.join(' ')}"${bg?` style="background:${bg};color:#000"`:''}${attr}${tip}>${esc(fnum(v))}</td>`;
+}
+
+
+/* ---- page formules ---- */
+
+function saveView(){try{localStorage.setItem('fa2:view',JSON.stringify({army:S.army,sel:S.sel,cols:[...S.cols],hq:[...S.hq],pseudo:S.pseudo}));}catch(e){}}
+function loadView(){try{return JSON.parse(localStorage.getItem('fa2:view')||'null');}catch(e){return null;}}
+
+/* ===================== DIALOGUES ===================== */
+function openModal(title,body,buttons){
+  const m=document.getElementById('modal');
+  m.classList.remove('min','fsc');
+  m.innerHTML=`<div class="sheet"><div class="sh"><span class="sht">${esc(title)}</span><span class="wc noprint"><button data-wc="min" title="Réduire en barre" aria-label="Réduire">—</button><button data-wc="fs" title="Plein écran" aria-label="Plein écran">⛶</button><button data-wc="x" title="Fermer" aria-label="Fermer">✕</button></span></div><div class="sb">${body}</div><div class="sf"></div></div>`;
+  const f=m.querySelector('.sf');
+  buttons.forEach(b=>{const el=document.createElement('button');el.className='btn '+(b.cls||'');el.textContent=b.label;el.addEventListener('click',()=>b.fn());f.appendChild(el);});
+  m.classList.add('open');
+  const first=m.querySelector('input,textarea,select');if(first)setTimeout(()=>{try{first.focus();}catch(e){}},30);
+}
+function closeModal(){const m=document.getElementById('modal');m.classList.remove('open','min','fsc','big');m.innerHTML='';S.ft=null;if(HOSTED&&S.reloadPending){S.reloadPending=false;reloadHosted();}}
+function mval(id){const e=document.getElementById(id);return e?e.value:'';}
+function afterChange(armyIds,fams){recompute();if(fams)saveFams();(armyIds||[]).forEach(saveArmy);render();}
+
+function trial(a,u,which,col,text){
+  const c=structuredClone({fm:u.fm,fo:u.fo,in_:u.in_,q:u.q,l2:u.l2,v:{},err:null});
+  c.l2=u.l2?structuredClone({fm:u.l2.fm,fo:u.l2.fo,in_:u.l2.in_,v:{}}):null;
+  const row=which==='l2'?c.l2:c;row.fo[col]=text;
+  calcUnit(c,a,FAM);return row.v[col];
+}
+function openCell(armyId,uidv,which,col){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  const row=which==='l2'?u.l2:u;const calc=!!(row.fm[col]||row.fo[col]);
+  const famId=row.fm[col];const ftxt=row.fo[col]!=null?row.fo[col]:(famId?FAM[famId].text:null);
+  const cur=calc?'='+ftxt:(row.in_[col]==null?'':String(row.in_[col]));
+  const who=`${a.name} › ${u.in_.B||''}${which==='l2'?' (2ᵉ attaque)':''} › ${LONG[col]}`;
+  const body=`<div class="small" style="margin-bottom:8px">${esc(who)}</div>`+
+   (calc?`<textarea id="cv" class="ft" rows="4" spellcheck="false">${esc(cur)}</textarea>`:`<input id="cv" class="ft" type="text" value="${esc(cur)}" spellcheck="false">`)+
+   `<div class="ftres" id="cvr"></div><div class="small" style="margin-top:6px">Saisissez une valeur, ou une formule commençant par <code>=</code> (ex. <code>=G*2</code>). Valeur actuelle : <b>${esc(fnum(cellRaw(row,col)))}</b></div>`;
+  const parse=()=>{const t=mval('cv').trim();
+    if(t.startsWith('=')){const f=t.slice(1).trim();FE.compile(f);return {f,formula:true};}
+    if(calc){if(t!==''&&isFinite(Number(t)))return {f:t,formula:false};return {f:'"'+t.replace(/"/g,'""')+'"',formula:false};}
+    return {value:t===''?null:(isFinite(Number(t))?Number(t):t)};};
+  const btns=[{label:'Annuler',fn:closeModal}];
+  btns.push({label:'Cette cellule',cls:'pri',fn:()=>{let p;try{p=parse();}catch(e){return showRes(e.message,true);}
+    if(p.f!==undefined){row.fo[col]=p.f;}else{if(p.value==null)delete row.in_[col];else row.in_[col]=p.value;delete row.fo[col];}
+    if(col==='B'&&which==='u'&&p.value!=null)row.in_.B=String(p.value);
+    if(col==='D'&&which==='u'&&isDouble(row.in_.D)&&!u.l2){makeL2(a,u,1,'');toast('2ᵉ attaque ajoutée : renseignez-la en double-cliquant sur sa ligne.');}
+    closeModal();afterChange([armyId]);}});
+  if(calc&&famId)btns.push({label:`Toute la famille (${usage(famId).n})`,fn:()=>{let p;try{p=parse();}catch(e){return showRes(e.message,true);}
+    if(p.f===undefined)return showRes("Entrez une formule ou une valeur.",true);
+    FAM[famId].text=p.f;delete row.fo[col];closeModal();afterChange(ARMIES.map(x=>x.id),true);toast('Formule appliquée à toute la famille');}});
+  if(row.fo[col]!=null&&famId)btns.push({label:'Rétablir',fn:()=>{delete row.fo[col];closeModal();afterChange([armyId]);}});
+  openModal('Modifier la cellule',body,btns);
+  function showRes(m,err){const e=document.getElementById('cvr');if(e){e.textContent=m;e.className='ftres '+(err?'err':'ok');}}
+  const upd=()=>{try{const p=parse();if(p.f!==undefined){const r=trial(a,u,which,col,p.f);showRes('→ '+(typeof r==='number'&&r!==r?'#ERR':fnum(r)));}else showRes('');}catch(e){showRes(e.message,true);}};
+  const inp=document.getElementById('cv');inp.addEventListener('input',upd);upd();
+}
+function dupUnit(armyId,uidv){
+  const a=getArmy(armyId),k=a.units.findIndex(x=>x.uid===uidv);if(k<0)return;
+  const src=a.units[k];const c=JSON.parse(JSON.stringify(src,strip));c.uid=uid(a);c.in_.B=(c.in_.B||'')+' (copie)';c.v={};if(c.l2)c.l2.v={};
+  const n=c.in_.A||1;c.q={ni:[n,0,0,null,a.defVal]};
+  a.units.splice(k+(src.l2?1:1),0,c);prepArmyUnitFix(c);afterChange([armyId]);toast('Unité dupliquée dans « Non intégré »');
+}
+function prepArmyUnitFix(u){u.fo=u.fo||{};u.fm=u.fm||{};if(u.l2){u.l2.fo=u.l2.fo||{};u.l2.fm=u.l2.fm||{};}}
+function moveUnit(armyId,uidv){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  const opts=ARMIES.filter(x=>x.id!==armyId).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
+  openModal('Déplacer vers une autre armée',`<div class="small" style="margin-bottom:8px">${esc(u.in_.B||'')} (${esc(a.name)})</div><select id="mvd" class="ft">${opts}</select><div class="small" style="margin-top:6px">L'unité quittera ses légions actuelles et rejoindra la légion « Non intégré » de l'armée choisie. Les bonus d'armée de la destination s'appliquent.</div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Déplacer',cls:'pri',fn:()=>{
+     const d=getArmy(mval('mvd'));if(!d)return;
+     a.units.splice(a.units.indexOf(u),1);a.composites=(a.composites||[]).filter(x=>x.base!==uidv&&x.extra!==uidv);
+     const n=u.in_.A||Object.values(u.q).reduce((s,q)=>s+q[0],0)||1;
+     u.uid=uid(d);u.q={ni:[n,0,0,null,d.defVal]};u.in_.A=n;u.v={};if(u.l2)u.l2.v={};
+     insertUnit(d,u);closeModal();S.army=d.id;S.sel='ni';S.view='full';
+     document.getElementById('armySel').value=d.id;afterChange([armyId,d.id]);toast(`« ${u.in_.B} » déplacée vers ${d.name} (Non intégré)`);}}]);
+}
+function delUnit(armyId,uidv){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  openModal('Supprimer cette unité ?',`<div>${esc(u.in_.B||'')} sera retirée de l'armée ${esc(a.name)} et de toutes ses légions.</div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{a.units.splice(a.units.indexOf(u),1);a.composites=(a.composites||[]).filter(x=>x.base!==u.uid&&x.extra!==u.uid);closeModal();afterChange([armyId]);}}]);
+}
+
+/* ===================== ACTIONS ===================== */
+function setArmy(id,keep){S.army=id;S.view='full';const a=curArmy();if(!keep||!a.legions.some(l=>l.id===S.sel))S.sel=null;document.getElementById('armySel').value=id;S.tab='army';render();}
+function stepLeg(d){const a=curArmy();const mj=isMJ();const vis=a.legions.filter(x=>x.id!=='ni'||mj||legStats(a,x).figs);const i=vis.findIndex(l=>l.id===S.sel);const n=vis[i+d];if(n){S.sel=n.id;render();}}
+function famTest(fid,apply){
+  const ta=document.getElementById('ft_'+fid);const text=ta.value.trim().replace(/^=/,'');const out=document.getElementById('fr_'+fid);
+  try{FE.compile(text);}catch(e){out.className='ftres err';out.textContent=e.message;return null;}
+  const F2=Object.assign({},FAM,{[fid]:{text,col:FAM[fid].col}});let rows=0,changed=0,errs=0;
+  ARMIES.forEach(a=>a.units.forEach(u=>{
+    const uses=[u,u.l2].some(r=>r&&Object.entries(r.fm).some(([c,id])=>id===fid&&!r.fo[c]))||Object.values(u.q).some(q=>(q[4]||a.defVal)===fid);
+    if(!uses)return;rows++;
+    const c=structuredClone({fm:u.fm,fo:u.fo,in_:u.in_,q:u.q,l2:u.l2});c.v={};c.err=null;if(c.l2)c.l2.v={};
+    calcUnit(c,a,F2);
+    const cmp=(r0,r1)=>{for(const k in r1.v){const x=r0.v[k],y=r1.v[k];if(typeof y==='number'&&y!==y){errs++;continue;}if(typeof y==='number'&&typeof x==='number'&&Math.abs(x-y)>1e-6)changed++;}};
+    cmp(u,c);if(u.l2)cmp(u.l2,c.l2);
+    for(const l in u.q){const x=u.q[l][3],y=c.q[l][3];if(typeof y==='number'&&y!==y)errs++;else if(typeof x==='number'&&Math.abs(x-y)>1e-6)changed++;}
+  }));
+  out.className='ftres '+(errs?'err':'ok');out.textContent=`Formule valide · ${rows} unités concernées · ${changed} valeurs changeraient${errs?` · ${errs} erreurs`:''}`;
+  return {text,errs};
+}
+function onClick(e){
+  const el=e.target.closest('[data-a]');if(!el||el.disabled)return;
+  const a=el.dataset.a,cur=curArmy();
+  switch(a){
+    case 'openpick':openFromLink(el.dataset.army,el.dataset.leg);window.scrollTo(0,0);break;
+    case 'pickme':doPick(cur.id,S.sel);break;
+    case 'pickcat':{const ar=(S.catalog||[]).find(c=>c.id===el.dataset.army);const lg=el.dataset.leg,aid=el.dataset.army;
+      openModal('Confirmer votre légion',`<div>${esc(ar?ar.name:'')} · ${esc(legName({id:lg}))}</div><div class="small" style="margin-top:8px">Tant que les fiches sont fermées, seul le MJ pourra changer ce choix.</div>`,
+        [{label:'Annuler',fn:closeModal},{label:'Confirmer',cls:'pri',fn:()=>{closeModal();doPick(aid,lg);}}]);break;}
+    case 'unpick':if(isMJ()){const n=el.dataset.name;hostReq('fiches-pick',{clear:true,name:n}).then(r=>toast(r.success?`Choix de ${n} retiré`:r.message));}break;
+    case 'tab-army':S.tab='army';render();break;
+    case 'tab-form':S.tab='form';render();break;
+    case 'leg':S.sel=el.dataset.leg;render();break;
+    case 'mk':S.view='legion';render();window.scrollTo(0,0);break;
+    case 'back':S.view='full';render();break;
+    case 'prev':stepLeg(-1);break;case 'next':stepLeg(1);break;
+    case 'colstoggle':S.showCols=!S.showCols;render();break;
+    case 'col':{const c=el.dataset.col;S.cols.has(c)?S.cols.delete(c):S.cols.add(c);render();break;}
+    case 'qcol':{const k=el.dataset.q;S.hq.has(k)?S.hq.delete(k):S.hq.add(k);saveView();render();break;}
+    case 'cols-all':COLS.forEach(c=>S.cols.add(c));S.hq.clear();render();break;
+    case 'cols-def':S.cols=new Set(DEFCOLS);S.hq.clear();render();break;
+    case 'cols-none':S.cols=new Set();if(S.view==='legion')['nb','u','e','pts'].forEach(k=>S.hq.add(k));render();break;
+    case 'print':printFit();break;
+    case 'copy':{const l=cur.legions.find(x=>x.id===S.sel);const txt=toText(cur,l);
+      (async()=>{try{await navigator.clipboard.writeText(txt);toast('Fiche copiée');}catch(x){try{const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();toast('Fiche copiée');}catch(y){toast('Copie indisponible ici');}}})();break;}
+    case 'newunit':if(ED())newUnit();break;
+    case 'famtest':famTest(el.dataset.fam);break;
+    case 'famapply':if(isMJ()){const r=famTest(el.dataset.fam);if(r&&!r.errs){FAM[el.dataset.fam].text=r.text;afterChange(ARMIES.map(x=>x.id),true);toast('Formule appliquée à toutes les lignes concernées');}}break;
+    case 'famreset':if(isMJ()){FAM[el.dataset.fam].text=FAM[el.dataset.fam].orig;afterChange(ARMIES.map(x=>x.id),true);}break;
+    case 'famunify':if(isMJ()){const fid=el.dataset.fam,col=FAM[fid].col;const r=famTest(fid);if(!r||r.errs)break;
+      openModal('Étendre à toute la colonne ?',`Toutes les lignes de la colonne « ${esc(FAMNAME[col])} » de toutes les armées utiliseront cette formule (y compris celles qui avaient une formule différente).`,
+      [{label:'Annuler',fn:closeModal},{label:'Étendre',cls:'pri',fn:()=>{FAM[fid].text=r.text;
+        ARMIES.forEach(a=>a.units.forEach(u=>{[u,u.l2].forEach(row=>{if(row&&row.fm[col])row.fm[col]=fid;});if(col==='val')for(const l in u.q)u.q[l][4]=fid;}));
+        if(col==='val')ARMIES.forEach(a=>a.defVal=fid);
+        closeModal();afterChange(ARMIES.map(x=>x.id),true);toast('Formule étendue à toute la colonne');}}]);}break;
+  }
+}
+function setPseudo(p,silent){S.pseudo=String(p||'').trim();const el=document.getElementById('pseudo');if(el&&el.value!==S.pseudo)el.value=S.pseudo;render();if(!silent&&isMJ())toast('Mode MJ activé');}
+function openFromLink(armyId,leg){if(!getArmy(armyId))return;S.army=armyId;S.tab='army';document.getElementById('armySel').value=armyId;
+  if(leg&&getArmy(armyId).legions.some(l=>l.id===leg)){S.sel=leg;S.view='legion';}else{S.view='full';}render();}
+
+/* ===================== MODE HÉBERGÉ (dans le projet carte) ===================== */
+const HB={rid:0,wait:new Map()};
+function hostReq(event,payload){return new Promise(res=>{const rid=++HB.rid;
+  const t=setTimeout(()=>{HB.wait.delete(rid);res({success:false,message:'Le serveur ne répond pas.'});},20000);
+  HB.wait.set(rid,r=>{clearTimeout(t);res(r);});
+  parent.postMessage({type:'fiches:req',rid,event,payload},location.origin);});}
+async function reloadHosted(){
+  if(document.getElementById('modal').classList.contains('open')){S.reloadPending=true;return;}
+  if(S.admin)await flush();
+  await loadHosted(false);
+}
+function startHosted(init){
+  S.admin=!!init.isAdmin;S.pseudo=init.name||'';S.access=init.access!==false;S.pendingOpen=init.open||null;
+  window.addEventListener('message',ev=>{if(ev.origin!==location.origin||ev.source!==parent)return;const d=ev.data;if(!d||typeof d!=='object')return;
+    if(d.type==='fiches:res'){const f=HB.wait.get(d.rid);if(f){HB.wait.delete(d.rid);f(d.res);}}
+    else if(d.type==='fiches:changed')reloadHosted();
+    else if(d.type==='fiches:reopen'){S.tab=d.tab||'army';loadHosted(true).then(()=>mjHelp());}
+    else if(d.type==='fiches:ouvrir'){if(!S.loaded)S.pendingOpen=d;else if(d.unit)showUnitCard(d.unit);else if(d.tab){S.tab=d.tab;render();}else{openFromLink(d.armee||d.army,d.legion);}if(!d.unit)mjHelp();}});
+  loadHosted(true).then(()=>mjHelp());
+}
+
+/* ===================== NOUVEAUTÉS : sections, légions, choix, arbre de formules ===================== */
+function legName(l){if(!l)return '';if(l.id==='ni')return 'Non intégré';if(l.name)return l.name;if(l.id==='renfort')return 'Renfort';return 'Légion '+l.id;}
+function legShort(l){return l.id==='ni'?'non int.':(l.name?l.name:l.id);}
+
+/* les figurines d'une ligne qui ne sont dans aucune légion vont dans « Non intégré » (une seule fois par armée, puis le MJ garde la main) */
+function fillNonIntegre(a){
+  if(a.niInit||S.restricted)return;
+  a.units.forEach(u=>{const A=u.in_.A;if(typeof A!=='number'||u.q.ni)return;
+    let sum=0;for(const l in u.q)sum+=u.q[l][0]||0;
+    if(A>sum)u.q.ni=[A-sum,0,0,null,a.defVal||null,a.defVal||null,0,u.q[Object.keys(u.q)[0]]?(u.q[Object.keys(u.q)[0]][7]||''):''];});
+  a.niInit=true;
+}
+function prepArmy(a){
+  let n=0;
+  a.units.forEach(u=>{u.uid=u.uid||(u.row!=null?`${a.id}-r${u.row}`:(a.id+'-'+(++n)+'-'+Math.random().toString(36).slice(2,6)));u.fo=u.fo||{};u.fm=u.fm||{};u.v={};delete u.calc;u.err=null;
+    u.cat=u.cat||'';if(!u.fm0)u.fm0=Object.assign({},u.fm);
+    Object.values(u.q).forEach(q=>{if(q[5]===undefined)q[5]=q[4]||null;});
+    if(u.l2){u.l2.fo=u.l2.fo||{};u.l2.fm=u.l2.fm||{};u.l2.v={};delete u.l2.calc;if(!u.l2.fm0)u.l2.fm0=Object.assign({},u.l2.fm);}});
+  const cnt={};a.units.forEach(u=>Object.values(u.q).forEach(q=>{if(q[4]&&q[4]!=='none')cnt[q[4]]=(cnt[q[4]]||0)+1;}));
+  const best=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0];
+  if(best)a.defVal=best;
+  fillNonIntegre(a);
+  if(!Array.isArray(a.sections))a.sections=[];
+  initComposites(a);
+  a.units.forEach(u=>{if(!a.sections.includes(u.cat))a.sections.push(u.cat);});
+  if(!S.restricted&&!a.legions.some(l=>l.id==='ni'))a.legions.push({id:'ni',kind:'ni',figs:0,val:0,sup:0,comp:null,tag:null});
+  a.legions.sort((x,y)=>(x.id==='ni')-(y.id==='ni'));
+}
+function groupUnits(a,filter,withEmpty){
+  const out=[];const names=a.sections.slice();
+  a.units.forEach(u=>{if(!names.includes(u.cat||''))names.push(u.cat||'');});
+  names.forEach(n=>{const us=a.units.filter(u=>(u.cat||'')===n&&(!filter||filter(u)));if(us.length||(withEmpty&&n!==''))out.push({cat:n,units:us});});
+  return out;
+}
+function visLegions(a){const mj=isMJ();return a.legions.filter(l=>l.id!=='ni'||mj||legStats(a,l).figs>0);}
+const uTxt=q=>q&&q[6]?`${q[6]}${q[7]||''}`:'';
+function legTot(a,l){let n=0,c=0,e=0,v=0;a.units.forEach(u=>{const q=u.q[l.id];if(!q)return;n+=q[0];c+=q[6]||0;e+=q[2]||0;v+=(q[3]===q[3]&&q[3]!=null)?q[3]:0;});return {n,c,e,v:v+(l.sup||0)};}
+const lgW=()=>S.cols.has('$pts')?4:3;
+
+/* ---- choix de légion ---- */
+const isMe=n=>String(n).toLowerCase()===String(S.pseudo).toLowerCase();
+function pickOwner(armyId,lid){for(const n in S.picks){const p=S.picks[n];if(p.army===armyId&&p.legion===lid)return n;}return null;}
+function picksBar(){
+  if(!HOSTED)return '';const names=Object.keys(S.picks||{});
+  if(!names.length)return '<div class="hint noprint">Aucun joueur n\'a encore choisi de légion.</div>';
+  let h='<label class="lbl noprint">Légions choisies par les joueurs</label><div class="chips noprint">';
+  names.sort((x,y)=>x.localeCompare(y,'fr')).forEach(n=>{const p=S.picks[n];const ar=getArmy(p.army);const lg=ar&&ar.legions.find(l=>l.id===p.legion);if(!lg)return;
+    const on=S.army===p.army&&S.sel===p.legion&&S.view==='legion';
+    h+=`<span class="pk"><button class="chip sm ${isMe(n)?'me':''} ${on?'on':''}" data-a="openpick" data-army="${esc(p.army)}" data-leg="${esc(p.legion)}">${esc(n)}${isMe(n)?' (moi)':''}<small>${esc(ar.name)} · ${esc(legName(lg))}</small></button>${isMJ()&&!isMe(n)?`<button class="mini" data-dbl="1" data-a="unpick" data-name="${esc(n)}" title="Retirer ce choix (double-clic)">✕</button>`:''}</span>`;});
+  return h+'</div>';
+}
+function pickBtn(a){
+  if(!HOSTED||!S.sel||S.sel==='ni')return '';
+  const owner=pickOwner(a.id,S.sel);
+  if(owner&&isMe(owner))return '<span class="tag" style="margin:0">Ma légion ✓</span>'+((isMJ()||!S.frozen)?'<button class="btn" data-a="unpickme">Libérer ma légion</button>':'<span class="small">figée par le MJ</span>');
+  if(owner)return `<button class="btn" disabled>Choisie par ${esc(owner)}</button>`;
+  if(S.myPick&&S.frozen&&!isMJ())return '<button class="btn" disabled>Légions figées par le MJ</button>';
+  return `<button class="btn" data-a="pickme">⭐ ${S.myPick?'Prendre cette légion à la place de la mienne':'Choisir cette légion'}</button>`;
+}
+function renderCatalog(){
+  let h='<h1>Choisissez votre légion</h1><p class="sub">Le MJ a fermé l\'accès aux autres fiches d\'armée. Choisissez la légion que vous commandez : une légion ne peut être choisie que par un seul joueur.</p>';
+  (S.catalog||[]).forEach(c=>{if(!c.legions.length)return;h+=`<div class="card"><b>${esc(c.name)}</b><div class="chips" style="margin-top:8px">`;
+    c.legions.forEach(l=>{const t=l.takenBy;h+=`<button class="chip" ${t?'disabled':''} data-a="pickcat" data-army="${esc(c.id)}" data-leg="${esc(l.id)}">${esc(legName(l))}<small>${t?'choisie par '+esc(t):l.figs+' fig'+(l.comp?' · '+esc(l.comp):'')}</small></button>`;});h+='</div></div>';});
+  return h;
+}
+
+/* ---- boutons d'unité / de section ---- */
+/* codes couleurs des fiches Excel : colonnes principales (att, dis, PV, A, dep, typ dép) et colonnes calculées en gris */
+const XC={C:'#ffcc00',E:'#ffcc00',F:'#969696',G:'#ff9900',H:'#ff0000',I:'#ffff99',J:'#969696',K:'#ffff99',L:'#969696',M:'#969696',Q:'#969696',R:'#969696'};
+const xcol=(a,c)=>XC[c];
+const hdrStyle=(a,c)=>`background:${xcol(a,c)||'#c0c0c0'};color:#000`;
+function headTh(a,c,rs){return `<th class="${c==='B'?'name':'wrapth'}" style="${hdrStyle(a,c)}" ${rs?`rowspan="${rs}"`:''} title="${esc(LONG[c])}">${esc(c==='B'?'Unité':colLabel(a,c))}</th>`;}
+function colsPanel(a){
+  let h='<div class="card noprint"><div class="chips">';
+  COLS.forEach(c=>{if(c==='B')return;const on=S.cols.has(c);h+=`<button class="chip sm ${on?'on':''}" data-a="col" data-col="${c}" title="${esc(LONG[c])}">${esc(colLabel(a,c))}<small>${c}</small></button>`;});
+  if(S.view==='legion')[['nb','nb','figurines de la ligne'],['u','U','unités et leur type'],['e','E','étendards'],['pts','pts','valeur de la ligne']].forEach(([k,lab,t])=>{h+=`<button class="chip sm ${S.hq.has(k)?'':'on'}" data-a="qcol" data-q="${k}" title="${t}">${lab}<small>${t}</small></button>`;});
+  h+=`<button class="chip sm ${S.cols.has('$pts')?'on':''}" data-a="col" data-col="$pts" title="Valeur en points de chaque ligne dans chaque légion">pts lég.<small>val ligne</small></button>`;
+  h+='</div><div class="row" style="margin:8px 0 0"><button class="btn" data-a="cols-all">Tout afficher</button><button class="btn" data-a="cols-def">Par défaut</button><button class="btn" data-a="cols-none">Masquer tout</button></div></div>';
+  return h;
+}
+
+/* ---- fiche armée : chaque légion a ses colonnes nb / c / E (+ pts) ---- */
+function renderFull(a){
+  const cs=visCols();const mj=ED();const vl=visLegions(a);const w=lgW();let h=picksBar();
+  h+='<label class="lbl noprint">Légion</label><div class="chips noprint">';
+  vl.forEach(l=>{const t=legTot(a,l);const o=HOSTED?pickOwner(a.id,l.id):null;
+    h+=`<button class="chip ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}"${mj?' data-ondbl="legmenu"':''}>${esc(legName(l))}<small>${t.n} fig · ${pts(t.v)} pts${o?' · '+esc(o):''}</small></button>`;});
+  if(mj)h+='<button class="chip" data-dbl="1" data-a="newleg" title="Double-cliquez pour créer une légion">＋ Nouvelle légion</button>';
+  h+='</div>';
+  const cur=a.legions.find(l=>l.id===S.sel);
+  h+=`<div class="row noprint"><button class="btn pri" data-a="mk" ${cur?'':'disabled'}>${cur?('Créer la fiche : '+esc(legName(cur))):'Sélectionnez une légion'}</button>`+pickBtn(a);
+  h+=`<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button>`;
+  if(mj)h+='<button class="btn" data-dbl="1" data-a="newunit" title="Double-cliquez">＋ Unité</button><button class="btn" data-dbl="1" data-a="newsec" title="Double-cliquez">＋ Section</button>';
+  h+='</div>';
+  if(mj)h+='<div class="hint noprint">Mode MJ : toute modification se fait par <b>double clic</b> (cellule, nom d\'unité, section, légion, bonus, boutons ＋). Les fiches légion ne sont pas modifiables.</div>';
+  if(S.showCols)h+=colsPanel(a);
+  h+=paramsPanel(a);
+  if(mj)h+=compPanel(a);
+  h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c,2)).join('');
+  vl.forEach(l=>{h+=`<th class="lg gs ${S.sel===l.id?'on':''}" colspan="${w}" data-a="leg" data-leg="${esc(l.id)}"${mj?' data-ondbl="legmenu"':''} title="${esc(legName(l))}">${esc(legShort(l))}</th>`;});
+  h+='</tr><tr>';
+  vl.forEach(l=>{['nb','U','E'].concat(w===4?['pts']:[]).forEach((t,k)=>{h+=`<th class="lg sub ${k===0?'gs':''} ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}">${t}</th>`;});});
+  h+='</tr></thead><tbody>';
+  const span=cs.length+vl.length*w;const plans={};vl.forEach(l=>{plans[l.id]=compPlan(a,l.id);});
+  groupUnits(a,null,mj).forEach(g=>{
+    h+=secRow(a,g,span,mj);
+    g.units.forEach(u=>{['u','l2'].forEach(wh=>{
+      if(wh==='l2'&&!u.l2)return;
+      h+='<tr'+(wh==='l2'?' class="l2"':(isCompU(a,u)?' class="compr"':''))+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c)).join('');
+      if(wh==='l2')h+=`<td colspan="${vl.length*w}"></td>`;
+      else vl.forEach(l=>{const q=u.q[l.id];const on=S.sel===l.id?'on':'';
+        const ad=q?compAdj(plans[l.id]||[],u,q):null;
+        for(let k=0;k<3;k++){
+          const attr=mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${k}"`:'';
+          let txt=q?(k===0?`<span class="qty">${q[0]}</span>`:(k===1?uTxt(q):(q[k]||''))):(k===0?'<span class="dim">·</span>':'');
+          if(ad){if(k===0)txt=(ad.nb>0?`<span class="qty">${ad.nb}</span>`:'<span class="dim">·</span>')+`<small class="compwith" title="figurines de cette ligne dans une unité composée">+${ad.in}🧩</small>`;
+            else if(k===1){const nu=ad.u!=null?ad.u:ad.nb;txt=nu>0?nu+(ad.type||''):'';}}
+          h+=`<td class="lg ${k===0?'gs':''} ${on}"${attr}>${txt}</td>`;}
+        if(w===4)h+=`<td class="lg ${on}">${q&&q[3]===q[3]&&q[3]!=null?Math.round(q[3]):''}</td>`;});
+      h+=actTd(a,u,wh)+'</tr>';});});
+  });
+  h+='<tr class="total"><td class="name">Total</td>'+cs.slice(1).map(()=>'<td></td>').join('');
+  vl.forEach(l=>{const t=legTot(a,l);const on=S.sel===l.id?'on':'';
+    h+=`<td class="lg gs ${on}">${t.n}</td><td class="lg ${on}">${t.c||''}</td><td class="lg ${on}">${t.e||''}</td>`+(w===4?`<td class="lg ${on}">${pts(t.v)}</td>`:'');});
+  h+='</tr></tbody></table></div>';
+  if(a.notes&&a.notes.length)h+='<div class="notes">'+a.notes.map(esc).join('<br>')+'</div>';
+  return h;
+}
+
+/* ---- fiche légion ---- */
+function renderLegion(a){
+  const l=a.legions.find(x=>x.id===S.sel);if(!l){S.view='full';return renderFull(a);}
+  const mj=false;const cs=visCols();const rows=a.units.filter(u=>u.q[l.id]);
+  const t=legTot(a,l);let h=picksBar();
+  const qc={nb:!S.hq.has('nb'),u:!S.hq.has('u'),e:!S.hq.has('e'),pts:!S.hq.has('pts')};const nq=Object.values(qc).filter(Boolean).length;
+  const plan=compPlan(a,l.id),planBase={},hideEx={},usedEx={};
+  plan.forEach(o=>{(planBase[o.c.base]=planBase[o.c.base]||[]).push(o);if(o.per)usedEx[o.c.extra]=(usedEx[o.c.extra]||0)+o.used;else hideEx[o.c.extra]=1;});
+  const vis=visLegions(a);const vi=vis.indexOf(l);const rs=HOSTED&&S.restricted;
+  const nav=rs?'':`<button class="btn" data-a="back">← Armée complète</button><button class="btn" data-a="prev" ${vi<=0?'disabled':''}>◀</button><button class="btn" data-a="next" ${vi>=vis.length-1?'disabled':''}>▶</button>`;
+  h+=`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${pickBtn(a)}</div>`;
+  if(mj&&l.id!=='ni')h+='<div class="row noprint"><button class="btn" data-a="editleg">✎ Modifier la légion</button><button class="btn" data-a="dupleg">⧉ Dupliquer</button><button class="btn" data-a="delleg">🗑 Supprimer</button><button class="btn" data-a="newleg">＋ Nouvelle légion</button></div>';
+  if(S.showCols)h+=colsPanel(a);
+  h+=`<div class="card"><div class="sans small up">${esc(a.name)}</div><h1 style="font-size:26px;margin:2px 0">${esc(legName(l))}${l.tag?'<span class="tag">'+esc(l.tag)+'</span>':''}</h1>`;
+  h+=`<div class="kpis"><div class="kpi"><b>${t.c}</b><span>unités</span></div><div class="kpi"><b>${t.n}</b><span>figurines</span></div><div class="kpi"><b>${pts(t.v)}</b><span>points</span></div><div class="kpi"><b>${rows.length}</b><span>types d'unités</span></div></div>`;
+  S.partner=l.partner||null;
+  if(l.partner){const pa=getArmy(l.partner.army);h+=`<div class="hint">Cette légion est formée de <b>deux armées</b> : elle est complétée par la légion ${esc(l.partner.legion)} des <b>${esc(pa?pa.name:l.partner.army)}</b>. <button class="btn" data-a="openpartner">Voir l'autre moitié</button></div>`;}
+  if(l.comp)h+=`<div class="comp">Composition : ${esc(l.comp)}</div>`;
+  h+=compNote(a,l);
+  h+='</div>';
+  if(!rows.length)h+='<div class="hint">Aucune unité dans cette légion.</div>';
+  else{
+    h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c)).join('')+''+(qc.nb?'<th>nb</th>':'')+(qc.u?'<th title="U : nombre d\'unités et leur type">U</th>':'')+(qc.e?'<th title="E de la légion">E</th>':'')+(qc.pts?'<th title="Valeur de la ligne dans cette légion">pts</th>':'')+''+(mj?'<th class="noprint"></th>':'')+'</tr></thead><tbody>';
+    groupUnits(a,u=>u.q[l.id],false).forEach(g=>{
+      h+=secRow(a,g,cs.length+nq+(mj?1:0),false);
+      g.units.forEach(u=>{const q=u.q[l.id];
+        if(hideEx[u.uid])return; // la figurine seule est affichée avec sa ligne de base, dans l'unité composée
+        const ops=planBase[u.uid]||[];
+        let nbS=q[0],uS=uTxt(q);
+        const o1=ops.find(o=>!o.per);
+        if(o1){nbS=o1.full*o1.size;uS=o1.full+(q[7]||'');}
+        else if(ops.length){nbS=ops[0].left;uS=ops[0].left+(q[7]||'');}
+        if(usedEx[u.uid]){nbS=q[0]-usedEx[u.uid];}
+        ['u','l2'].forEach(wh=>{if(wh==='l2'&&!u.l2)return;if(nbS<=0)return;
+          h+='<tr'+(wh==='l2'?' class="l2"':(isCompU(a,u)?' class="compr"':''))+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c)).join('');
+          if(wh==='u'){const at=i=>mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${i}"`:'';
+            const okv=q[3]!=null&&q[3]===q[3];
+            h+=(qc.nb?`<td class="qty"${at(0)}>${nbS}</td>`:'')+(qc.u?`<td${at(1)}>${uS}</td>`:'')+(qc.e?`<td${at(2)}>${q[2]||''}</td>`:'')+(qc.pts?`<td>${okv?Math.round(q[3]*nbS/(q[0]||1)):''}</td>`:'');}
+          else h+='<td></td>'.repeat(nq);
+          h+=actTd(a,u,wh)+'</tr>';});
+        ops.forEach(o=>{h+=compRows(a,l,o,cs,qc);});});
+    });
+    h+=`<tr class="total"><td class="name">Total</td>${cs.slice(1).map(()=>'<td></td>').join('')}${qc.nb?`<td>${t.n}</td>`:''}${qc.u?`<td>${t.c||''}</td>`:''}${qc.e?`<td>${t.e||''}</td>`:''}${qc.pts?`<td>${pts(t.v)}</td>`:''}${mj?'<td class="noprint"></td>':''}</tr></tbody></table></div>`;
+  }
+  if(mj){const others=a.units.filter(u=>!u.q[l.id]);
+    h+=`<div class="card noprint"><div class="lbl2">Ajouter une unité à cette légion</div><div class="row" style="margin:6px 0 0"><select id="addUnit" style="flex:1;min-width:160px">${others.map(u=>`<option value="${esc(u.uid)}">${esc(u.in_.B||'')}</option>`).join('')}</select><input id="addQty" type="number" min="1" value="1" style="width:84px"><button class="btn" data-a="addtoleg" ${others.length?'':'disabled'}>Ajouter</button></div></div>`;}
+  if(l.sup&&Math.abs(l.sup)>0.01)h+=`<div class="hint">Le total inclut un supplément de ${pts(l.sup)} pts propre à la fiche d'origine, non ventilé par ligne.</div>`;
+  if(a.notes&&a.notes.length)h+='<div class="notes">'+a.notes.map(esc).join('<br>')+'</div>';
+  h+=`<div class="hint noprint">Source : ${esc(a.file)}</div>`;
+  return h;
+}
+function toText(a,l){
+  const cs=visCols();let t=`${a.name} — ${legName(l)}\n\n`;
+  t+=cs.map(c=>c==='B'?'Unité':colLabel(a,c)).concat(['nb','U','E','pts']).join('\t')+'\n';
+  a.units.filter(u=>u.q[l.id]).forEach(u=>{const q=u.q[l.id];
+    t+=cs.map(c=>fnum(cellRaw(u,c))).concat([q[0],uTxt(q),q[2]||'',q[3]==null||q[3]!==q[3]?'':Math.round(q[3])]).join('\t')+'\n';
+    if(u.l2)t+=cs.map(c=>c==='B'?'↳ 2e attaque':fnum(cellRaw(u.l2,c))).join('\t')+'\n';});
+  return t;
+}
+
+/* ---- rendu général ---- */
+function render(){
+  const root=document.getElementById('view');
+  if(HOSTED&&!S.loaded){root.innerHTML='<div class="hint">Chargement des fiches…</div>';return;}
+  const rs=HOSTED&&S.restricted;
+  const $=id=>document.getElementById(id);
+  $('tabA').style.display='';$('tabA').textContent=rs?'Légions':'Armées';$('tabF').style.display=rs?'none':'';
+  $('tabP').style.display=HOSTED?'':'none';$('tabP').textContent='Équipes';$('tabP').className='tab'+(S.tab==='players'?' on':'');
+  $('tabS').style.display=(HOSTED&&isMJ()&&!rs)?'':'none';$('tabS').className='tab'+(S.tab==='saves'?' on':'');
+  $('tabH').style.display=(HOSTED&&isMJ())?'':'none';
+  $('mjBadge').style.display=isMJ()?'inline-block':'none';
+  $('dbBadge').textContent=HOSTED?(rs?'accès limité':(S.access?'serveur':'fiches fermées aux joueurs')+(S.frozen?' · légions figées':'')):(S.dbOn?(S.canWrite===false?'partagé · lecture':'partagé'):'local');
+  if(rs){
+    if(S.tab!=='players')S.tab='army';$('armyBar').style.display='none';
+    $('tabA').className='tab'+(S.tab==='army'?' on':'');
+    if(S.tab==='players'){root.innerHTML=renderPlayers();return;}
+    const a=curArmy();const ok=a&&a.legions.some(l=>l.id===S.sel&&l.id!=='ni');
+    let h='';
+    if(ok){S.view='legion';h+=renderLegion(a);}else h+=picksBar();
+    if(!S.myPick)h+=renderCatalog();
+    root.innerHTML=h;saveView();return;
+  }
+  if(!ARMIES.length){root.innerHTML='<div class="hint">Aucune fiche disponible.</div>';return;}
+  const a=curArmy();
+  $('tabA').className='tab'+(S.tab==='army'?' on':'');
+  $('tabF').className='tab'+(S.tab==='form'?' on':'');
+  $('armyBar').style.display=(S.tab==='army'&&S.view==='full')?'block':'none';
+  if(S.tab==='players'&&HOSTED){$('armyBar').style.display='none';root.innerHTML=renderPlayers();return;}
+  if(S.tab==='saves'&&HOSTED&&isMJ()){$('armyBar').style.display='none';root.innerHTML=renderSaves();if(!S.snaps)loadSnaps();return;}
+  if(S.tab==='players'||S.tab==='saves')S.tab='army';
+  if(S.tab==='form'){root.innerHTML=renderFormulas();return;}
+  const ni=a.legions.find(l=>l.id==='ni');a._niFigs=ni?legStats(a,ni).figs:0;
+  const head=S.view==='legion'?'':`<div class="sub noprint">${a.legions.filter(l=>l.id!=='ni').length} légion${a.legions.filter(l=>l.id!=='ni').length>1?'s':''} · fiche ${esc(a.version||'')} · ${a.units.length} types d'unités</div>`;
+  root.innerHTML=head+(S.view==='legion'?renderLegion(a):renderFull(a));
+  saveView();
+}
+
+/* ---- quantités de légion (cellule vide = ajout de l'unité à la légion) ---- */
+function openLegQty(armyId,uidv,lid,i){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  const q=u.q[lid];const lg=a.legions.find(l=>l.id===lid);
+  const nm=['Nombre de figurines (nb)','Nombre d\'unités (U)','Unités avec étendard (E)'][i];
+  if(!q&&i!==0)return toast("Renseignez d'abord la quantité de cette unité dans la légion.");
+  openModal('Modifier '+nm,`<div class="small" style="margin-bottom:8px">${esc(a.name)} › ${esc(u.in_.B||'')} › ${esc(legName(lg))}</div><input id="lqv" class="ft" type="number" min="0" value="${q?(i===1?(q[6]||1):q[i]):0}">${i===0?'<div class="small" style="margin-top:6px">0 retire l\'unité de la légion.</div>':''}`,
+   [{label:'Annuler',fn:closeModal},{label:'Valider',cls:'pri',fn:()=>{const n=Math.max(0,Math.round(Number(mval('lqv'))||0));
+     if(i===0){if(n===0)delete u.q[lid];else if(q)q[0]=n;else u.q[lid]=[n,0,0,null,a.defVal,a.defVal,1,''];}else if(i===1)q[6]=Math.max(1,n);else q[i]=n;
+     closeModal();afterChange([armyId]);}}]);
+}
+
+/* ---- sections ---- */
+function cleanName(t,max){return String(t||'').replace(/\s+/g,' ').trim().slice(0,max);}
+function addSection(){
+  const a=curArmy();
+  openModal('Nouvelle section',`<input id="sn" class="ft" type="text" maxlength="60" placeholder="ex. : armes de jet, machines, monstres…"><div class="ftres err" id="sne"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Créer',cls:'pri',fn:()=>{const n=cleanName(mval('sn'),60);const e=document.getElementById('sne');
+     if(!n){e.textContent='Donnez un nom à la section.';return;}
+     if(a.sections.some(x=>x.toLowerCase()===n.toLowerCase())){e.textContent='Cette section existe déjà.';return;}
+     a.sections.push(n);closeModal();afterChange([a.id]);toast(`Section « ${n} » créée`);}}]);
+}
+function renameSection(old){
+  const a=curArmy();
+  openModal('Renommer la section',`<input id="sn" class="ft" type="text" maxlength="60" value="${esc(old)}"><div class="ftres err" id="sne"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Renommer',cls:'pri',fn:()=>{const n=cleanName(mval('sn'),60);const e=document.getElementById('sne');
+     if(!n){e.textContent='Nom requis.';return;}
+     if(n.toLowerCase()!==old.toLowerCase()&&a.sections.some(x=>x.toLowerCase()===n.toLowerCase())){e.textContent='Cette section existe déjà.';return;}
+     a.sections=a.sections.map(x=>x===old?n:x);a.units.forEach(u=>{if(u.cat===old)u.cat=n;});closeModal();afterChange([a.id]);}}]);
+}
+function deleteSection(name){
+  const a=curArmy();if(a.units.some(u=>u.cat===name))return toast('Section non vide : déplacez d\'abord ses unités.');
+  a.sections=a.sections.filter(x=>x!==name);afterChange([a.id]);
+}
+function unitSection(armyId,uidv){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  openModal('Changer de section',`<div class="small" style="margin-bottom:8px">${esc(u.in_.B||'')}</div><select id="us" class="ft">${a.sections.filter(x=>x!=='').map(x=>`<option ${x===u.cat?'selected':''}>${esc(x)}</option>`).join('')}</select><div class="small" style="margin-top:6px">Pour créer une nouvelle section, utilisez « ＋ Section ».</div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Déplacer',cls:'pri',fn:()=>{u.cat=mval('us');closeModal();afterChange([armyId]);}}]);
+}
+function insertUnit(d,u){
+  u.cat=u.cat||'divers';if(!d.sections.includes(u.cat))d.sections.push(u.cat);
+  let idx=-1;d.units.forEach((x,i)=>{if(x.cat===u.cat)idx=i;});
+  d.units.splice(idx<0?d.units.length:idx+1,0,u);
+}
+
+/* ---- légions : créer, modifier, dupliquer, supprimer ---- */
+function nextLegId(a){let n=1;const ids=new Set(a.legions.map(l=>l.id));while(ids.has(String(n)))n++;return String(n);}
+function legForm(l){
+  const f=(id,lbl,val,t,ph)=>`<label class="fl">${lbl}<input id="${id}" class="ft" type="${t||'text'}" value="${esc(val==null?'':val)}" ${ph?`placeholder="${esc(ph)}"`:''}></label>`;
+  return `<div class="grid2">${f('lg_n','Nom (facultatif)',l.name,'text','ex. Garde royale')}${f('lg_t','Étiquette (facultatif)',l.tag)}</div>${f('lg_c','Composition (texte libre)',l.comp)}${f('lg_s','Supplément de points',l.sup||0,'number')}`;
+}
+function readLegForm(l){
+  l.name=cleanName(mval('lg_n'),40)||undefined;if(!l.name)delete l.name;
+  l.tag=cleanName(mval('lg_t'),30)||null;l.comp=cleanName(mval('lg_c'),200)||null;
+  const s=Number(mval('lg_s'));l.sup=isFinite(s)?s:0;
+}
+function createLegion(){
+  const a=curArmy();const l={id:nextLegId(a),kind:'main',figs:0,sup:0,comp:null,tag:null};
+  openModal('Nouvelle légion',legForm(l)+`<div class="small" style="margin-top:6px">La légion sera créée vide (identifiant ${esc(l.id)}). Ajoutez-y ensuite des unités.</div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Créer',cls:'pri',fn:()=>{readLegForm(l);const i=a.legions.findIndex(x=>x.id==='ni');a.legions.splice(i<0?a.legions.length:i,0,l);
+     S.sel=l.id;closeModal();afterChange([a.id]);toast(`${legName(l)} créée`);}}]);
+}
+function editLegion(){
+  const a=curArmy();const l=a.legions.find(x=>x.id===S.sel);if(!l||l.id==='ni')return;
+  openModal('Modifier la légion',legForm(l),[{label:'Annuler',fn:closeModal},{label:'Enregistrer',cls:'pri',fn:()=>{readLegForm(l);closeModal();afterChange([a.id]);}}]);
+}
+function duplicateLegion(){
+  const a=curArmy();const l=a.legions.find(x=>x.id===S.sel);if(!l||l.id==='ni')return;
+  const c=JSON.parse(JSON.stringify(l));c.id=nextLegId(a);c.name=cleanName((l.name||legName(l))+' (copie)',40);
+  const i=a.legions.findIndex(x=>x.id==='ni');a.legions.splice(i<0?a.legions.length:i,0,c);
+  a.units.forEach(u=>{if(u.q[l.id])u.q[c.id]=u.q[l.id].slice();});
+  (a.composites||[]).filter(x=>x.legion===l.id).forEach(x=>a.composites.push({...x,id:'c'+Math.random().toString(36).slice(2,8),legion:c.id}));
+  S.sel=c.id;afterChange([a.id]);toast('Légion dupliquée');
+}
+function deleteLegion(){
+  const a=curArmy();const l=a.legions.find(x=>x.id===S.sel);if(!l||l.id==='ni')return;
+  const o=HOSTED?pickOwner(a.id,l.id):null;
+  openModal('Supprimer la légion ?',`<div>${esc(legName(l))} sera supprimée de ${esc(a.name)}, avec ses quantités. Les unités restent dans l'armée.${o?`<br><br><b>${esc(o)}</b> l'a choisie : son choix sera retiré.`:''}</div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{a.legions=a.legions.filter(x=>x.id!==l.id);a.units.forEach(u=>{delete u.q[l.id];});a.composites=(a.composites||[]).filter(x=>x.legion!==l.id);
+     S.sel=null;S.view='full';closeModal();afterChange([a.id]);toast('Légion supprimée');}}]);
+}
+
+/* ---- formules : page, éditeur et arborescence ---- */
+function famUsageAll(){const m={};Object.keys(FAM).forEach(id=>m[id]=usage(id));return m;}
+function renderFormulas(){
+  const mj=isMJ();const U=famUsageAll();
+  let h='<h1>Formules de calcul</h1><p class="sub">Chaque formule s\'applique aux lignes cochées dans son arborescence (armée › légion › unité).'+(mj?'':' Mode lecture : passez en MJ pour modifier.')+'</p>';
+  if(mj)h+='<div class="row noprint"><button class="btn" data-a="fam-scan">🔍 Formules identiques</button>'+(HOSTED?'<button class="btn" data-a="diag">🔧 Tester l\'enregistrement</button>':'')+'</div>';
+  h+='<div class="card"><div class="small">Syntaxe : <code>C</code> = colonne C de la même ligne · <code>C[+1]</code> = ligne suivante (2ᵉ attaque) · <code>C$19</code> = bonus d\'armée · <code>@nb @c @E</code> = quantité, c, E de la légion · fonctions IF, AND, OR, MIN, MAX, ROUND, ABS, SUM.</div></div>';
+  FAMORDER.forEach(col=>{
+    const fams=Object.values(FAM).filter(f=>f.col===col&&(U[f.id].n>0||f.custom||(f.orig!=null&&f.text!==f.orig))).sort((a,b)=>U[b.id].n-U[a.id].n);
+    if(!fams.length)return;
+    h+=`<h2>${esc(FAMNAME[col])}<span class="colb">${col==='val'?'légions':'col. '+col}</span></h2><p class="sub" style="margin-top:0">${esc(FAMDESC[col])}</p>`;
+    fams.forEach(f=>{const u=U[f.id];const mod=f.orig!=null&&f.text!==f.orig;
+      h+=`<div class="card fam"><div class="famh"><b>${u.n} ligne${u.n>1?'s':''}</b> · ${u.armies} armée${u.armies>1?'s':''}${mod?'<span class="tag">modifiée</span>':''}${f.custom?'<span class="tag">créée</span>':''}</div>`;
+      h+=`<code class="fcode"${mj?` data-ondbl="fam" data-fam="${f.id}" title="Double-cliquez pour modifier cette formule"`:''}>${esc(f.text)}</code><div class="row" style="margin:8px 0 0"><button class="btn pri" data-a="ft-open" data-fam="${f.id}">${mj?'Modifier · arborescence':'Voir l\'arborescence'}</button>`;
+      if(mj)h+=`<button class="btn" data-a="fam-dup" data-fam="${f.id}">Nouvelle formule à partir de celle-ci</button>`+((f.custom&&u.n===0)?`<button class="btn" data-a="fam-del" data-fam="${f.id}">Supprimer</button>`:'');
+      h+='</div></div>';});
+  });
+  return h;
+}
+function ftBuild(fid){
+  const col=FAM[fid].col;const model=[];
+  ARMIES.forEach(a=>{
+    const groups=[];
+    a.legions.forEach(l=>{
+      const leaves=[];
+      a.units.forEach(u=>{const q=u.q[l.id];if(!q)return;
+        if(col==='val'){const cf=q[4]==null?a.defVal:q[4];leaves.push({key:`q|${a.id}|${u.uid}|${l.id}`,label:u.in_.B||'(sans nom)',qty:q[0],cur:cf||'none',army:a.id,uid:u.uid,wh:'q',lid:l.id});}
+        else{[['u',u],['l2',u.l2]].forEach(([wh,row])=>{if(!row)return;const cf=row.fo[col]!=null?'~':(row.fm[col]||'-');
+          leaves.push({key:`u|${a.id}|${u.uid}|${wh}`,label:(wh==='l2'?'↳ ':'')+(u.in_.B||'(sans nom)')+(wh==='l2'?' (2ᵉ attaque)':''),qty:wh==='u'?q[0]:null,cur:cf,army:a.id,uid:u.uid,wh});});}});
+      if(leaves.length)groups.push({key:`g|${a.id}|${l.id}`,label:legName(l),leaves});
+    });
+    if(col!=='val'){
+      const leaves=[];a.units.filter(u=>!Object.keys(u.q).length).forEach(u=>{[['u',u],['l2',u.l2]].forEach(([wh,row])=>{if(!row)return;const cf=row.fo[col]!=null?'~':(row.fm[col]||'-');
+        leaves.push({key:`u|${a.id}|${u.uid}|${wh}`,label:(wh==='l2'?'↳ ':'')+(u.in_.B||'(sans nom)'),qty:null,cur:cf,army:a.id,uid:u.uid,wh});});});
+      if(leaves.length)groups.push({key:`g|${a.id}|-`,label:'Hors légion',leaves});
+    }
+    model.push({id:a.id,name:a.name,groups});
+  });
+  const sel=new Set();model.forEach(am=>am.groups.forEach(g=>g.leaves.forEach(l=>{if(l.cur===fid)sel.add(l.key);})));
+  return {fid,text:FAM[fid].text,model,sel,open:new Set(),filter:''};
+}
+function ftLeavesOf(k){
+  const f=S.ft,flt=f.filter.trim().toLowerCase();const out=[];
+  const keep=l=>!flt||l.label.toLowerCase().includes(flt);
+  f.model.forEach(am=>am.groups.forEach(g=>g.leaves.forEach(l=>{
+    const hit=k==='*'||k==='a|'+am.id||k===g.key||k===l.key;if(hit&&keep(l))out.push(l.key);})));
+  return [...new Set(out)];
+}
+function ftCb(k,state,dis){return `<input type="checkbox" data-a="ft-tog" data-k="${esc(k)}" ${state===2?'checked':''} ${state===1?'data-ind="1"':''} ${dis?'disabled':''}>`;}
+function ftStateOf(keys){const n=keys.filter(x=>S.ft.sel.has(x)).length;return n===0?0:(n===keys.length?2:1);}
+function ftTreeHtml(){
+  const f=S.ft,mj=isMJ(),flt=f.filter.trim().toLowerCase();let h='';
+  const col=FAM[f.fid].col;
+  f.model.forEach(am=>{
+    const all=[...new Set(am.groups.flatMap(g=>g.leaves.map(l=>l.key)))];if(!all.length)return;
+    const visible=am.groups.map(g=>({g,ls:g.leaves.filter(l=>!flt||l.label.toLowerCase().includes(flt))})).filter(x=>x.ls.length);
+    if(flt&&!visible.length)return;
+    const nsel=all.filter(k=>f.sel.has(k)).length;const openA=f.open.has('a|'+am.id)||!!flt;
+    h+=`<div class="tn"><div class="tr"><button class="tg" data-a="ft-open-node" data-k="a|${esc(am.id)}">${openA?'▾':'▸'}</button>${ftCb('a|'+am.id,ftStateOf(all),!mj)}<b>${esc(am.name)}</b><span class="small">${nsel}/${all.length}</span></div>`;
+    if(openA)visible.forEach(({g,ls})=>{
+      const gk=[...new Set(g.leaves.map(l=>l.key))];const openG=f.open.has(g.key)||!!flt;
+      h+=`<div class="tn l1"><div class="tr"><button class="tg" data-a="ft-open-node" data-k="${esc(g.key)}">${openG?'▾':'▸'}</button>${ftCb(g.key,ftStateOf(gk),!mj)}<span>${esc(g.label)}</span><span class="small">${gk.filter(k=>f.sel.has(k)).length}/${gk.length}</span></div>`;
+      if(openG)ls.forEach(l=>{const on=f.sel.has(l.key);
+        const bd=l.cur===f.fid?'':(l.cur==='~'?'<span class="badge2 ov">formule propre</span>':(l.cur==='-'||l.cur==='none'?'<span class="badge2">valeur saisie</span>':`<span class="badge2" title="${esc(FAM[l.cur]?FAM[l.cur].text:'')}">autre formule</span>`));
+        h+=`<div class="tr leaf l2n"><label>${ftCb(l.key,on?2:0,!mj)}<span>${esc(l.label)}</span></label>${l.qty!=null?`<span class="small">×${l.qty}</span>`:''}${bd}</div>`;});
+      h+='</div>';});
+    h+='</div>';});
+  return h||'<div class="hint">Aucun résultat.</div>';
+}
+function ftRenderTree(){const t=document.getElementById('ftTree');if(!t)return;t.innerHTML=ftTreeHtml();t.querySelectorAll('input[data-ind="1"]').forEach(e=>{e.indeterminate=true;});ftCount();}
+function ftCount(){const e=document.getElementById('ftCount');if(!e)return;const f=S.ft;const total=new Set(f.model.flatMap(am=>am.groups.flatMap(g=>g.leaves.map(l=>l.key)))).size;e.textContent=`${f.sel.size} élément${f.sel.size>1?'s':''} concerné${f.sel.size>1?'s':''} sur ${total}`;}
+function ftMsg(m,err){const e=document.getElementById('ftMsg');if(e){e.textContent=m;e.className='ftres '+(err?'err':'ok');}}
+function openFamEditor(fid){
+  S.ft=ftBuild(fid);const f=FAM[fid];const mj=isMJ();
+  const body=`<div class="small" style="margin-bottom:6px">${esc(FAMNAME[f.col])} · ${f.col==='val'?'légions':'colonne '+f.col}</div>
+   <textarea id="ftText" class="ft" rows="4" spellcheck="false" ${mj?'':'readonly'}>${esc(S.ft.text)}</textarea><div class="ftres" id="ftMsg"></div>
+   <div class="lbl2" style="margin-top:12px">Éléments concernés par cette formule <span id="ftCount" class="small"></span></div>
+   <div class="row" style="margin:6px 0"><input id="ftFilter" type="text" placeholder="Filtrer par nom d'unité…" style="flex:1;min-width:140px">${mj?'<button class="btn" data-a="ft-all" data-m="on">Cocher le résultat</button><button class="btn" data-a="ft-all" data-m="off">Décocher le résultat</button>':''}</div>
+   <div id="ftTree" class="tree"></div>`;
+  const btns=[{label:'Fermer',fn:()=>{S.ft=null;closeModal();}}];
+  if(mj){btns.push({label:'Tester',fn:ftTest});
+    if(f.orig!=null)btns.push({label:'Formule d\'origine',fn:()=>{document.getElementById('ftText').value=f.orig;S.ft.text=f.orig;ftTest();}});
+    btns.push({label:'Formule seule',fn:ftApplyText});btns.push({label:'Formule + affectation',cls:'pri',fn:ftApply});}
+  openModal('Formule',body,btns);document.getElementById('modal').classList.add('big');
+  const ta=document.getElementById('ftText');ta.addEventListener('input',()=>{S.ft.text=ta.value;});
+  document.getElementById('ftFilter').addEventListener('input',e=>{S.ft.filter=e.target.value;ftRenderTree();});
+  ftRenderTree();
+}
+function ftTest(){const text=S.ft.text.trim().replace(/^=/,'');try{FE.compile(text);ftMsg('Formule valide · '+document.getElementById('ftCount').textContent);}catch(e){ftMsg(e.message,true);}}
+function ftFindUnit(l){const a=getArmy(l.army);return {a,u:a&&a.units.find(x=>x.uid===l.uid)};}
+function ftApply(){
+  const f=S.ft,fid=f.fid,col=FAM[fid].col;const text=f.text.trim().replace(/^=/,'');
+  try{FE.compile(text);}catch(e){return ftMsg(e.message,true);}
+  if(!text)return ftMsg('La formule est vide.',true);
+  const changed=new Set();let add=0,rem=0;const seen=new Set();
+  f.model.forEach(am=>am.groups.forEach(g=>g.leaves.forEach(l=>{
+    if(seen.has(l.key))return;seen.add(l.key);
+    const want=f.sel.has(l.key),now=l.cur===fid;if(want===now)return;
+    const {a,u}=ftFindUnit(l);if(!u)return;
+    if(l.wh==='q'){const q=u.q[l.lid];if(!q)return;
+      if(want){q[4]=fid;add++;}else{const alt=q[5];q[4]=(alt&&alt!==fid&&FAM[alt])?alt:'none';rem++;}
+    }else{const row=l.wh==='l2'?u.l2:u;if(!row)return;
+      if(want){row.fm[col]=fid;delete row.fo[col];delete row.in_[col];add++;}
+      else{const alt=row.fm0&&row.fm0[col];
+        if(alt&&alt!==fid&&FAM[alt])row.fm[col]=alt;
+        else{const v=row.v[col];delete row.fm[col];delete row.fo[col];if(v!=null&&v===v)row.in_[col]=v;}
+        rem++;}}
+    changed.add(a.id);}))); 
+  FAM[fid].text=text;
+  S.ft=null;closeModal();afterChange([...changed],true);
+  toast(`Formule enregistrée · ${add} ajouté${add>1?'s':''}, ${rem} retiré${rem>1?'s':''}`);
+  setTimeout(()=>askMerge(fid),0);
+}
+function famDuplicate(fid){
+  const id='m'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  FAM[id]={id,col:FAM[fid].col,text:FAM[fid].text,orig:null,custom:true};saveFams();render();openFamEditor(id);
+}
+function famDelete(fid){if(!FAM[fid]||!FAM[fid].custom||usage(fid).n)return;delete FAM[fid];saveFams();render();}
+
+/* ---- diagnostic de l'enregistrement (MJ, mode hébergé) ---- */
+async function runDiag(){
+  toast('Test en cours…');const r=await hostReq('fiches-diag',{});
+  if(!r.success)return toast(r.message||'Test impossible.');
+  const row=(ok,t)=>`<div style="margin:4px 0">${ok?'✅':'⚠️'} ${t}</div>`;
+  openModal('Test de l\'enregistrement',
+    row(true,`Stockage utilisé : <b>${esc(r.storage)}</b>`)+
+    row(r.writeRead,`Écriture puis relecture d'un document : ${r.writeRead?'réussie':'échec'} (${r.ms} ms)${r.detail?'<br><span class="small">'+esc(r.detail)+'</span>':''}`)+
+    row(true,`Version des fiches : ${esc(r.version)}`)+
+    row(true,`Armées modifiées enregistrées : <b>${r.armiesSaved.length}</b>${r.armiesSaved.length?' ('+esc(r.armiesSaved.join(', '))+')':''}`)+
+    row(true,`Formules : ${r.famSaved?'document présent':'aucune modification enregistrée'} · ${r.customFams} formule(s) créée(s)`)+
+    row(true,`Légions choisies par les joueurs : <b>${r.picks}</b>`)+
+    `<div class="small" style="margin-top:8px">Si le stockage affiché est « fichiers locaux », rien ne survivra à un redéploiement : voir la procédure de vérification Supabase.</div>`,
+    [{label:'Fermer',cls:'pri',fn:closeModal}]);
+}
+
+/* ---- actions supplémentaires ---- */
+function onClick2(e){
+  const el=e.target.closest('[data-a]');if(!el||el.disabled)return;const a=el.dataset.a;const cur=curArmy();
+  switch(a){
+    case 'unpickme':hostReq('fiches-pick',{clear:true}).then(r=>{if(!r.success)return toast(r.message||'Action impossible.');toast('Légion libérée');loadHosted(false);});break;
+    case 'newleg':if(ED())createLegion();break;
+    case 'newbonus':if(ED())bonusEditor(null);break;
+    case 'comp-add':case 'comp-edit':case 'comp-move':case 'comp-copy':case 'comp-del':if(ED())compAction(a.slice(5),el.dataset.id);break;
+    case 'tab-players':S.tab='players';render();break;
+    case 'tab-saves':S.tab='saves';S.snaps=null;render();break;
+    case 'tab-help':if(isMJ())mjHelp(true);break;
+    case 'pl-add':case 'pl-lock':case 'pl-del':case 'pl-ren':case 'merc-add':case 'merc-del':if(isMJ())playersAction(el);break;
+    case 'fam-scan':if(isMJ())scanDuplicates();break;
+    case 'newsec':if(ED())addSection();break;
+    case 'diag':if(isMJ())runDiag();break;
+    case 'openpartner':if(S.partner)openFromLink(S.partner.army,S.partner.legion);break;
+    case 'unit-std':{const t=S.uc;if(!t||!t.id)break;hostReq('landing-standard',{unit:t.id,on:!t.std}).then(r=>{if(!r.success)return toast(r.message||'Action impossible.');t.std=!t.std;t.stdUsed+=t.std?1:-1;const b=document.getElementById('stdBox');if(b)b.innerHTML=stdBoxHtml();toast(t.std?'Étendard attribué.':'Étendard retiré.');});break;}
+    case 'snap-save':case 'snap-over':case 'snap-load':case 'snap-ren':case 'snap-del':case 'snap-export':case 'snap-exp':case 'snap-import':if(isMJ())snapAction(a,el);break;
+    case 'ft-open':openFamEditor(el.dataset.fam);break;
+    case 'fam-dup':if(isMJ())famDuplicate(el.dataset.fam);break;
+    case 'fam-del':if(isMJ())famDelete(el.dataset.fam);break;
+    case 'ft-open-node':{const k=el.dataset.k,o=S.ft.open;o.has(k)?o.delete(k):o.add(k);ftRenderTree();break;}
+    case 'ft-tog':{if(!isMJ())break;const f=S.ft,keys=ftLeavesOf(el.dataset.k);const allOn=keys.length&&keys.every(k=>f.sel.has(k));
+      keys.forEach(k=>allOn?f.sel.delete(k):f.sel.add(k));ftRenderTree();break;}
+    case 'ft-all':{if(!isMJ())break;const f=S.ft,keys=ftLeavesOf('*');keys.forEach(k=>el.dataset.m==='on'?f.sel.add(k):f.sel.delete(k));ftRenderTree();break;}
+  }
+}
+
+/* ---- liaison serveur : chargement, sélection, choix ---- */
+function applyServer(res){
+  S.restricted=res.mode==='own';S.access=!!res.access;S.frozen=!!res.frozen;S.picks=res.picks||{};S.catalog=res.catalog||null;
+  S.teams=res.teams||null;S.mercs=res.mercs||{};S.roster=res.roster||[];S.online=res.online||[];
+  const mine=Object.entries(S.picks).find(([n])=>isMe(n));S.myPick=mine?mine[1]:null;
+  FAM={};(res.families||[]).forEach(f=>{const o=pretty(f.rel);FAM[f.id]={id:f.id,col:f.col,text:o,orig:f.custom?null:o,custom:!!f.custom};});
+  for(const id in (res.famTexts||{}))if(FAM[id]&&!FAM[id].custom)FAM[id].text=res.famTexts[id];
+  ARMIES=JSON.parse(JSON.stringify(res.armies||[]));ARMIES.forEach(prepArmy);ARMIES.forEach(a=>a.legions.forEach(l=>{delete l.val;}));
+  recompute();
+  const sel=document.getElementById('armySel');sel.innerHTML=ARMIES.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
+}
+function fixSelection(first){
+  const okSel=()=>{const a=getArmy(S.army);return !!a&&a.legions.some(l=>l.id===S.sel&&(l.id!=='ni'||!S.restricted));};
+  if(first&&S.myPick&&getArmy(S.myPick.army)){S.army=S.myPick.army;S.sel=S.myPick.legion;S.view='legion';S.tab='army';}
+  else if(S.restricted){if(!okSel()){if(S.myPick&&getArmy(S.myPick.army)){S.army=S.myPick.army;S.sel=S.myPick.legion;}else{S.army=null;S.sel=null;}}S.view='legion';S.tab='army';}
+  else{if(!getArmy(S.army))S.army=ARMIES.length?ARMIES[0].id:null;const a=curArmy();
+    if(a&&!a.legions.some(l=>l.id===S.sel)){S.sel=null;if(S.view==='legion')S.view='full';}}
+  if(S.army)document.getElementById('armySel').value=S.army;
+}
+async function loadHosted(first){
+  const r=await hostReq('fiches-load',{});
+  if(!r.success){S.loaded=true;document.getElementById('view').innerHTML=`<div class="card">${esc(r.message||'Fiches indisponibles.')}</div>`;return;}
+  applyServer(r);S.loaded=true;fixSelection(first);
+  if(S.pendingOpen){const p=S.pendingOpen;S.pendingOpen=null;if(p.unit){S.noHelp=true;render();showUnitCard(p.unit);return;}if(p.tab){S.tab=p.tab;}else openFromLink(p.armee||p.army,p.legion);}
+  render();
+}
+async function doPick(armyId,lid){
+  const r=await hostReq('fiches-pick',{army:armyId,legion:lid});
+  if(!r.success){toast(r.message||'Choix impossible.');return loadHosted(false);}
+  toast('Légion choisie');S.army=armyId;S.sel=lid;S.view='legion';await loadHosted(false);
+}
+
+/* ===================== V4 : double clic, bonus, sections, unités, fusion, joueurs ===================== */
+function actTd(){return '';}
+function isCompU(a,u){initComposites(a);return (a.composites||[]).some(c=>c.base===u.uid||c.extra===u.uid);}
+function nameTd(a,u,which){
+  if(which==='l2')return `<td class="name l2n">↳ 2ᵉ attaque</td>`;
+  const attr=ED()?` data-ondbl="unit" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" title="Double-cliquez pour modifier l'unité"`:'';
+  initComposites(a);const pa=(a.composites||[]).filter(c=>c.base===u.uid||c.extra===u.uid);
+  if(pa.length){const names=[...new Set(pa.map(c=>{const o=a.units.find(x=>x.uid===(c.base===u.uid?c.extra:c.base));return o?o.in_.B:'';}).filter(Boolean))];
+    return `<td class="name compn"${attr}>🧩 ${esc(u.in_.B||'')}<small class="compwith">unité composée avec ${esc(names.join(', '))}</small></td>`;}
+  return `<td class="name"${attr}>${esc(u.in_.B||'')}</td>`;
+}
+function secRow(a,g,span,mj){
+  if(!g.cat)return '';
+  const attr=mj?` data-ondbl="sec" data-sec="${esc(g.cat)}" title="Double-cliquez pour modifier la section"`:'';
+  return `<tr class="cat"><td class="name"${attr}>${esc(g.cat)}</td><td colspan="${span-1}"></td></tr>`;
+}
+
+/* ---- bonus d'armée ---- */
+const BONUS_SYS=[['C','att +0,5'],['D','typ +1'],['E','dis ×1,03'],['G','PV ×1,06'],['I','dep ×1,1'],['K','typ dép ×0,97'],['S','colonne I']];
+function ensureBonuses(a){
+  a.params=a.params||{};
+  if(!Array.isArray(a.bonuses))a.bonuses=BONUS_SYS.map(([key,label])=>({key,label,sys:true}));
+}
+const bonusOn=(a,k)=>{const v=a.params&&a.params[k];return v!=null&&String(v).trim()!==''&&String(v).toLowerCase()!=='false';};
+function paramsPanel(a){
+  ensureBonuses(a);const mj=ED();
+  let h='<div class="card noprint"><div class="lbl2">Bonus d\'armée</div><div class="chips">';
+  a.bonuses.forEach(b=>{const on=bonusOn(a,b.key);const v=a.params[b.key];
+    h+=`<button class="chip sm ${on?'on':''}" ${mj?`data-ondbl="bonus" data-key="${esc(b.key)}" title="Double-cliquez pour modifier"`:'disabled'}>${esc(b.label)}<small>${on?'actif'+(String(v).toLowerCase()==='x'?'':' · '+esc(v)):'—'}</small></button>`;});
+  if(mj)h+='<button class="chip sm" data-dbl="1" data-a="newbonus" title="Double-cliquez">＋ Bonus</button>';
+  return h+'</div></div>';
+}
+function bonusEditor(key){
+  const a=curArmy();ensureBonuses(a);const isNew=!key;
+  const b=isNew?{key:null,label:'',sys:false}:a.bonuses.find(x=>x.key===key);if(!b)return;
+  const delSys=BONUS_SYS.filter(([k])=>!a.bonuses.some(x=>x.key===k));
+  const cur=isNew?'':String(a.params[b.key]==null?'':a.params[b.key]);
+  const body=`<label class="fl">Nom du bonus<input id="bn" class="ft" type="text" maxlength="40" value="${esc(b.label)}"></label>
+   <label class="tgl" style="margin:10px 0"><input id="bon" type="checkbox" ${isNew||bonusOn(a,b.key)?'checked':''}> Actif pour cette armée</label>
+   <label class="fl">Valeur (laisser vide ou « x » pour un simple interrupteur)<input id="bv" class="ft" type="text" maxlength="20" value="${esc(cur.toLowerCase()==='x'?'':cur)}"></label>
+   ${isNew&&delSys.length?`<label class="fl" style="margin-top:10px">Lier à<select id="bk" class="ft"><option value="">Nouveau bonus personnalisé</option>${delSys.map(([k,l])=>`<option value="${k}">Rétablir « ${esc(l)} » (colonne ${k})</option>`).join('')}</select></label>`:''}
+   <div class="small" style="margin-top:8px">${isNew?'Un nouveau bonus personnalisé reçoit un code (P1, P2…) utilisable dans les formules : <code>P1$19</code>.':`Dans une formule : <code>${esc(b.key)}$19</code>.`}</div><div class="ftres err" id="bne"></div>`;
+  const save=()=>{const label=cleanName(mval('bn'),40);const e=document.getElementById('bne');if(!label){e.textContent='Donnez un nom au bonus.';return;}
+    let k=b.key;
+    if(isNew){const sel=document.getElementById('bk');k=sel&&sel.value?sel.value:null;
+      if(!k){let n=1;while(a.bonuses.some(x=>x.key==='P'+n))n++;k='P'+n;}
+      const sys=BONUS_SYS.find(x=>x[0]===k);a.bonuses.push({key:k,label,sys:!!sys});}
+    else b.label=label;
+    const on=document.getElementById('bon').checked;const v=mval('bv').trim();
+    a.params[k]=on?(v||'x'):null;closeModal();afterChange([a.id]);};
+  const del=()=>{openModal('Supprimer ce bonus ?',`<div>« ${esc(b.label)} » sera supprimé de ${esc(a.name)}.${b.sys?'<br><br>Les formules qui l\'utilisent verront ce bonus comme inactif.':''}</div>`,
+    [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{a.bonuses=a.bonuses.filter(x=>x.key!==b.key);a.params[b.key]=null;closeModal();afterChange([a.id]);}}]);};
+  const btns=[{label:'Annuler',fn:closeModal}];if(!isNew)btns.push({label:'Supprimer',fn:del});btns.push({label:isNew?'Créer':'Enregistrer',cls:'pri',fn:save});
+  openModal(isNew?'Nouveau bonus d\'armée':'Bonus d\'armée',body,btns);
+}
+
+/* ---- menus ouverts par double clic ---- */
+function menuModal(title,intro,items){
+  openModal(title,`<div class="small" style="margin-bottom:10px">${intro}</div><div class="menu">${items.map((it,i)=>`<button class="btn" data-mi="${i}">${it.label}</button>`).join('')}</div>`,[{label:'Fermer',fn:closeModal}]);
+  document.querySelectorAll('#modal [data-mi]').forEach(b=>b.addEventListener('click',()=>{const it=items[+b.dataset.mi];closeModal();setTimeout(()=>it.fn(),0);}));
+}
+function unitMenu(armyId,uidv){
+  const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
+  menuModal('Unité',esc(a.name)+' › <b>'+esc(u.in_.B||'')+'</b>',[
+    {label:'✎ Renommer',fn:()=>openCell(armyId,uidv,'u','B')},
+    {label:'⇅ Changer de section',fn:()=>unitSection(armyId,uidv)},
+    {label:'⧉ Dupliquer (dans « Non intégré »)',fn:()=>dupUnit(armyId,uidv)},
+    {label:'⇄ Déplacer vers une autre armée',fn:()=>moveUnit(armyId,uidv)},
+    {label:'🗑 Supprimer',fn:()=>delUnit(armyId,uidv)}]);
+}
+function secMenu(name){
+  const a=curArmy();const empty=!a.units.some(u=>u.cat===name);
+  const items=[{label:'✎ Renommer',fn:()=>renameSection(name)}];
+  items.push({label:empty?'🗑 Supprimer cette section vide':'🗑 Supprimer (impossible : section non vide)',fn:()=>deleteSection(name)});
+  menuModal('Section',`Section <b>${esc(name)}</b> · ${a.units.filter(u=>u.cat===name).length} unité(s)`,items);
+}
+function legMenu(lid){
+  const a=curArmy();const l=a.legions.find(x=>x.id===lid);if(!l||l.id==='ni')return;S.sel=lid;
+  menuModal('Légion',esc(a.name)+' › <b>'+esc(legName(l))+'</b>',[
+    {label:'✎ Modifier (nom, composition, supplément)',fn:()=>editLegion()},
+    {label:'⧉ Dupliquer',fn:()=>duplicateLegion()},
+    {label:'🗑 Supprimer',fn:()=>deleteLegion()}]);
+}
+function dblAction(el){
+  const k=el.dataset.ondbl;
+  if(k==='unit')unitMenu(el.dataset.army,el.dataset.uid);
+  else if(k==='sec')secMenu(el.dataset.sec);
+  else if(k==='legmenu')legMenu(el.dataset.leg);
+  else if(k==='bonus')bonusEditor(el.dataset.key);
+  else if(k==='fam')openFamEditor(el.dataset.fam);
+}
+function onDbl(el){
+  if(!isMJ())return;
+  if(el.matches('[data-cell]')){if(ED())openCell(el.dataset.army,el.dataset.uid,el.dataset.w,el.dataset.col);return;}
+  if(el.matches('[data-lq]')){if(ED())openLegQty(el.dataset.army,el.dataset.uid,el.dataset.leg,+el.dataset.i);return;}
+  if(el.matches('[data-ondbl="fam"]')&&S.tab==='form'){dblAction(el);return;}
+  if(el.matches('[data-ondbl]')&&ED())dblAction(el);
+}
+/* détecteur de double clic / double tape : 1 seul mécanisme pour souris et écran tactile */
+let LASTTAP={el:null,t:0},HINT_T=0;
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-dbl],[data-ondbl],[data-cell],[data-lq]');
+  if(!el){LASTTAP={el:null,t:0};return;}
+  const key=el.tagName+JSON.stringify(el.dataset);
+  const now=Date.now(),dbl=LASTTAP.el===key&&now-LASTTAP.t<450;
+  LASTTAP=dbl?{el:null,t:0}:{el:key,t:now};
+  if(el.hasAttribute('data-dbl')){if(!dbl){e.stopImmediatePropagation();if(now-HINT_T>2500){HINT_T=now;toast('Double-cliquez pour modifier.');}}return;}
+  if(dbl&&!el.hasAttribute('data-a'))onDbl(el);
+  else if(dbl&&el.hasAttribute('data-ondbl'))onDbl(el);
+},true);
+
+/* ---- création d'une unité : section existante ou nouvelle ; 2e attaque pour cd/dc ---- */
+const isDouble=t=>/^(cd|dc)/i.test(String(t||''));
+function allTypes(){const set=new Set(['cc','cd1','cd2','dc1','dc2','ttc','M']);ARMIES.forEach(a=>a.units.forEach(u=>{if(u.in_.D)set.add(String(u.in_.D));}));return [...set];}
+function findTpl(a,type){
+  const want=String(type||'').toLowerCase(),dbl=isDouble(want);
+  const pools=[a].concat(ARMIES.filter(x=>x!==a));
+  for(const ar of pools){const u=ar.units.find(x=>String(x.in_.D||'').toLowerCase()===want&&!!x.l2===dbl&&x.fm.F);if(u)return u;}
+  for(const ar of pools){const u=ar.units.find(x=>!!x.l2===dbl&&x.fm.F&&(dbl||String(x.in_.D||'').toLowerCase()==='cc'));if(u)return u;}
+  for(const ar of pools){const u=ar.units.find(x=>x.fm.F);if(u)return u;}
+  return null;
+}
+function makeL2(a,u,att2,dis2){
+  const tpl=ARMIES.flatMap(x=>x.units).find(x=>x.l2&&x.l2.fm.F)||null;
+  const fm=tpl?Object.assign({},tpl.l2.fm):{};
+  u.l2={in_:{C:att2},fm,fo:{},v:{},fm0:Object.assign({},fm)};
+  if(dis2!==''&&dis2!=null)u.l2.in_.E=isFinite(Number(dis2))?Number(dis2):dis2;
+}
+function newUnit(){
+  const a=curArmy();const cats=a.sections.filter(x=>x!=='');const types=allTypes();const mv=['m','vs','v','j','s'];
+  const f=(id,lbl,val,t)=>`<label class="fl">${lbl}<input id="${id}" class="ft" type="${t||'text'}" value="${esc(val)}"></label>`;
+  openModal('Nouvelle unité',`<div class="grid2">${f('nu_n','Nom','')}
+   <label class="fl">Section<select id="nu_c" class="ft">${cats.map(c=>`<option>${esc(c)}</option>`).join('')}<option value="__new__">＋ Nouvelle section…</option></select></label>
+   <div id="nu_newbox" style="display:none;grid-column:1/-1">${f('nu_cn','Nom de la nouvelle section','')}</div>
+   ${f('nu_C','att',1,'number')}<label class="fl">typ attaque<select id="nu_D" class="ft">${types.map(c=>`<option>${esc(c)}</option>`).join('')}</select></label>
+   <div id="nu_l2box" style="display:none;grid-column:1/-1"><div class="grid2">${f('nu_C2','att (2ᵉ attaque)',1,'number')}${f('nu_E2','dis (2ᵉ attaque)','')}</div></div>
+   ${f('nu_E','dis','')}${f('nu_G','PV',1,'number')}${f('nu_H','A (armure)','','number')}${f('nu_I','dep',3,'number')}
+   <label class="fl">typ dép<select id="nu_K" class="ft">${mv.map(c=>`<option>${c}</option>`).join('')}</select></label>${f('nu_A','Quantité',1,'number')}</div>
+   <div class="small" style="margin-top:6px">Les formules sont copiées d'une unité de même type. L'unité rejoint « Non intégré ».</div><div class="ftres err" id="nuerr"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Créer',cls:'pri',fn:()=>{
+     const name=mval('nu_n').trim();const er=document.getElementById('nuerr');if(!name){er.textContent='Nom requis.';return;}
+     let cat=mval('nu_c');
+     if(cat==='__new__'||!cat){cat=cleanName(mval('nu_cn'),60);if(!cat){er.textContent='Donnez un nom à la nouvelle section.';return;}
+       if(a.sections.some(x=>x.toLowerCase()===cat.toLowerCase()))cat=a.sections.find(x=>x.toLowerCase()===cat.toLowerCase());}
+     const type=mval('nu_D');const tpl=findTpl(a,type);
+     if(!tpl){er.textContent='Aucune unité modèle disponible.';return;}
+     const num=id=>{const t=mval(id).trim();return t===''?undefined:Number(t);};
+     const n=Math.max(1,num('nu_A')||1);
+     const u={uid:uid(a),cat,in_:{A:n,B:name,C:num('nu_C')||0,D:type,G:num('nu_G')||0,I:num('nu_I')||0,K:mval('nu_K')},
+       fm:Object.assign({},tpl.fm),fo:{},v:{},q:{ni:[n,0,0,null,a.defVal,a.defVal]}};
+     u.fm0=Object.assign({},u.fm);delete u.fm.S;delete u.fm0.S;
+     if(mval('nu_E').trim()!=='')u.in_.E=isFinite(Number(mval('nu_E')))?Number(mval('nu_E')):mval('nu_E');
+     if(num('nu_H')!==undefined)u.in_.H=num('nu_H');
+     if(isDouble(type))makeL2(a,u,num('nu_C2')||0,mval('nu_E2').trim());
+     insertUnit(a,u);closeModal();S.sel='ni';afterChange([a.id]);toast('Unité créée dans « Non intégré »'+(u.l2?' avec sa 2ᵉ attaque':''));}}]);
+  const upd=()=>{document.getElementById('nu_newbox').style.display=mval('nu_c')==='__new__'||!cats.length?'block':'none';document.getElementById('nu_l2box').style.display=isDouble(mval('nu_D'))?'block':'none';};
+  document.getElementById('nu_c').addEventListener('change',upd);document.getElementById('nu_D').addEventListener('change',upd);
+  if(!cats.length)document.getElementById('nu_c').value='__new__';upd();
+}
+
+/* ---- fusion de formules identiques ---- */
+const famKey=t=>String(t||'').replace(/\s+/g,'').toLowerCase();
+function famRefs(fid){return usage(fid).n;}
+function mergeFamilies(keep,drop){
+  const swap=(m,k)=>{if(m&&m[k]===drop)m[k]=keep;};
+  ARMIES.forEach(a=>{
+    a.units.forEach(u=>{[u,u.l2].forEach(r=>{if(!r)return;for(const c in r.fm)swap(r.fm,c);if(r.fm0)for(const c in r.fm0)swap(r.fm0,c);});
+      for(const l in u.q){if(u.q[l][4]===drop)u.q[l][4]=keep;if(u.q[l][5]===drop)u.q[l][5]=keep;}});
+    if(a.defVal===drop)a.defVal=keep;});
+  if(FAM[drop]){if(FAM[drop].custom)delete FAM[drop];else if(FAM[drop].orig!=null)FAM[drop].text=FAM[drop].orig;}
+}
+// Quelle formule garder : jamais la copie créée par le MJ si l'autre est une formule d'origine ; sinon celle qui a le plus de lignes.
+function mergeOrder(x,y){
+  if(FAM[x].custom!==FAM[y].custom)return FAM[x].custom?[y,x]:[x,y];
+  return famRefs(x)>=famRefs(y)?[x,y]:[y,x];
+}
+function findIdentical(fid){const f=FAM[fid];if(!f)return null;const k=famKey(f.text);
+  return Object.values(FAM).find(g=>g.id!==fid&&g.col===f.col&&famKey(g.text)===k)||null;}
+function askMerge(fid,done){
+  const other=findIdentical(fid);if(!other){done&&done();return;}
+  const [keep,drop]=mergeOrder(fid,other.id);
+  openModal('Formules identiques',`<div>Deux formules de la colonne « ${esc(FAMNAME[FAM[fid].col])} » sont identiques :</div><code class="fcode" style="margin:8px 0">${esc(FAM[fid].text)}</code><div>Fusionner les deux ? Les <b>${famRefs(drop)}</b> ligne(s) de l'une passeront sur l'autre (<b>${famRefs(keep)}</b> ligne(s)).</div>`,
+   [{label:'Ne pas fusionner',fn:()=>{closeModal();done&&done();}},{label:'Fusionner',cls:'pri',fn:()=>{mergeFamilies(keep,drop);closeModal();afterChange(ARMIES.map(x=>x.id),true);toast('Formules fusionnées');done&&setTimeout(()=>askMerge(keep,done),0);}}]);
+}
+function scanDuplicates(){
+  const seen={};let pair=null;
+  for(const f of Object.values(FAM)){const k=f.col+'|'+famKey(f.text);if(seen[k]&&(famRefs(f.id)||famRefs(seen[k]))){pair=[seen[k],f.id];break;}if(!seen[k])seen[k]=f.id;}
+  if(!pair)return toast('Aucune formule identique.');
+  const [k,d]=mergeOrder(pair[0],pair[1]);
+  openModal('Formules identiques',`<div>Ces deux formules sont identiques :</div><code class="fcode" style="margin:8px 0">${esc(FAM[k].text)}</code><div>Fusionner ? (${famRefs(d)} ligne(s) passeront sur l'autre formule de ${famRefs(k)} ligne(s))</div>`,
+   [{label:'Fermer',fn:closeModal},{label:'Fusionner et chercher la suite',cls:'pri',fn:()=>{mergeFamilies(k,d);closeModal();afterChange(ARMIES.map(x=>x.id),true);setTimeout(scanDuplicates,0);}}]);
+}
+function ftApplyText(){
+  const f=S.ft,fid=f.fid;const text=f.text.trim().replace(/^=/,'');
+  try{FE.compile(text);}catch(e){return ftMsg(e.message,true);}
+  if(!text)return ftMsg('La formule est vide.',true);
+  FAM[fid].text=text;S.ft=null;closeModal();afterChange(ARMIES.map(x=>x.id),true);toast('Formule modifiée (affectation inchangée)');
+  setTimeout(()=>askMerge(fid),0);
+}
+
+/* ---- page « Joueurs & équipes » (MJ) ---- */
+function allNames(){
+  const set=new Set(S.roster||[]);Object.keys(S.picks||{}).forEach(n=>set.add(n));Object.keys((S.teams&&S.teams.members)||{}).forEach(n=>set.add(n));(S.online||[]).forEach(n=>set.add(n));
+  return [...set].sort((x,y)=>x.localeCompare(y,'fr'));
+}
+function legSelect(name){
+  const mine=S.picks[name];let h=`<select class="ft pl-sel" data-who="${esc(name)}"><option value="">— aucune légion —</option>`;
+  ARMIES.forEach(a=>{const opts=a.legions.filter(l=>l.id!=='ni'&&legTot(a,l).n>0);if(!opts.length)return;
+    h+=`<optgroup label="${esc(a.name)}">`;
+    opts.forEach(l=>{const o=pickOwner(a.id,l.id);const sel=mine&&mine.army===a.id&&mine.legion===l.id;
+      h+=`<option value="${esc(a.id)}|${esc(l.id)}" ${sel?'selected':''} ${o&&!sel?'disabled':''}>${esc(legName(l))}${o&&!sel?' · '+esc(o):''}</option>`;});h+='</optgroup>';});
+  return h+'</select>';
+}
+function pickPts(n){
+  const p=(S.picks||{})[n];if(!p)return null;const a=getArmy(p.army);const l=a&&a.legions.find(x=>x.id===p.legion);if(!l)return null;
+  let v=legTot(a,l).v;
+  if(l.partner){const pa=getArmy(l.partner.army);const pl=pa&&pa.legions.find(x=>x.id===l.partner.legion);if(pl)v+=legTot(pa,pl).v;}
+  return v;
+}
+function mercList(n){return (S.mercs&&S.mercs[n])||[];}
+function mercPts(n){return mercList(n).reduce((s,m)=>s+m.ptsUnit*m.units,0);}
+function pointsHtml(n){
+  const v=pickPts(n),mp=mercPts(n);
+  if(v==null&&!mp)return '';
+  return `<div class="small ppts">💰 Légion : <b>${v==null?'–':pts(v)}</b> pts${mp?` · mercenaires : <b>${pts(mp)}</b> pts · total <b>${pts((v||0)+mp)}</b>`:''}</div>`;
+}
+function mercHtml(n,edit){
+  const l=mercList(n);if(!l.length&&!edit)return '';
+  const a=id=>{const x=getArmy(id);return x?x.name:id;};
+  return `<div class="small pmerc">${l.map(m=>`<div>🗡️ ${m.units} × ${esc(m.name)} <span style="opacity:.75">(${esc(a(m.army))} · ${pts(m.ptsUnit*m.units)} pts, sans bonus)</span>${edit?` <button class="mini" data-a="merc-del" data-name="${esc(n)}" data-id="${esc(m.id)}" title="Retirer">✕</button>`:''}</div>`).join('')}${edit?`<button class="btn" style="margin-top:4px" data-a="merc-add" data-name="${esc(n)}">+ Mercenaires</button>`:''}</div>`;
+}
+function playerCard(n){
+  const on=(S.online||[]).includes(n);
+  return `<div class="pcard" data-name="${esc(n)}"><span class="grip" data-grip="1" title="Faire glisser vers une équipe">⠿</span><div class="pbody"><div class="pname">${on?'<span class="dot" title="connecté"></span>':''}${esc(n)}</div><div class="small parmy">${armyOf(n)}</div>${legSelect(n)}${pointsHtml(n)}${mercHtml(n,true)}</div><div class="pbtn"><button class="mini" data-a="pl-ren" data-name="${esc(n)}" title="Renommer">✎</button><button class="mini" data-a="pl-del" data-name="${esc(n)}" title="Supprimer">✕</button></div></div>`;
+}
+function armyOf(n){const p=(S.picks||{})[n];const a=p&&getArmy(p.army);return a?`⚔️ Armée : <b>${esc(a.name)}</b>`:'<i>pas d\'armée choisie</i>';}
+function legLabelOf(n){const p=(S.picks||{})[n];if(!p)return '';const a=getArmy(p.army);const l=a&&a.legions.find(x=>x.id===p.legion);return l?`${a.name} · ${legName(l)}`:'';}
+function teamCardRO(n){
+  const on=(S.online||[]).includes(n);const p=(S.picks||{})[n];const lab=legLabelOf(n);
+  return `<div class="pcard"><div class="pbody"><div class="pname">${on?'<span class="dot" title="connecté"></span>':''}${esc(n)}${isMe(n)?' <span class="small">(moi)</span>':''}</div><div class="small parmy">${armyOf(n)}</div>${lab?`<button class="chip sm" data-a="openpick" data-army="${esc(p.army)}" data-leg="${esc(p.legion)}">${esc(lab)}</button>`:'<div class="small">pas de légion</div>'}${pointsHtml(n)}${mercHtml(n,false)}</div></div>`;
+}
+function renderTeamsRO(){
+  const t=S.teams||{names:{t1:'Équipe 1',t2:'Équipe 2'},members:{}};const names=allNames();
+  const col=(key,title)=>{const list=names.filter(n=>(t.members[n]||'none')===key);
+    return `<div class="pcol"><div class="phead"><b>${esc(title)}</b><span class="small">${list.length}</span></div><div class="plist">${list.map(teamCardRO).join('')||'<div class="hint">Personne.</div>'}</div></div>`;};
+  return `<h1>Équipes</h1><p class="sub">${S.frozen?'🔒 Équipes et légions verrouillées par le MJ.':'Équipes et légions choisies par les joueurs.'} Touchez une légion pour ouvrir sa fiche.</p><div class="pgrid">${col('t1',t.names.t1)}${col('t2',t.names.t2)}${col('none','Sans équipe')}</div>`;
+}
+function renderPlayers(){
+  if(!isMJ())return renderTeamsRO();
+  const t=S.teams||{names:{t1:'Équipe 1',t2:'Équipe 2'},members:{}};const names=allNames();
+  const col=(key,title,editable)=>{const list=names.filter(n=>(t.members[n]||'none')===key);
+    return `<div class="pcol" data-drop="${key}"><div class="phead">${editable?`<input class="ft tname" data-team="${key}" value="${esc(t.names[key])}" maxlength="30" aria-label="Nom de l'équipe">`:`<b>${title}</b>`}<span class="small">${list.length}</span></div><div class="plist">${list.map(playerCard).join('')||'<div class="hint">Déposez des pseudos ici.</div>'}</div></div>`;};
+  let h=`<h1>Joueurs &amp; équipes</h1><p class="sub">Faites glisser un pseudo (⠿) vers une équipe. Choisissez sa légion dans la liste.</p>
+   <div class="row noprint"><input id="plNew" class="ft" type="text" maxlength="15" placeholder="Nouveau pseudo" style="flex:1;min-width:140px"><button class="btn" data-a="pl-add">Ajouter</button>
+   <button class="btn ${S.frozen?'pri':''}" data-a="pl-lock">${S.frozen?'🔒 Équipes et légions verrouillées':'🔓 Verrouiller les équipes et les légions'}</button></div>`;
+  h+='<div class="pgrid">'+col('t1','',true)+col('t2','',true)+col('none','Sans équipe',false)+'</div>';
+  return h;
+}
+async function teamOp(payload){const r=await hostReq('fiches-team',payload);if(!r.success)toast(r.message||'Action impossible.');await loadHosted(false);return r;}
+async function setLegionOf(name,val){
+  const r=val?await hostReq('fiches-pick',{name,army:val.split('|')[0],legion:val.split('|')[1]}):await hostReq('fiches-pick',{clear:true,name});
+  if(!r.success)toast(r.message||'Choix impossible.');await loadHosted(false);
+}
+function playersAction(el){
+  const a=el.dataset.a,name=el.dataset.name;
+  if(a==='pl-add'){const v=cleanName(mval('plNew'),15);if(!v)return toast('Saisissez un pseudo.');teamOp({op:'add',name:v});}
+  else if(a==='merc-add')mercDialog(name);
+  else if(a==='merc-del')hostReq('fiches-merc',{op:'remove',name,id:el.dataset.id}).then(r=>{if(!r.success)toast(r.message||'Impossible.');loadHosted(false);});
+  else if(a==='pl-lock'){hostReq('fiches-freeze',{freeze:!S.frozen}).then(r=>{if(r.success){S.frozen=r.freeze;toast(r.freeze?'Équipes et légions verrouillées.':'Équipes et légions déverrouillées.');render();}});}
+  else if(a==='pl-del')openModal('Supprimer ce pseudo ?',`<div><b>${esc(name)}</b> sera retiré de la liste, de son équipe et sa légion sera libérée.</div>`,[{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{closeModal();teamOp({op:'remove',name});}}]);
+  else if(a==='pl-ren')openModal('Renommer le pseudo',`<input id="plRn" class="ft" type="text" maxlength="15" value="${esc(name)}"><div class="small" style="margin-top:6px">Le choix de légion et l'équipe suivent le nouveau pseudo.</div>`,[{label:'Annuler',fn:closeModal},{label:'Renommer',cls:'pri',fn:()=>{const to=cleanName(mval('plRn'),15);closeModal();if(to&&to!==name)teamOp({op:'rename',name,to});}}]);
+}
+/* mercenaires : infanterie légère d'une légion libre, ajoutée par le MJ, sans bonus d'armée */
+const LIGHT_INF=/\binf\w*\.?\s*l[eé]g/i;
+function mercCalc(a,u,lid){
+  const cp=JSON.parse(JSON.stringify(u));cp.v={};if(cp.l2)cp.l2.v={};
+  calcUnit(cp,Object.assign({},a,{params:{}}),FAM);
+  const q=cp.q[lid];if(!q||q[3]!==q[3]||q[3]==null)return null;
+  const row={};['C','D','E','G','H','I','K','P','S','V','W'].forEach(c=>{const v=cellRaw(cp,c);if(typeof v==='number'&&v===v)row[c]=v;else if(typeof v==='string'&&v)row[c]=v;});
+  return {ptsUnit:q[3]/Math.max(1,q[6]||1),row};
+}
+function mercDialog(name){
+  const free=[];
+  ARMIES.forEach(a=>a.legions.forEach(l=>{if(l.id==='ni'||pickOwner(a.id,l.id))return;if(l.partner&&pickOwner(l.partner.army,l.partner.legion))return;
+    const us=a.units.filter(u=>u.q[l.id]&&u.q[l.id][0]>0&&LIGHT_INF.test(String(u.in_.B||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')));
+    if(us.length)free.push({a,l,us});}));
+  if(!free.length){toast('Aucune légion libre ne contient d’infanterie légère.');return;}
+  const optsL=free.map((f,i)=>`<option value="${i}">${esc(f.a.name)} · ${esc(legName(f.l))}</option>`).join('');
+  openModal('Mercenaires pour '+name,`<div class="small" style="margin-bottom:6px">Infanterie légère prise dans une légion qu'aucun joueur n'a choisie. Aucun bonus d'armée ne s'applique.</div>
+   <select id="mcL" class="ft">${optsL}</select><select id="mcU" class="ft" style="margin-top:6px"></select>
+   <div class="row" style="margin-top:6px"><label class="small">Nombre d'unités</label><input id="mcN" class="ft" type="number" min="1" value="1" style="width:90px"></div><div id="mcP" class="small" style="margin-top:6px"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Ajouter',cls:'pri',fn:async()=>{
+     const f=free[+mval('mcL')],u=f.us[+mval('mcU')];if(!f||!u)return;
+     const c=mercCalc(f.a,u,f.l.id);if(!c){toast('Valeur de l’unité non calculable.');return;}
+     const r=await hostReq('fiches-merc',{op:'add',name,army:f.a.id,legion:f.l.id,uid:u.uid,units:Math.max(1,parseInt(mval('mcN'))||1),ptsUnit:c.ptsUnit,row:c.row});
+     if(!r.success){toast(r.message||'Impossible.');return;}closeModal();toast('Mercenaires ajoutés.');loadHosted(false);}}]);
+  let lastL=-1;
+  const upd=()=>{const f=free[+mval('mcL')];const us=document.getElementById('mcU');
+    if(lastL!==mval('mcL')){lastL=mval('mcL');us.innerHTML=f.us.map((u,i)=>`<option value="${i}">${esc(u.in_.B)} (${u.q[f.l.id][6]||1} unités)</option>`).join('');}
+    const u=f.us[+mval('mcU')]||f.us[0];const c=u&&mercCalc(f.a,u,f.l.id);const n=Math.max(1,parseInt(mval('mcN'))||1);
+    document.getElementById('mcP').innerHTML=c?`Valeur par unité : <b>${pts(c.ptsUnit)}</b> pts · total : <b>${pts(c.ptsUnit*n)}</b> pts`:'Valeur non calculable.';};
+  const m=document.getElementById('modal');['mcL','mcU','mcN'].forEach(id=>{const e=document.getElementById(id);e.addEventListener('input',upd);e.addEventListener('change',upd);});upd();
+}
+/* glisser-déposer au pointeur (souris et tactile) */
+let DRAG=null;
+document.addEventListener('pointerdown',e=>{
+  const g=e.target.closest('[data-grip]');if(!g||!isMJ()||S.tab!=='players')return;
+  const card=g.closest('.pcard');e.preventDefault();
+  const ghost=card.cloneNode(true);ghost.className='pcard ghost';ghost.style.width=card.offsetWidth+'px';document.body.appendChild(ghost);
+  DRAG={name:card.dataset.name,ghost,card};card.classList.add('dragging');
+  const mv=ev=>{ghost.style.left=(ev.clientX-20)+'px';ghost.style.top=(ev.clientY-20)+'px';
+    document.querySelectorAll('.pcol').forEach(c=>c.classList.remove('over'));const t=document.elementFromPoint(ev.clientX,ev.clientY);const c=t&&t.closest('.pcol');if(c)c.classList.add('over');};
+  const up=ev=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);
+    const t=document.elementFromPoint(ev.clientX,ev.clientY);const c=t&&t.closest('[data-drop]');ghost.remove();card.classList.remove('dragging');
+    document.querySelectorAll('.pcol').forEach(x=>x.classList.remove('over'));const d=DRAG;DRAG=null;
+    if(c&&d){const team=c.dataset.drop==='none'?null:c.dataset.drop;teamOp({op:'assign',name:d.name,team});}};
+  document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);mv(e);
+});
+document.addEventListener('change',e=>{
+  if(S.tab!=='players'||!isMJ())return;
+  const sel=e.target.closest('.pl-sel');if(sel){setLegionOf(sel.dataset.who,sel.value);return;}
+  const tn=e.target.closest('.tname');if(tn){teamOp({op:'teamname',team:tn.dataset.team,label:tn.value});}
+});
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-wc]');if(!b)return;const m=document.getElementById('modal');
+  if(b.dataset.wc==='x')closeModal();
+  else if(b.dataset.wc==='min'){m.classList.toggle('min');b.textContent=m.classList.contains('min')?'▢':'—';b.title=m.classList.contains('min')?'Rouvrir':'Réduire en barre';}
+  else if(b.dataset.wc==='fs')m.classList.toggle('fsc');
+});
+
+/* ---- sauvegardes nommées, export et import des fiches (MJ) ---- */
+async function downloadJson(filename,obj){
+  const blob=new Blob([JSON.stringify(obj)],{type:'application/json'});
+  const file=new File([blob],filename,{type:'application/json'});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})&&/Android|iPhone|iPad/i.test(navigator.userAgent)){await navigator.share({files:[file],title:filename});return true;}}
+  catch(e){if(e&&e.name==='AbortError')return false;}
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);return true;
+}
+const fileSlug=t=>String(t||'fiches').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'fiches';
+const fmtDate=t=>{try{return new Date(t).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});}catch(e){return '';}};
+async function loadSnaps(){const r=await hostReq('fiches-snaps',{});if(r.success){S.snaps=r.list;S.snapCur=r.current;}else{S.snaps=[];toast(r.message||'Liste indisponible.');}if(S.tab==='saves')render();}
+function renderSaves(){
+  const list=S.snaps||[];const cur=S.snapCur||{armies:0,customFams:0};
+  let h='<h1>Sauvegardes des fiches</h1><p class="sub">Comme pour les cartes : enregistrez l\'état de toutes les fiches (unités, légions, sections, bonus, formules), rechargez-le plus tard, ou exportez-le sur votre appareil.</p>';
+  h+=`<div class="card"><div class="small" style="margin-bottom:6px">État actuel : ${cur.armies} armée(s) modifiée(s), ${cur.customFams} formule(s) créée(s)</div><div class="row" style="margin:0"><input id="snName" class="ft" type="text" maxlength="60" placeholder="Nom de la sauvegarde" style="flex:1;min-width:150px"><button class="btn pri" data-a="snap-save">💾 Enregistrer</button></div>
+   <div class="row" style="margin:10px 0 0"><button class="btn" data-a="snap-export">⬇️ Exporter l'état actuel</button><button class="btn" data-a="snap-import">⬆️ Importer un fichier</button><input id="snFile" type="file" accept=".json,application/json" hidden></div></div>`;
+  if(!S.snaps)return h+'<div class="hint">Chargement de la liste…</div>';
+  if(!list.length)return h+'<div class="hint">Aucune sauvegarde pour le moment.</div>';
+  list.forEach(m=>{h+=`<div class="card"><b>${esc(m.name)}</b>${m.auto?'<span class="tag">auto</span>':''}<div class="small">${esc(fmtDate(m.savedAt))}${m.author?' · '+esc(m.author):''} · ${m.armies} armée(s) modifiée(s)</div>
+    <div class="row" style="margin:8px 0 0"><button class="btn pri" data-a="snap-load" data-id="${esc(m.id)}">Charger</button><button class="btn" data-a="snap-over" data-id="${esc(m.id)}" title="Remplacer cette sauvegarde par l'état actuel">💾 Écraser</button><button class="btn" data-a="snap-ren" data-id="${esc(m.id)}">✏️</button><button class="btn" data-a="snap-exp" data-id="${esc(m.id)}">⬇️</button><button class="btn" data-a="snap-del" data-id="${esc(m.id)}">🗑️</button></div></div>`;});
+  return h;
+}
+function snapMeta(id){return (S.snaps||[]).find(m=>m.id===id);}
+async function snapAction(a,el){
+  const id=el.dataset.id;const done=async r=>{toast(r.message||(r.success?'Fait.':'Action impossible.'));await loadSnaps();};
+  if(a==='snap-save'){const name=cleanName(mval('snName'),60);if(!name)return toast('Donnez un nom à la sauvegarde.');
+    let r=await hostReq('fiches-snap-save',{name});
+    if(r.code==='exists'){openModal('Remplacer la sauvegarde ?',`<div>Une sauvegarde « ${esc(name)} » existe déjà. La remplacer par l'état actuel ?</div>`,[{label:'Annuler',fn:closeModal},{label:'Remplacer',cls:'pri',fn:async()=>{closeModal();done(await hostReq('fiches-snap-save',{name,id:r.id}));}}]);return;}
+    return done(r);}
+  if(a==='snap-over'){const m=snapMeta(id);openModal('Écraser la sauvegarde ?',`<div>« ${esc(m?m.name:'')} » sera remplacée par l'état actuel des fiches.</div>`,[{label:'Annuler',fn:closeModal},{label:'Écraser',cls:'pri',fn:async()=>{closeModal();done(await hostReq('fiches-snap-save',{name:m.name,id}));}}]);return;}
+  if(a==='snap-load'){const m=snapMeta(id);openModal('Charger cette sauvegarde ?',`<div>« ${esc(m?m.name:'')} » remplacera les fiches pour <b>tous les joueurs</b>. Une sauvegarde automatique de l'état actuel est créée avant.</div>`,[{label:'Annuler',fn:closeModal},{label:'Charger',cls:'pri',fn:async()=>{closeModal();const r=await hostReq('fiches-snap-load',{id});toast(r.message||'Action impossible.');await loadHosted(false);await loadSnaps();}}]);return;}
+  if(a==='snap-ren'){const m=snapMeta(id);openModal('Renommer la sauvegarde',`<input id="snRn" class="ft" type="text" maxlength="60" value="${esc(m?m.name:'')}">`,[{label:'Annuler',fn:closeModal},{label:'Renommer',cls:'pri',fn:async()=>{const n=cleanName(mval('snRn'),60);closeModal();if(n)done(await hostReq('fiches-snap-rename',{id,name:n}));}}]);return;}
+  if(a==='snap-del'){const m=snapMeta(id);openModal('Supprimer la sauvegarde ?',`<div>« ${esc(m?m.name:'')} » sera supprimée définitivement.</div>`,[{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:async()=>{closeModal();done(await hostReq('fiches-snap-delete',{id}));}}]);return;}
+  if(a==='snap-export'||a==='snap-exp'){const r=await hostReq('fiches-export',a==='snap-exp'?{id}:{});if(!r.success)return toast(r.message||'Export impossible.');
+    const ok=await downloadJson(`fiches-${fileSlug(r.file.name)}-${new Date().toISOString().slice(0,10)}.json`,r.file);if(ok)toast('Fichier exporté.');return;}
+  if(a==='snap-import'){const inp=document.getElementById('snFile');if(inp){inp.value='';inp.click();}}
+}
+
+document.addEventListener('change',async e=>{
+  const inp=e.target.closest&&e.target.closest('#snFile');if(!inp||!isMJ())return;
+  const f=inp.files&&inp.files[0];if(!f)return;
+  if(f.size>5e6)return toast('Fichier trop volumineux.');
+  let obj;try{obj=JSON.parse(await f.text());}catch(x){return toast('Ce fichier n\'est pas un fichier JSON valide.');}
+  const r=await hostReq('fiches-import',{file:obj});toast(r.message||(r.success?'Fichier importé.':'Import impossible.'));await loadSnaps();
+});
+
+/* ---- rappel destiné au MJ à l'ouverture des fiches ---- */
+function mjHelp(force){
+  if(!HOSTED||!isMJ())return;
+  if(S.noHelp&&!force){S.noHelp=false;return;}
+  let off=false;try{off=localStorage.getItem('fa2:nohelp')==='1';}catch(e){}
+  if(off&&!force)return;
+  const li=t=>`<li>${t}</li>`;
+  openModal('⚠️ Rappel pour le MJ',`<div class="small" style="color:var(--fg);line-height:1.5">
+   <p style="margin:0 0 8px"><b>Toute modification est enregistrée pour tous les joueurs, tout de suite.</b> Rien ne se modifie avec un simple clic : il faut un <b>double clic</b> (ou double tape).</p>
+   <b>Fiche d'une armée complète</b> (onglet Armées, bouton « Armée complète »)<ul style="margin:4px 0 8px;padding-left:18px">
+   ${li('<b>Valeur ou formule d\'une cellule</b> : double clic sur la cellule. Une formule commence par <code>=</code>. Choisissez « Cette cellule » ou « Toute la famille ».')}
+   ${li('<b>Unité</b> : double clic sur son nom (dupliquer, déplacer vers une autre armée, changer de section, supprimer). Une unité de type cd1/cd2 a une 2ᵉ attaque.')}
+   ${li('<b>Nouvelle unité / nouvelle section</b> : boutons « ＋ Unité » et « ＋ Section ». Double clic sur le titre d\'une section pour la renommer ou la supprimer.')}
+   ${li('<b>Légions</b> : double clic sur le nom d\'une légion pour la modifier, la dupliquer ou la supprimer ; « ＋ Nouvelle légion » pour en créer. Double clic sur nb, c ou E pour changer les quantités.')}
+   ${li('<b>Bonus d\'armée</b> : double clic sur un bonus pour l\'activer, le désactiver, le modifier ou le supprimer.')}
+   </ul>
+   <b>Fiche d'une légion</b> : lecture seule. Aucune modification n'y est possible ; revenez à l'armée complète.
+   <ul style="margin:8px 0;padding-left:18px">
+   ${li('<b>Formules</b> (onglet Formules) : double clic sur une formule pour la modifier. « Formule seule » ne change pas les lignes concernées ; « Formule + affectation » applique aussi les cases cochées de l\'arborescence (armée › légion › unité).')}
+   ${li('<b>Équipes</b> (onglet Équipes) : glissez un pseudo vers une équipe, choisissez sa légion, renommez les équipes, ajoutez ou supprimez des pseudos, verrouillez équipes et légions.')}
+   ${li('<b>Sauvegardes</b> (onglet Sauvegardes) : enregistrer, charger, exporter vers votre appareil, importer un fichier.')}
+   </ul>
+   <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input id="nohelp" type="checkbox" style="width:18px;height:18px"> Ne plus afficher à l'ouverture (le bouton ℹ️ reste disponible)</label></div>`,
+   [{label:'Compris',cls:'pri',fn:()=>{const c=document.getElementById('nohelp');try{if(c&&c.checked)localStorage.setItem('fa2:nohelp','1');else if(!force)localStorage.removeItem('fa2:nohelp');}catch(e){}closeModal();}}]);
+  document.getElementById('modal').classList.add('big');
+}
+
+/* ---- fiche d'une unité posée sur la carte (fenêtre contextuelle) ---- */
+const CARD_HIDE=new Set(['S','F','J','L','M','Q','R','X','T','U']); // résultats intermédiaires : masqués dans la fiche d'une unité
+/* unités composées : reste d'une ligne complété par une figurine seule. Elles sont enregistrées dans la fiche de l'armée (a.composites). */
+const DEFAULT_COMPOSITES=[
+  {army:'nains',legion:'1',base:'inf lourde',extra:'champion sur bouclier',size:8},
+  {army:'orcs',legion:'1',base:'caval lourde (C)',extra:'champion sur sanglier (C)',size:4},
+  {army:'hauts_elfes',legion:'1',base:'caval lourde (C)',extra:'commandeur à cheval (C)',size:4},
+  {army:'thyranides',legion:'1',base:'fusiller leger',extra:'chef',size:8},
+  {army:'elfes_noirs',legion:'1',base:'mage (mag,spe)',extra:'médusa (mag,spe)',size:8},
+  ...[
+    ['alliance','1',['mitrailleuse (aL)']],['bretonnie','1',['catapulte (art)']],
+    ['chaos','1',['canon (art)']],['chaos','3',['canon (art)']],['chaos','4',['canon (art)']],
+    ['empire','1',['canon (art)']],['empire','3',['autel de guerre (aL,mag)','canon (art)']],['empire','4',['canon (art)']],
+    ['federation','4',['arme lourde (aL)']],['federation','5',['arme lourde (aL)']],
+    ['gobelins','1',['autel de guerre (aL,mag)','catapulte (art)']],['hauts_elfes','2',['baliste (aL)']],
+    ['ispanie','1',['catapulte (art)']],['morts_vivants','1',['autel de guerre (aL,BA,mag)']],
+    ['nains','2',['canon (art,spe)','arme lourde  (aL)']],
+    ['orcs','1',['catapulte / baliste geante (art)']],['orcs','2',['catapulte / baliste geante (art)','baliste (aL)']],['orcs','3',['catapulte / baliste geante (art)']],
+    ['saurus','1',['baliste (aL,BA)']]
+  ].flatMap(([army,legion,ms])=>ms.map(base=>({army,legion,base,extra:'@srv',per:2})))
+];
+function initComposites(a){
+  if(Array.isArray(a.composites))return;
+  a.composites=[];
+  DEFAULT_COMPOSITES.forEach((c,i)=>{if(c.army!==a.id)return;
+    const b=a.units.find(u=>u.in_.B===c.base&&u.q[c.legion]);
+    const e=a.units.find(u=>u.q[c.legion]&&(c.extra==='@srv'?u.q[c.legion][7]==='srv':u.in_.B===c.extra));
+    if(b&&e)a.composites.push(Object.assign({id:'d'+i,legion:c.legion,base:b.uid,extra:e.uid},c.per?{per:c.per}:{size:c.size}));});
+}
+/* calcul d'une unité composée (mêmes règles que le serveur) : avail = figurines de l'autre ligne encore disponibles */
+function compCalc(a,c,avail){
+  const b=a.units.find(u=>u.uid===c.base),e=a.units.find(u=>u.uid===c.extra);
+  if(!b||!e||!b.q[c.legion]||!e.q[c.legion])return null;
+  const bq=b.q[c.legion],eq=e.q[c.legion];
+  const have=avail&&avail[c.extra]!=null?avail[c.extra]:eq[0];
+  if(c.per){const k=Math.min(bq[0],Math.floor(have/c.per));return k>0?{c,b,e,per:c.per,k,left:bq[0]-k,used:k*c.per}:null;}
+  const size=c.size||8,full=Math.floor(bq[0]/size),rest=bq[0]-full*size;
+  return rest>0?{c,b,e,size,full,rest,k:1,used:eq[0]}:null;
+}
+function compAdj(plan,u,q){
+  let nb=q[0],inn=0,uu=null,hit=false;
+  plan.forEach(o=>{
+    if(o.c.base===u.uid){hit=true;if(o.per){nb=o.left;inn+=o.k;}else{nb=o.full*o.size;inn+=o.rest;uu=o.full;}}
+    else if(o.c.extra===u.uid){hit=true;if(o.per){nb=nb-o.used;inn+=o.used;}else{nb=0;inn+=o.used;}}});
+  if(!hit)return null;
+  return {nb,in:inn,type:q[7]||'',u:uu!=null?uu:null};
+}
+function compPlan(a,lid){
+  const avail={},out=[];
+  (a.composites||[]).filter(c=>c.legion===lid).forEach(c=>{
+    const o=compCalc(a,c,avail);if(!o)return;
+    avail[c.extra]=(avail[c.extra]!=null?avail[c.extra]:o.e.q[lid][0])-o.used;out.push(o);});
+  return out;
+}
+const compOk=(a,c)=>compCalc(a,c,null);
+function compText(a,c){const o=compOk(a,c);if(!o)return null;
+  if(o.per)return `${o.k} ${esc(o.b.in_.B)} + ${o.per} ${esc(o.e.in_.B)} chacun : <b>${o.k} unité${o.k>1?'s':''} composée${o.k>1?'s':''}</b>${o.left>0?' (+ '+o.left+' sans '+esc(o.e.in_.B)+')':''}`;
+  return `${o.full>0?o.full+' × '+o.size+' ':''}${esc(o.b.in_.B)}${o.full>0?' puis ':' : '}<b>1 unité composée</b> : ${o.rest} ${esc(o.b.in_.B)} + ${esc(o.e.in_.B)}`;}
+function compNote(a,l){
+  const out=compPlan(a,l.id).map(o=>compText(a,o.c)).filter(Boolean);
+  return out.length?`<div class="hint">🧩 <b>Unités composées</b> de cette légion :<br>${out.join('<br>')}</div>`:'';
+}
+function compPanel(a){
+  const list=a.composites||[];
+  let h='<div class="card noprint"><div class="lbl2">🧩 Unités composées</div><div class="small" style="margin:4px 0 6px">Le reste d\'une ligne (nombre de figurines non multiple de la taille habituelle) se complète avec une figurine seule pour former une unité. Elles apparaissent ainsi dans les fiches et au dépôt sur la carte.</div>';
+  if(!list.length)h+='<div class="small">Aucune unité composée dans cette armée.</div>';
+  list.forEach(c=>{const lg=a.legions.find(l=>l.id===c.legion);const t=compText(a,c);
+    h+=`<div class="row" style="margin:4px 0;align-items:center"><span class="sans" style="flex:1;min-width:200px"><b>${esc(lg?legName(lg):c.legion)}</b> · ${t||'<i>inactive (unités absentes de cette légion, ou aucun reste)</i>'}</span>`
+      +`<button class="mini" data-a="comp-edit" data-id="${esc(c.id)}" title="Modifier">✎</button><button class="mini" data-a="comp-move" data-id="${esc(c.id)}" title="Déplacer vers une autre légion">⇄</button><button class="mini" data-a="comp-copy" data-id="${esc(c.id)}" title="Copier dans une autre légion">⧉</button><button class="mini" data-a="comp-del" data-id="${esc(c.id)}" title="Supprimer">✕</button></div>`;});
+  return h+'<div class="row" style="margin:6px 0 0"><button class="btn" data-a="comp-add">＋ Unité composée</button></div></div>';
+}
+function compForm(c,isNew){
+  const a=curArmy();const legs=a.legions.filter(l=>l.id!=='ni'&&a.units.some(u=>u.q[l.id]));
+  if(!legs.length){toast('Aucune légion avec des unités.');return;}
+  const unitsOf=lid=>a.units.filter(u=>u.q[lid]&&u.q[lid][0]>0);
+  openModal(isNew?'Nouvelle unité composée':'Modifier l\'unité composée',`<div class="small" style="margin-bottom:6px">Légion, ligne de base, autre ligne, puis le mode de composition.</div>
+   <select id="cpL" class="ft">${legs.map(l=>`<option value="${esc(l.id)}" ${l.id===c.legion?'selected':''}>${esc(legName(l))}</option>`).join('')}</select>
+   <label class="small">Ligne de base</label><select id="cpB" class="ft"></select>
+   <label class="small">Autre ligne (figurine seule, servants…)</label><select id="cpE" class="ft"></select>
+   <label class="small">Mode</label><select id="cpM" class="ft"><option value="rest" ${c.per?'':'selected'}>Le reste de la ligne de base est complété par l'autre ligne (1 unité)</option><option value="per" ${c.per?'selected':''}>Chaque figurine de la ligne de base reçoit N figurines de l'autre ligne (ex. machine + servants)</option></select>
+   <div class="row" style="margin-top:6px"><label class="small" id="cpNl"></label><input id="cpS" class="ft" type="number" min="1" max="40" value="${c.per||c.size||8}" style="width:90px"></div><div id="cpP" class="small" style="margin-top:6px"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:isNew?'Ajouter':'Enregistrer',cls:'pri',fn:()=>{
+     const per=mval('cpM')==='per',v=Math.max(per?1:2,Math.min(40,parseInt(mval('cpS'))||(per?2:8)));
+     const n=Object.assign({id:c.id,legion:mval('cpL'),base:mval('cpB'),extra:mval('cpE')},per?{per:v}:{size:v});
+     if(!n.base||!n.extra||n.base===n.extra){toast('Choisissez deux lignes différentes.');return;}
+     if((a.composites||[]).some(x=>x.id!==n.id&&x.legion===n.legion&&(x.base===n.base||x.extra===n.base||(!per&&!x.per&&x.extra===n.extra)||(per!==!!x.per&&x.extra===n.extra)))){toast('Une de ces lignes est déjà utilisée par une autre unité composée de cette légion.');return;}
+     if(!compOk(a,n)&&!confirm('Cette association ne produit aucune unité composée. L\'enregistrer quand même ?'))return;
+     a.composites=a.composites||[];const i=a.composites.findIndex(x=>x.id===n.id);if(i>=0)a.composites[i]=n;else a.composites.push(n);
+     closeModal();afterChange([a.id]);toast('Unité composée enregistrée.');}}]);
+  let last=null;
+  const fill=()=>{const lid=mval('cpL');const us=unitsOf(lid);
+    if(last!==lid){last=lid;
+      const opt=sel=>us.map(u=>`<option value="${esc(u.uid)}" ${u.uid===sel?'selected':''}>${esc(u.in_.B)} (${u.q[lid][0]} fig)</option>`).join('');
+      document.getElementById('cpB').innerHTML=opt(c.legion===lid?c.base:null);document.getElementById('cpE').innerHTML=opt(c.legion===lid?c.extra:null);}
+    const per=mval('cpM')==='per';document.getElementById('cpNl').textContent=per?'Figurines de l\'autre ligne par figurine de base':'Taille habituelle d\'une unité';
+    const v=parseInt(mval('cpS'))||(per?2:8);const n=Object.assign({legion:lid,base:mval('cpB'),extra:mval('cpE')},per?{per:v}:{size:Math.max(2,v)});const t=compText(a,n);
+    document.getElementById('cpP').innerHTML=t?('Résultat : '+t):'Aucune unité composée avec ces valeurs.';};
+  ['cpL','cpB','cpE','cpM','cpS'].forEach(id=>{const e=document.getElementById(id);e.addEventListener('input',fill);e.addEventListener('change',fill);});fill();
+}
+function compPickLegion(c,verb,fn){
+  const a=curArmy();
+  const ok=a.legions.filter(l=>l.id!=='ni'&&l.id!==c.legion&&a.units.some(u=>u.uid===c.base&&u.q[l.id])&&a.units.some(u=>u.uid===c.extra&&u.q[l.id]));
+  if(!ok.length){toast('Aucune autre légion ne contient les deux lignes de cette unité composée.');return;}
+  openModal(verb+' l\'unité composée',`<select id="cpT" class="ft">${ok.map(l=>`<option value="${esc(l.id)}">${esc(legName(l))}</option>`).join('')}</select><div class="small" style="margin-top:6px">Seules les légions qui contiennent les deux lignes sont proposées.</div>`,
+   [{label:'Annuler',fn:closeModal},{label:verb,cls:'pri',fn:()=>{fn(mval('cpT'));closeModal();afterChange([a.id]);}}]);
+}
+function compAction(act,id){
+  const a=curArmy();a.composites=a.composites||[];const c=a.composites.find(x=>x.id===id);
+  if(act==='add')compForm({id:'c'+Math.random().toString(36).slice(2,8),legion:S.sel&&S.sel!=='ni'?S.sel:'',size:8},true);
+  else if(!c)return;
+  else if(act==='edit')compForm(c,false);
+  else if(act==='del')a.composites=a.composites.filter(x=>x.id!==id),afterChange([a.id]);
+  else if(act==='move')compPickLegion(c,'Déplacer',t=>{if(a.composites.some(x=>x.id!==c.id&&x.legion===t&&(x.base===c.base||x.extra===c.extra))){toast('Déjà utilisée dans cette légion.');return;}c.legion=t;});
+  else if(act==='copy')compPickLegion(c,'Copier',t=>{if(a.composites.some(x=>x.legion===t&&(x.base===c.base||x.extra===c.extra))){toast('Déjà utilisée dans cette légion.');return;}a.composites.push({...c,id:'c'+Math.random().toString(36).slice(2,8),legion:t});});
+}
+/* unité composée dans la fiche de légion : les deux types de figurines l'un sous l'autre, dans un même cadre */
+function compRows(a,l,o,cs,qc){
+  const qb=o.b.q[l.id],qe=o.e.q[l.id];
+  const val=(q,n)=>(q[3]!=null&&q[3]===q[3]&&q[0])?Math.round(q[3]*n/q[0]):'';
+  const nb=o.per?o.k:o.rest,ne=o.per?o.k*o.per:qe[0];
+  const row=(u,n,q,k)=>'<tr class="compr compr'+k+'">'+cs.map(col=>col==='B'?`<td class="name">🧩 ${esc(u.in_.B||'')}</td>`:cellTd(a,u,'u',col)).join('')
+    +(qc.nb?`<td class="qty">${n}</td>`:'')+(k===1?(qc.u?`<td class="compu" rowspan="2">🧩 ${o.k}${esc(qb[7]||'')}<br><small>unité${o.k>1?'s':''} composée${o.k>1?'s':''}</small></td>`:'')+(qc.e?'<td class="compu" rowspan="2"></td>':''):'')+(qc.pts?`<td>${val(q,n)}</td>`:'')+'</tr>';
+  return row(o.b,nb,qb,1)+row(o.e,ne,qe,2);
+}
+function showCompCard(t,a,l){
+  const parts=(t.comp||[]).map(c=>({c,u:a.units.find(x=>x.uid===c.uid)})).filter(x=>x.u);
+  const row=(lab,val)=>`<tr><th style="text-align:left;white-space:normal">${esc(lab)}</th><td style="text-align:right">${esc(val)}</td></tr>`;
+  let total=0,ok=true;
+  const body=parts.map(({c,u})=>{const q=u.q[t.legion];const v=q&&q[3]===q[3]&&q[3]!=null&&q[0]?q[3]/q[0]*c.figs:null;if(v==null)ok=false;else total+=v;
+    const cols=COLS.filter(k=>k!=='B'&&k!=='A'&&!CARD_HIDE.has(k)&&cellRaw(u,k)!=null&&cellRaw(u,k)!=='');
+    return `<div class="lbl2" style="margin-top:8px">${c.figs} × ${esc(u.in_.B)}${v!=null?' · '+Math.round(v)+' pts':''}</div><table style="width:100%">${cols.map(k=>row(k==='W'?'Valeur de la figurine (avec tous les bonus)':(LONG[k]||k),fnum(cellRaw(u,k)))).join('')}</table>`;}).join('');
+  const figs=parts.reduce((s,x)=>s+x.c.figs,0);
+  const h=`<div class="small" style="margin-bottom:6px">${esc(a.name)} · ${esc(legName(l))}${t.owner?' · '+esc(t.owner):''} · <b>unité composée</b></div><div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${figs}</b><span>figurines dans l'unité</span></div>${ok?`<div class="kpi"><b>${Math.round(total)}</b><span>valeur de l'unité</span></div>`:''}<div class="kpi"><b>${t.std?'oui':'non'}</b><span>étendard</span></div></div><div class="scroll" style="max-height:44vh">${body}</div>`;
+  openModal((t.comp||[]).map(c=>c.name).join(' + '),h,[{label:'Fermer',cls:'pri',fn:closeModal}]);
+}
+function showMercCard(t){
+  const m=((S.mercs||{})[t.owner]||[]).find(x=>'merc-'+x.id===t.uid);
+  if(!m){openModal('Unité introuvable',`<div class="small">Ces mercenaires ne sont plus disponibles.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
+  const un=Math.max(1,t.units||m.units);const fpu=(t.figs??m.figsPerUnit*m.units)/un;
+  const row=(lab,val)=>`<tr><th style="text-align:left;white-space:normal">${esc(lab)}</th><td style="text-align:right">${esc(val)}</td></tr>`;
+  const cols=COLS.filter(c=>c!=='B'&&c!=='A'&&m.row[c]!=null&&m.row[c]!=='');
+  const h=`<div class="small" style="margin-bottom:6px">Mercenaire${t.owner?' · '+esc(t.owner):''}</div><div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${t.idx||1}</b><span>unité n° (sur ${un})</span></div><div class="kpi"><b>${fpu%1?fpu.toFixed(1):fpu}</b><span>figurines dans l'unité</span></div><div class="kpi"><b>${Math.round(m.ptsUnit)}</b><span>valeur de l'unité</span></div></div><div class="scroll" style="max-height:34vh"><table style="width:100%">${cols.map(c=>row(LONG[c]||c,fnum(m.row[c]))).join('')}</table></div><div class="lbl2" style="margin-top:10px">Bonus d'armée</div><div class="small">Aucun (mercenaires).</div>`;
+  openModal(m.name+(t.idx?' n°'+t.idx:''),h,[{label:'Fermer',cls:'pri',fn:closeModal}]);
+}
+function showUnitCard(t){
+  if(String(t.uid||'').startsWith('merc-')){showMercCard(t);return;}
+  if(!(t.comp&&t.comp.length)&&String(t.uid||'').includes('+')){ // l'unité vient d'un ancien affichage sans sa composition : on la reconstruit depuis l'uid
+    const ca0=getArmy(t.army);const [bu,eu]=String(t.uid).split('+');const bb=ca0&&ca0.units.find(u=>u.uid===bu),ee=ca0&&ca0.units.find(u=>u.uid===eu);
+    const cc=ca0&&(ca0.composites||[]).find(c=>c.base===bu&&c.extra===eu&&c.per);
+    if(bb&&ee&&cc){t={...t,comp:[{name:bb.in_.B,figs:1,uid:bu},{name:ee.in_.B,figs:cc.per,uid:eu}]};}
+    else if(bb&&ee){const ef=(ee.q[t.legion]||[1])[0];const tf=t.figs!=null?t.figs:ef+1;t={...t,comp:[{name:bb.in_.B,figs:Math.max(1,tf-ef),uid:bu},{name:ee.in_.B,figs:ef,uid:eu}]};}}
+  if(t.comp&&t.comp.length){const ca=getArmy(t.army);const cl=ca&&ca.legions.find(l=>l.id===t.legion);if(ca&&cl){ensureBonuses(ca);S.uc=Object.assign({},t);showCompCard(t,ca,cl);return;}}
+  const a=getArmy(t.army);const u=a&&a.units.find(x=>x.uid===t.uid);
+  if(!u){openModal('Unité introuvable',`<div class="small">Cette unité n'est plus disponible dans les fiches.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
+  ensureBonuses(a);S.uc=Object.assign({},t);
+  const lg=a.legions.find(l=>l.id===t.legion);const q=u.q[t.legion];
+  const cols=COLS.filter(c=>c!=='B'&&c!=='A'&&!CARD_HIDE.has(c)&&cellRaw(u,c)!=null&&cellRaw(u,c)!=='');
+  const row=(lab,val)=>`<tr><th style="text-align:left;white-space:normal">${esc(lab)}</th><td style="text-align:right">${esc(val)}</td></tr>`;
+  let h=`<div class="small" style="margin-bottom:6px">${esc(a.name)}${lg?' · '+esc(legName(lg)):''}${t.owner?' · '+esc(t.owner):''}</div>`;
+  if(q){const un=Math.max(1,t.units||q[6]||1);const fpu=(t.figs??q[0])/un;const val=q[3]===q[3]&&q[3]!=null?Math.round(q[3]/(q[0]||1)*fpu):null;h+=`<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${t.idx||1}</b><span>unité n° (sur ${un}${t.type?' '+esc(t.type):''})</span></div><div class="kpi"><b>${fpu%1?fpu.toFixed(1):fpu}</b><span>figurines dans l'unité</span></div>${val!=null?`<div class="kpi"><b>${val}</b><span>valeur de l'unité</span></div>`:''}<div class="kpi"><b>${t.std?'oui':'non'}</b><span>étendard</span></div></div>`;}
+  h+='<div class="scroll" style="max-height:34vh"><table style="width:100%">'+cols.map(c=>row(c==='W'?'Valeur de la figurine (avec tous les bonus)':(LONG[c]||c),fnum(cellRaw(u,c)))).join('')+'</table></div>';
+  if(u.l2){const c2=['C','E'].filter(c=>u.l2.in_[c]!=null);if(c2.length)h+=`<div class="lbl2" style="margin-top:8px">2ᵉ attaque</div><table style="width:100%">${c2.map(c=>row(LONG[c]||c,fnum(u.l2.in_[c]))).join('')}</table>`;}
+  const act=a.bonuses.filter(b=>bonusOn(a,b.key));
+  h+=`<div class="lbl2" style="margin-top:10px">Bonus d'armée actifs</div>`+(act.length?`<div class="chips">${act.map(b=>`<span class="chip sm on" style="cursor:default">${esc(b.label)}</span>`).join('')}</div>`:'<div class="small">Aucun.</div>');
+  openModal((u.in_.B||'Unité')+(t.idx?' n°'+t.idx:''),h,[{label:'Fermer',cls:'pri',fn:closeModal}]);
+}
+function stdBoxHtml(){
+  const t=S.uc;if(!t)return '';
+  const full=!t.std&&t.stdUsed>=t.stdMax;
+  let h=`<div class="small">Utilisés : <b>${t.stdUsed}</b> / ${t.stdMax} (colonne E de la ligne)</div>`;
+  if(t.canEdit)h+=`<div class="row" style="margin:6px 0 0"><button class="btn ${t.std?'':'pri'}" data-a="unit-std" ${full?'disabled':''}>${t.std?'⚑ Retirer l\'étendard de cette unité':'⚑ Attribuer un étendard à cette unité'}</button></div>${full?'<div class="small">Tous les étendards de cette ligne sont attribués.</div>':''}`;
+  else if(t.std)h+='<div class="small">Cette unité porte un étendard.</div>';
+  else if(!t.stdMax)h+='<div class="small">Cette ligne n\'a pas d\'étendard.</div>';
+  return h;
+}
+
+/* ===================== DÉMARRAGE ===================== */
+(function init(){
+  if(HOSTED){FAM={};ARMIES=[];}else initData();
+  const sel=document.getElementById('armySel');
+  sel.innerHTML=ARMIES.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
+  sel.addEventListener('change',e=>setArmy(e.target.value,false));
+  document.addEventListener('click',onClick);document.addEventListener('click',onClick2);
+  document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+  document.getElementById('pseudoOk').addEventListener('click',()=>{const v=document.getElementById('pseudo').value;try{localStorage.setItem('fa2:pseudo',v);}catch(x){}setPseudo(v);});
+  document.getElementById('pseudo').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('pseudoOk').click();});
+  if(HOSTED){
+    document.addEventListener('click',()=>{});
+    window.addEventListener('message',function boot(ev){if(ev.origin!==location.origin||ev.source!==parent)return;const d=ev.data;
+      if(d&&d.type==='fiches:init'){window.removeEventListener('message',boot);const v=loadView();if(v&&v.cols&&v.cols.length)S.cols=new Set(v.cols);if(v&&Array.isArray(v.hq))S.hq=new Set(v.hq);startHosted(d);}});
+    render();parent.postMessage({type:'fiches:ready'},location.origin);return;
+  }
+  const v=loadView();let army=ARMIES[0].id;
+  if(v){if(getArmy(v.army))army=v.army;if(v.cols&&v.cols.length)S.cols=new Set(v.cols);S.sel=v.sel||null;}
+  S.army=army;sel.value=army;
+  if(!curArmy().legions.some(l=>l.id===S.sel))S.sel=null;
+  let pseudo='';try{pseudo=localStorage.getItem('fa2:pseudo')||'';}catch(e){}
+  const qs=new URLSearchParams(location.search+'&'+(location.hash||'').replace(/^#/,''));
+  if(qs.get('pseudo'))pseudo=qs.get('pseudo');
+  S.pseudo=pseudo;document.getElementById('pseudo').value=pseudo;
+  if(qs.get('armee')||qs.get('army'))openFromLink(qs.get('armee')||qs.get('army'),qs.get('legion'));
+  render();
+  /* liaison avec le projet carte : messages entrants */
+  window.addEventListener('message',ev=>{const d=ev.data;if(!d||typeof d!=='object')return;
+    if(d.type==='fiches:pseudo'||d.type==='pseudo')setPseudo(d.pseudo,true);
+    if(d.type==='fiches:ouvrir')openFromLink(d.armee||d.army,d.legion);});
+  window.FichesArmees={setPseudo:p=>setPseudo(p,true),ouvrir:openFromLink,estMJ:isMJ};
+  /* capacités plateforme (base partagée + identité) */
+  (async()=>{try{
+    if(!window.claude||!window.claude.use)return;
+    const user=await window.claude.use('user');
+    if(user){try{S.canWrite=await user.can('data.write');}catch(e){}}
+    const db=await window.claude.use('db');if(!db)return;
+    DB=db;S.dbOn=true;
+    db.collection('state').onSnapshot(onSnapshot,()=>{});
+    render();
+  }catch(e){}})();
+})();
+
+</script>
+</body>
+</html>
