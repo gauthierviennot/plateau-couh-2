@@ -477,7 +477,7 @@
             </span>
             <button id="btnFichesClose" class="btn btn-secondary btn-small" data-fiche="close">Fermer</button>
         </div>
-        <iframe id="fichesFrame" title="Fiches d'armée"></iframe>
+        <iframe id="fichesFrame" title="Fiches d'armée" allow="web-share; clipboard-write"></iframe>
     </div>
 
     <div id="closedScreen" hidden>
@@ -3735,8 +3735,13 @@
             const chosen = batchOf(list);
             // Au doigt, la pastille est affichée 28 px au-dessus pour rester visible : c'est elle qui vise. À la souris elle est sous le pointeur.
             LAND.drag = { unit, pid: e.pointerId, units: chosen.map((u) => u.id), ghost: makeGhost(unit, chosen.length), fromMap, tile: fromMap ? unit.tile : null, off: e.pointerType === 'touch' ? 28 : 0 };
-            LAND.preview = null;
-            hideRangeInfo();
+            if (LAND.simOn) {
+                // Simulation : la portée de l'unité reste affichée (ou s'affiche) pendant tout le glisser-déposer.
+                if (!LAND.preview || LAND.preview.unit.id !== unit.id) showPreview(unit);
+            } else {
+                LAND.preview = null;
+                hideRangeInfo();
+            }
             moveGhost(e);
             requestDraw();
             return true;
@@ -3852,7 +3857,7 @@
                 openUnitInfo(unit);
                 return;
             }
-            if (LAND.preview) { LAND.preview = null; hideRangeInfo(); requestDraw(); }
+            if (LAND.preview && !(LAND.simOn && LAND.preview.unit.id === unit.id)) { LAND.preview = null; hideRangeInfo(); requestDraw(); }
             const press = { unit, units: hit.units, x: e.clientX, y: e.clientY, pid: e.pointerId, moved: false, long: false, timer: null };
             press.timer = setTimeout(() => {
                 if (LAND.press === press && !press.moved && !LAND.drag) { press.long = true; showPreview(unit); if (LAND.preview) { LAND.pressHide = unit.id; requestDraw(); } }
@@ -4363,7 +4368,7 @@
             LAND.view = next || { phase: 'off' };
             if (LAND.simOn && !simAvail()) { LAND.simOn = false; const bn = document.getElementById('simBanner'); if (bn) bn.hidden = true; }
             LAND.units = buildUnits(LAND.view);
-            if (LAND.preview && LAND.units.find((u) => u.id === LAND.preview.unit.id)?.tile !== LAND.preview.start) { LAND.preview = null; hideRangeInfo(); }
+            if (LAND.preview && (() => { const pu = LAND.units.find((u) => u.id === LAND.preview.unit.id); return (pu?.home ?? pu?.tile) !== LAND.preview.start; })()) { LAND.preview = null; hideRangeInfo(); }
 
             if (next && next.phase !== prev) {
                 if (next.phase !== 'off') LAND.open = true;

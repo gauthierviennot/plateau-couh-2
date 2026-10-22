@@ -139,7 +139,7 @@ td.name{z-index:3}
       <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
       <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
       <span id="mjBadge" class="badge mj">MJ</span>
-      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v22-oct-20h40</span>
+      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v23-oct-22h00</span>
     </div>
     <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
     <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
@@ -344,12 +344,38 @@ function printFit(){
 const PIMG_PROPS=['display','position','box-sizing','margin-top','margin-right','margin-bottom','margin-left','padding-top','padding-right','padding-bottom','padding-left',
   'border-top-width','border-top-style','border-top-color','border-right-width','border-right-style','border-right-color','border-bottom-width','border-bottom-style','border-bottom-color','border-left-width','border-left-style','border-left-color',
   'border-collapse','border-spacing','border-radius','background-color','color','font-family','font-size','font-weight','font-style','line-height','letter-spacing','text-align','text-transform','vertical-align','white-space','box-shadow','overflow','flex','flex-direction','flex-wrap','gap','align-items','justify-content','opacity','float','table-layout'];
+/* Image prête : visionneuse avec bouton Enregistrer / Partager (le partage doit partir d'un toucher de l'utilisateur) */
+let IMGV={blob:null,name:'',url:null};
+function closeImgViewer(){const v=document.getElementById('imgViewer');if(v)v.remove();if(IMGV.url)URL.revokeObjectURL(IMGV.url);IMGV={blob:null,name:'',url:null};}
+async function deliverImg(){
+  const {blob,name}=IMGV;if(!blob)return;
+  const file=new File([blob],name,{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:name});return;}catch(e){if(e&&e.name==='AbortError')return;}
+  }
+  dlImg();
+}
+function dlImg(){
+  const {blob,name}=IMGV;if(!blob)return;
+  const url=URL.createObjectURL(blob);const lk=document.createElement('a');lk.href=url;lk.download=name;document.body.appendChild(lk);lk.click();lk.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),15000);toast('Image enregistrée : '+name);
+}
+function showImgViewer(blob,name){
+  closeImgViewer();
+  IMGV={blob,name,url:URL.createObjectURL(blob)};
+  const v=document.createElement('div');v.id='imgViewer';
+  v.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);display:flex;flex-direction:column;padding:10px;gap:8px;font-family:system-ui,sans-serif';
+  v.innerHTML='<div style="color:#fff;font-weight:600">Image prête — touchez « Enregistrer / Partager », ou maintenez le doigt sur l\'image puis « Enregistrer l\'image ».</div>'
+   +'<div style="flex:1;overflow:auto;background:#fff;border-radius:6px;-webkit-overflow-scrolling:touch"><img id="imgVwImg" alt="Fiche" style="display:block;width:100%;height:auto;-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto"></div>'
+   +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-iv="close">Fermer</button><button class="btn" data-iv="zoom">🔍 Taille réelle</button><button class="btn" data-iv="dl">⬇️ Télécharger</button><button class="btn pri" data-iv="share">📤 Enregistrer / Partager</button></div>';
+  document.body.appendChild(v);
+  const im=v.querySelector('#imgVwImg');im.src=IMGV.url;
+  v.addEventListener('click',e=>{const b=e.target.closest('[data-iv]');if(!b)return;const k=b.dataset.iv;
+    if(k==='close')closeImgViewer();else if(k==='share')deliverImg();else if(k==='dl')dlImg();
+    else if(k==='zoom'){const full=im.style.width!=='100%';im.style.width=full?'100%':'auto';im.style.maxWidth=full?'':'none';b.textContent=full?'🔍 Taille réelle':'🔍 Adapter à l\'écran';}});
+}
 async function printImage(){
-  const keepCols=new Set(S.cols);let forced=false;
-  ['W','X','$pts'].forEach(c=>{if(!S.cols.has(c)){S.cols.add(c);forced=true;}});
-  const keepHq=new Set(S.hq);if(S.hq.size){S.hq.clear();forced=true;}
-  if(forced)render();
-  const restore=()=>{if(forced){forced=false;S.cols=keepCols;S.hq=keepHq;render();}};
+  const restore=()=>{};
   let host=null,stl=null;
   try{
     toast('Création de l\'image…');
@@ -362,11 +388,11 @@ async function printImage(){
     [...view.children].forEach(ch=>{if(ch.classList.contains('noprint'))return;host.appendChild(ch.cloneNode(true));});
     host.querySelectorAll('.noprint,.act').forEach(x=>x.remove());
     document.body.appendChild(host);
-    const W=Math.ceil(host.scrollWidth),H=Math.ceil(host.scrollHeight);
+    const W=Math.ceil(Math.max(host.scrollWidth,host.getBoundingClientRect().width))+24,H=Math.ceil(Math.max(host.scrollHeight,host.getBoundingClientRect().height))+16;
     // styles calculés recopiés en ligne : l'image SVG ne voit pas la feuille de style de la page
     const live=[host,...host.querySelectorAll('*')];
     live.forEach(el=>{const cs=getComputedStyle(el);let s='';PIMG_PROPS.forEach(p=>{s+=p+':'+cs.getPropertyValue(p)+';';});
-      if(/^(TD|TH)$/.test(el.tagName)){const r=el.getBoundingClientRect();s+=`width:${r.width}px;height:${r.height}px;box-sizing:border-box;`;}
+      if(/^(TD|TH)$/.test(el.tagName)){const r=el.getBoundingClientRect();s+=`min-width:${Math.ceil(r.width)}px;height:${Math.ceil(r.height)}px;box-sizing:border-box;`;}
       el.setAttribute('style',s);});
     host.setAttribute('xmlns','http://www.w3.org/1999/xhtml');
     const xml=new XMLSerializer().serializeToString(host);
@@ -381,13 +407,7 @@ async function printImage(){
     if(!blob)throw new Error('png');
     const a=curArmy(),l=a&&a.legions.find(x=>x.id===S.sel);
     const name=((a?a.name:'fiche')+(S.view==='legion'&&l?'-'+legName(l):'-armee')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9_-]+/g,'_')+'.png';
-    const file=new File([blob],name,{type:'image/png'});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){
-      try{await navigator.share({files:[file],title:name});restore();return;}catch(e){if(e&&e.name==='AbortError'){restore();return;}}
-    }
-    const url=URL.createObjectURL(blob);const lk=document.createElement('a');lk.href=url;lk.download=name;document.body.appendChild(lk);lk.click();lk.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),15000);toast('Image enregistrée : '+name);
-    restore();
+    showImgViewer(blob,name);
   }catch(x){
     if(host)host.remove();if(stl)stl.remove();restore();
     toast('Image impossible ici : impression classique.');printFit();
@@ -565,6 +585,8 @@ function onClick(e){
     case 'tab-army':S.tab='army';render();break;
     case 'tab-form':S.tab='form';render();break;
     case 'leg':S.sel=el.dataset.leg;render();break;
+    case 'legopen':S.sel=el.dataset.leg;S.view='legion';render();window.scrollTo(0,0);break;
+    case 'armee':S.view='full';render();window.scrollTo(0,0);break;
     case 'mk':S.view='legion';render();window.scrollTo(0,0);break;
     case 'back':S.view='full';render();break;
     case 'prev':stepLeg(-1);break;case 'next':stepLeg(1);break;
@@ -695,16 +717,23 @@ function colsPanel(a){
   return h;
 }
 
+/* ---- barre de boutons : armée complète + une fiche par légion (un simple clic ouvre la fiche) ---- */
+function legBar(a){
+  const mj=ED();const vl=visLegions(a);
+  let h='<div class="chips noprint">';
+  h+=`<button class="chip ${S.view==='full'?'on':''}" data-a="armee"><b>Armée complète</b><small>${vl.length} légion${vl.length>1?'s':''}</small></button>`;
+  vl.forEach(l=>{const t=legTot(a,l);const o=HOSTED?pickOwner(a.id,l.id):null;
+    h+=`<button class="chip ${S.view==='legion'&&S.sel===l.id?'on':''}" data-a="legopen" data-leg="${esc(l.id)}"${mj?' data-ondbl="legmenu"':''}>${esc(legName(l))}<small>${t.n} fig · ${pts(t.v)} pts${o?' · '+esc(o):''}</small></button>`;});
+  if(mj)h+='<button class="chip" data-dbl="1" data-a="newleg" title="Double-cliquez pour créer une légion">＋ Nouvelle légion</button>';
+  return h+'</div>';
+}
+
 /* ---- fiche armée : chaque légion a ses colonnes nb / c / E (+ pts) ---- */
 function renderFull(a){
   const cs=visCols();const mj=ED();const vl=visLegions(a);const w=lgW();let h=picksBar();
-  h+='<label class="lbl noprint">Légion</label><div class="chips noprint">';
-  vl.forEach(l=>{const t=legTot(a,l);const o=HOSTED?pickOwner(a.id,l.id):null;
-    h+=`<button class="chip ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}"${mj?' data-ondbl="legmenu"':''}>${esc(legName(l))}<small>${t.n} fig · ${pts(t.v)} pts${o?' · '+esc(o):''}</small></button>`;});
-  if(mj)h+='<button class="chip" data-dbl="1" data-a="newleg" title="Double-cliquez pour créer une légion">＋ Nouvelle légion</button>';
-  h+='</div>';
+  h+=legBar(a);
   const cur=a.legions.find(l=>l.id===S.sel);
-  h+=`<div class="row noprint"><button class="btn pri" data-a="mk" ${cur?'':'disabled'}>${cur?('Créer la fiche : '+esc(legName(cur))):'Sélectionnez une légion'}</button>`+pickBtn(a);
+  h+=`<div class="row noprint">${pickBtn(a)}`;
   h+=`<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button>`;
   if(mj)h+='<button class="btn" data-dbl="1" data-a="newunit" title="Double-cliquez">＋ Unité</button><button class="btn" data-dbl="1" data-a="newsec" title="Double-cliquez">＋ Section</button><button class="btn" data-dbl="1" data-a="comp-add" title="Double-cliquez">＋ 🧩 Unité composée</button>';
   h+='</div>';
@@ -753,6 +782,7 @@ function renderFull(a){
 
 /* fiche armée : blocs d'unités composées (2 lignes l'une sous l'autre) placés sous leur ligne de base */
 function compBlocksFull(a,u,vl,w,cs,plans){
+  const mjAttr=o=>ED()?` data-cstd="${esc(o.c.id)}" title="Double-cliquez : étendards de l'unité composée"`:'';
   const exs=[];vl.forEach(l=>(plans[l.id]||[]).forEach(o=>{if(o.c.base===u.uid&&!exs.some(x=>x.ex===o.c.extra&&x.per===!!o.per))exs.push({ex:o.c.extra,per:!!o.per});}));
   let h='';
   exs.forEach(({ex,per})=>{
@@ -765,7 +795,7 @@ function compBlocksFull(a,u,vl,w,cs,plans){
       vl.forEach(l=>{const o=os[l.id];const on=S.sel===l.id?'on':'';const q=x.q[l.id];const n=nbf(l);const sdz=o?compStd(o,u.q[l.id]):{};
         if(!o){h+=`<td class="lg gs ${on}"><span class="dim">·</span></td><td class="lg ${on}"></td><td class="lg ${on}"></td>`+(w===4?`<td class="lg ${on}"></td>`:'');return;}
         h+=`<td class="lg gs ${on}"><span class="qty">${n}</span></td>`;
-        if(k===1)h+=`<td class="lg compu ${on}" rowspan="2">🧩 ${o.k}${esc(u.q[l.id][7]||'')}<br><small>unité${o.k>1?'s':''} composée${o.k>1?'s':''}</small></td><td class="lg compu ${on}${sdz.flag?' stdchk':''}" rowspan="2">${sdz.comp||''}</td>`;
+        if(k===1)h+=`<td class="lg compu ${on}" rowspan="2">🧩 ${o.k}${esc(u.q[l.id][7]||'')}<br><small>unité${o.k>1?'s':''} composée${o.k>1?'s':''}</small></td><td class="lg compu ${on}${sdz.flag?' stdchk':''}" rowspan="2"${mjAttr(o)}>${sdz.comp||''}</td>`;
         if(w===4)h+=`<td class="lg ${on}">${q&&q[3]===q[3]&&q[3]!=null&&q[0]?Math.round(q[3]*n/q[0]):''}</td>`;});
       h+='</tr>';});
   });
@@ -781,8 +811,8 @@ function renderLegion(a){
   const plan=compPlan(a,l.id),planBase={},hideEx={},usedEx={};
   plan.forEach(o=>{(planBase[o.c.base]=planBase[o.c.base]||[]).push(o);if(o.per)usedEx[o.c.extra]=(usedEx[o.c.extra]||0)+o.used;else hideEx[o.c.extra]=1;});
   const vis=visLegions(a);const vi=vis.indexOf(l);const rs=HOSTED&&S.restricted;
-  const nav=rs?'':`<button class="btn" data-a="back">← Armée complète</button><button class="btn" data-a="prev" ${vi<=0?'disabled':''}>◀</button><button class="btn" data-a="next" ${vi>=vis.length-1?'disabled':''}>▶</button>`;
-  h+=`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${EDADD()?'<button class="btn" data-dbl="1" data-a="newunit" title="Double-cliquez">＋ Unité</button><button class="btn" data-dbl="1" data-a="newsec" title="Double-cliquez">＋ Section</button><button class="btn" data-dbl="1" data-a="comp-add" title="Double-cliquez">＋ 🧩 Unité composée</button>':''}${pickBtn(a)}</div>`;
+  const nav='';
+  h+=(rs?'':legBar(a))+`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${EDADD()?'<button class="btn" data-dbl="1" data-a="newunit" title="Double-cliquez">＋ Unité</button><button class="btn" data-dbl="1" data-a="newsec" title="Double-cliquez">＋ Section</button><button class="btn" data-dbl="1" data-a="comp-add" title="Double-cliquez">＋ 🧩 Unité composée</button>':''}${pickBtn(a)}</div>`;
   if(mj&&l.id!=='ni')h+='<div class="row noprint"><button class="btn" data-a="editleg">✎ Modifier la légion</button><button class="btn" data-a="dupleg">⧉ Dupliquer</button><button class="btn" data-a="delleg">🗑 Supprimer</button><button class="btn" data-a="newleg">＋ Nouvelle légion</button></div>';
   if(S.showCols)h+=colsPanel(a);
   h+=`<div class="card"><div class="sans small up">${esc(a.name)}</div><h1 style="font-size:26px;margin:2px 0">${esc(legName(l))}${l.tag?'<span class="tag">'+esc(l.tag)+'</span>':''}</h1>`;
@@ -1238,6 +1268,7 @@ function dblAction(el){
 function onDbl(el){
   if(!isMJ())return;
   if(el.matches('[data-cell]')){if(ED())openCell(el.dataset.army,el.dataset.uid,el.dataset.w,el.dataset.col);return;}
+  if(el.matches('[data-cstd]')){if(ED())openCompStd(el.dataset.cstd);return;}
   if(el.matches('[data-lq]')){if(ED())openLegQty(el.dataset.army,el.dataset.uid,el.dataset.leg,+el.dataset.i);return;}
   if(el.matches('[data-ondbl="fam"]')&&S.tab==='form'){dblAction(el);return;}
   if(el.matches('[data-ondbl]')&&ED())dblAction(el);
@@ -1245,7 +1276,7 @@ function onDbl(el){
 /* détecteur de double clic / double tape : 1 seul mécanisme pour souris et écran tactile */
 let LASTTAP={el:null,t:0},HINT_T=0;
 document.addEventListener('click',e=>{
-  const el=e.target.closest('[data-dbl],[data-ondbl],[data-cell],[data-lq]');
+  const el=e.target.closest('[data-dbl],[data-ondbl],[data-cell],[data-lq],[data-cstd]');
   if(!el){LASTTAP={el:null,t:0};return;}
   const key=el.tagName+JSON.stringify(el.dataset);
   const now=Date.now(),dbl=LASTTAP.el===key&&now-LASTTAP.t<450;
@@ -1589,7 +1620,9 @@ function compCalc(a,c,avail){
 }
 function compStd(o,q){const units=Math.max(1,q[6]||1),Eb=Math.min(units,+q[2]||0),sim=o.per?o.left:o.full;
   const ex=!o.per&&o.e&&o.e.q&&o.e.q[o.c.legion]&&(+o.e.q[o.c.legion][2]||0)>0;
-  return {simple:Math.min(Eb,sim),comp:o.per?Math.min(o.k,Math.max(0,Eb-sim)):((ex||Eb-sim>0)?1:0),flag:(Eb>0&&Eb<units)||ex};}
+  let comp=o.per?Math.min(o.k,Math.max(0,Eb-sim)):((ex||Eb-sim>0)?1:0),flag=(Eb>0&&Eb<units)||ex;
+  if(o.c.std!=null){comp=Math.min(o.per?o.k:1,o.c.std);flag=false;} // réglé à la main par le MJ (double clic sur la cellule E)
+  return {simple:Math.min(Eb,sim),comp,flag};}
 function compAdj(plan,u,q){
   let nb=q[0],inn=0,uu=null,hit=false,st=null;
   plan.forEach(o=>{
@@ -1631,10 +1664,10 @@ function compForm(c,isNew){
    <label class="small">Ligne de base</label><select id="cpB" class="ft"></select>
    <label class="small">Autre ligne (figurine seule, servants…)</label><select id="cpE" class="ft"></select>
    <label class="small">Mode</label><select id="cpM" class="ft"><option value="rest" ${c.per?'':'selected'}>Le reste de la ligne de base est complété par l'autre ligne (1 unité)</option><option value="per" ${c.per?'selected':''}>Chaque figurine de la ligne de base reçoit N figurines de l'autre ligne (ex. machine + servants)</option></select>
-   <div class="row" style="margin-top:6px"><label class="small" id="cpNl"></label><input id="cpS" class="ft" type="number" min="1" max="40" value="${c.per||c.size||8}" style="width:90px"></div><div id="cpP" class="small" style="margin-top:6px"></div>`,
+      <div class="row" style="margin-top:6px"><label class="small" id="cpNl"></label><input id="cpS" class="ft" type="number" min="1" max="40" value="${c.per||c.size||8}" style="width:90px"></div><div id="cpP" class="small" style="margin-top:6px"></div>`,
    [{label:'Annuler',fn:closeModal},{label:isNew?'Ajouter':'Enregistrer',cls:'pri',fn:()=>{
      const per=mval('cpM')==='per',v=Math.max(per?1:2,Math.min(40,parseInt(mval('cpS'))||(per?2:8)));
-     const n=Object.assign({id:c.id,legion:mval('cpL'),base:mval('cpB'),extra:mval('cpE')},per?{per:v}:{size:v});
+     const n=Object.assign({id:c.id,legion:mval('cpL'),base:mval('cpB'),extra:mval('cpE')},per?{per:v}:{size:v},c.std!=null?{std:c.std}:{});
      if(!n.base||!n.extra||n.base===n.extra){toast('Choisissez deux lignes différentes.');return;}
      if((a.composites||[]).some(x=>x.id!==n.id&&x.legion===n.legion&&(x.base===n.base||x.extra===n.base||(!per&&!x.per&&x.extra===n.extra)||(per!==!!x.per&&x.extra===n.extra)))){toast('Une de ces lignes est déjà utilisée par une autre unité composée de cette légion.');return;}
      if(!compOk(a,n)&&!confirm('Cette association ne produit aucune unité composée. L\'enregistrer quand même ?'))return;
@@ -1649,6 +1682,18 @@ function compForm(c,isNew){
     const v=parseInt(mval('cpS'))||(per?2:8);const n=Object.assign({legion:lid,base:mval('cpB'),extra:mval('cpE')},per?{per:v}:{size:Math.max(2,v)});const t=compText(a,n);
     document.getElementById('cpP').innerHTML=t?('Résultat : '+t):'Aucune unité composée avec ces valeurs.';};
   ['cpL','cpB','cpE','cpM','cpS'].forEach(id=>{const e=document.getElementById(id);e.addEventListener('input',fill);e.addEventListener('change',fill);});fill();
+}
+
+/* étendards d'une unité composée : double clic sur la cellule E de son bloc (fiche armée du MJ). Automatique = règle d'origine. */
+function openCompStd(id){
+  const a=curArmy();const c=(a.composites||[]).find(x=>x.id===id);if(!c)return;
+  const o=compOk(a,c);const max=o?(o.per?o.k:1):1;const lg=a.legions.find(l=>l.id===c.legion);
+  const cur=c.std==null?'auto':String(Math.min(max,c.std));
+  const opts=['auto'].concat(Array.from({length:max+1},(_,i)=>String(i)));
+  openModal('Étendards de l\'unité composée',`<div class="small" style="margin-bottom:6px">${esc(lg?legName(lg):c.legion)} · ${o?compText(a,c):''}</div>
+   <label class="small">Nombre d'unités composées portant un étendard (0 à ${max})</label>
+   <select id="csv" class="ft">${opts.map(v=>`<option value="${v}" ${v===cur?'selected':''}>${v==='auto'?'Automatique (d\'abord les unités simples, le reste à l\'unité composée)':v}</option>`).join('')}</select>`,
+   [{label:'Annuler',fn:closeModal},{label:'Enregistrer',cls:'pri',fn:()=>{const v=mval('csv');if(v==='auto')delete c.std;else c.std=Number(v);closeModal();afterChange([a.id]);toast('Étendards enregistrés.');}}]);
 }
 function compPickLegion(c,verb,fn){
   const a=curArmy();
