@@ -313,13 +313,16 @@ function sanitizePicks(raw) {
 /* Débarquement : état persistant                                      */
 /* ------------------------------------------------------------------ */
 
-const LANDING_PHASES = ['off', 'zones', 'choose', 'place', 'locked'];
+const LANDING_PHASES = ['off', 'zones', 'choose', 'place', 'locked', 'bplace', 'orders'];
+const BOARD_PHASES = ['place', 'locked', 'bplace', 'orders']; // phases où les unités sont sur la carte
+const ORDER_TYPES = ['charge', 'tir', 'depl', 'marche', 'tirailleur'];
+const GEN_ORDERS = ['att', 'mvt', 'charge'];
 const ZONE_ID = /^[a-z]$/;
 const DEFAULT_BONUS = 2; // tuiles de déplacement supplémentaires par défaut, réglables par le MJ pour chaque section
 const TEAM_IDS = ['t1', 't2'];
 
 function defaultLanding() {
-    return { phase: 'off', zones: [], groups: {}, bonus: {}, teamEntry: null, choices: {}, roster: {}, placed: {}, std: {}, gen: {}, chev: {}, sim: {} };
+    return { phase: 'off', zones: [], groups: {}, bonus: {}, teamEntry: null, choices: {}, roster: {}, placed: {}, std: {}, gen: {}, chev: {}, sim: {}, b: null };
 }
 
 // Reconstruit l'état depuis le disque en ne gardant que des valeurs bien formées.
@@ -352,6 +355,7 @@ function normalizeLanding(raw) {
             figs: Math.max(0, Math.min(5000, Math.floor(Number(u.figs) || 0))), type: String(u.type || '').slice(0, 12),
             dep: Number.isFinite(u.dep) ? u.dep : 0, army: String(u.army || '').slice(0, 40), legion: String(u.legion || '').slice(0, 12),
             stdMax: Math.max(0, Math.min(400, Math.floor(Number(u.stdMax) || 0))), ...(u.merc === true ? { merc: true } : {}),
+            ...(Number(u.pv) > 0 ? { pv: Math.round(Math.min(100000, Number(u.pv)) * 10) / 10 } : {}), ...(Number(u.pf) > 0 ? { pf: Math.round(Math.min(100000, Number(u.pf)) * 100) / 100 } : {}),
             ...(Array.isArray(u.comp) ? { comp: u.comp.slice(0, 4).map((c) => ({ name: String(c?.name || '').slice(0, 60), figs: Math.max(0, Math.min(5000, Math.floor(Number(c?.figs) || 0))), uid: String(c?.uid || '').slice(0, 100) })) } : {})
         }));
     }
@@ -363,6 +367,26 @@ function normalizeLanding(raw) {
     // Simulation : positions virtuelles { tile, from (tuile de dépôt au moment de la simulation), bonus (général ou chevron actif) }.
     for (const [id, v] of Object.entries(raw.sim || {}).slice(0, 12000)) {
         if (v && typeof v.tile === 'string' && /^\d{1,3},\d{1,3}$/.test(v.tile) && typeof v.from === 'string' && out.placed[id] === v.from) out.sim[id] = { tile: v.tile, from: v.from, bonus: v.bonus === true };
+    }
+    // Bataille : positions réelles, orientations, ordres, journal.
+    if ((out.phase === 'bplace' || out.phase === 'orders') && raw.b && typeof raw.b === 'object') {
+        const rb = raw.b;
+        const tileOk = (t) => typeof t === 'string' && /^\d{1,3},\d{1,3}$/.test(t);
+        const b = { first: TEAM_IDS.includes(rb.first) ? rb.first : 't1', active: TEAM_IDS.includes(rb.active) ? rb.active : 't1', turn: Math.max(1, Math.min(999, Math.floor(Number(rb.turn) || 1))),
+            roll: rb.roll && Number.isInteger(rb.roll.t1) && Number.isInteger(rb.roll.t2) ? { t1: rb.roll.t1, t2: rb.roll.t2 } : null,
+            pos: {}, orient: {}, done: {}, orders: {}, gorders: {}, ready: {}, revealed: rb.revealed === true, stack: [], log: [] };
+        for (const [id, t] of Object.entries(rb.pos || {}).slice(0, 12000)) if (id in out.placed && tileOk(t)) b.pos[id] = t;
+        for (const [id, o] of Object.entries(rb.orient || {}).slice(0, 12000)) if (id in out.placed && Number.isInteger(o) && o >= 0 && o <= 5) b.orient[id] = o;
+        for (const [id, v] of Object.entries(rb.done || {}).slice(0, 12000)) if (id in out.placed && v === true) b.done[id] = true;
+        for (const [id, o] of Object.entries(rb.orders || {}).slice(0, 12000)) {
+            if (!(id in out.placed) || !o || !ORDER_TYPES.includes(o.type)) continue;
+            b.orders[id] = { type: o.type, ...(typeof o.target === 'string' && o.target.length <= 140 ? { target: o.target } : {}), ...(tileOk(o.tile) ? { tile: o.tile } : {}) };
+        }
+        for (const [n, g] of Object.entries(rb.gorders || {}).slice(0, 200)) if (n.length <= LIMITS.maxName && GEN_ORDERS.includes(g)) b.gorders[n] = g;
+        for (const [n, v] of Object.entries(rb.ready || {}).slice(0, 200)) if (n.length <= LIMITS.maxName && v === true) b.ready[n] = true;
+        b.stack = (Array.isArray(rb.stack) ? rb.stack : []).filter((x) => typeof x === 'string' && x in out.placed).slice(-12000);
+        b.log = (Array.isArray(rb.log) ? rb.log : []).slice(-40).filter((x) => x && typeof x.text === 'string').map((x) => ({ t: Number(x.t) || 0, text: x.text.slice(0, 200) }));
+        out.b = b;
     }
     return out;
 }
@@ -1232,7 +1256,7 @@ function applyComposites(army, lid, lines) {
             const k = Math.min(b.figs, Math.floor(e.figs / c.per));
             if (k <= 0) continue;
             const comp = {
-                uid: `${b.uid}+${e.uid}`, name: `${b.name} + ${e.name}`.slice(0, 60), qty: k, figs: k * (1 + c.per), type: b.type,
+                uid: `${b.uid}+${e.uid}`, name: `${b.name} + ${e.name}`.slice(0, 60), qty: k, figs: k * (1 + c.per), type: b.type, pf: e.pf, pv: (b.pf || 0) + c.per * (e.pf || 0),
                 stdMax: 0, dep: Math.min(b.dep, e.dep), army: b.army, legion: b.legion,
                 comp: [{ name: b.name, figs: 1, uid: b.uid }, { name: e.name, figs: c.per, uid: e.uid }]
             };
@@ -1253,7 +1277,7 @@ function applyComposites(army, lid, lines) {
         const rest = b.figs - full * c.size;
         if (rest <= 0) continue;
         const comp = {
-            uid: `${b.uid}+${e.uid}`, name: `${b.name} + ${e.name}`.slice(0, 60), qty: 1, figs: rest + e.figs, type: b.type,
+            uid: `${b.uid}+${e.uid}`, name: `${b.name} + ${e.name}`.slice(0, 60), qty: 1, figs: rest + e.figs, type: b.type, pf: b.pf, pv: rest * (b.pf || 0) + e.figs * (e.pf || 0),
             stdMax: 0, dep: Math.min(b.dep, e.dep), army: b.army, legion: b.legion,
             comp: [{ name: b.name, figs: rest, uid: b.uid }, { name: e.name, figs: e.figs, uid: e.uid }]
         };
@@ -1284,6 +1308,8 @@ function legionLinesRaw(army, lid) {
             figs: Math.max(0, Math.floor(Number(q[0]) || 0)),
             type: String(q[7] || '').slice(0, 12),
             stdMax: Math.max(0, Math.min(units, Math.floor(Number(q[2]) || 0))),
+            pv: Number(q[3]) > 0 ? Number(q[3]) / units : 0, // valeur d'une unité (sert au code couleur)
+            pf: Number(q[3]) > 0 && Number(q[0]) > 0 ? Number(q[3]) / Number(q[0]) : 0, // valeur d'une figurine
             dep: Number.isFinite(Number(u.in_?.I)) ? Math.floor(Number(u.in_.I)) : 0,
             army: army.id,
             legion: lid
@@ -1304,7 +1330,7 @@ function rosterFor(name) {
     if (partnerArmy) lines.push(...legionLines(partnerArmy, partner.legion));
     // Mercenaires : lignes d'infanterie légère ajoutées par le MJ, sans étendard.
     for (const m of state.fichesTeams.mercs[keyOf(state.fichesTeams.mercs, name) ?? ''] || []) {
-        lines.push({ uid: `merc-${m.id}`, name: `${m.name} (merc.)`.slice(0, 60), qty: m.units, figs: m.figsPerUnit * m.units, type: m.type, stdMax: 0, dep: m.dep, army: m.army, legion: m.legion, merc: true });
+        lines.push({ uid: `merc-${m.id}`, name: `${m.name} (merc.)`.slice(0, 60), qty: m.units, figs: m.figsPerUnit * m.units, type: m.type, stdMax: 0, dep: m.dep, army: m.army, legion: m.legion, merc: true, pv: Number(m.ptsUnit) > 0 ? Number(m.ptsUnit) : 0 });
     }
     return lines.slice(0, 120);
 }
@@ -1340,7 +1366,7 @@ function landingViewFor(socket) {
     const players = Object.keys(state.fichesTeams.members).filter((n) => state.fichesTeams.members[n]);
     const myTeam = name ? teamOfName(name) : null;
     const myGroup = myTeam ? groupOfTeam(myTeam) : null;
-    const everything = L.phase === 'locked' || (admin && !myTeam); // un MJ sans équipe arbitre et voit tout
+    const everything = L.phase === 'locked' || L.phase === 'bplace' || L.phase === 'orders' || (admin && !myTeam); // un MJ sans équipe arbitre et voit tout
     const sees = (n) => everything || (myTeam && teamOf(n) === myTeam);
 
     const view = { ...base, myTeam, myGroup, teamEntry: (everything || admin) ? L.teamEntry : (myTeam && myGroup ? { [myTeam]: myGroup } : null) };
@@ -1358,7 +1384,7 @@ function landingViewFor(socket) {
         name: n, team: teamOf(n), pick: Boolean(keyOf(state.fichesPicks, n)), chosen: Boolean(keyOf(L.choices, n)), bound: Boolean(keyOf(L.roster, n)),
         zone: sees(n) ? (L.choices[keyOf(L.choices, n) ?? ''] ?? null) : null
     })).filter((p) => everything || admin || p.team === myTeam);
-    if (L.phase === 'place' || L.phase === 'locked') {
+    if (BOARD_PHASES.includes(L.phase)) {
         view.lines = [];
         view.placed = {};
         view.std = [];
@@ -1379,6 +1405,15 @@ function landingViewFor(socket) {
                     if (L.std[id]) view.std.push(id);
                 }
             }
+        }
+        if (L.b && (L.phase === 'bplace' || L.phase === 'orders')) {
+            const b = L.b;
+            const mineOrAdmin = (n) => (admin && !myTeam) || (myTeam && teamOf(n) === myTeam) || b.revealed;
+            view.b = { first: b.first, active: b.active, turn: b.turn, roll: b.roll, revealed: b.revealed, pos: { ...b.pos }, orient: { ...b.orient }, done: { ...b.done },
+                orders: {}, gorders: {}, ready: {}, log: b.log.slice(-25), allPlaced: allBattleUnits().every((u) => b.done[u.id]), stackLen: b.stack.length };
+            for (const [id, o] of Object.entries(b.orders)) if (mineOrAdmin(id.slice(0, id.indexOf('|')))) view.b.orders[id] = o;
+            for (const [n, g] of Object.entries(b.gorders)) if (mineOrAdmin(n)) view.b.gorders[n] = g;
+            for (const [n, v] of Object.entries(b.ready)) if ((admin && !myTeam) || (myTeam && teamOf(n) === myTeam) || admin) view.b.ready[n] = v;
         }
         if (admin) {
             view.progress = players.map((n) => {
@@ -1449,7 +1484,64 @@ function pruneSim() {
     }
 }
 
+/* ---------- Bataille : placement à tour de rôle, puis ordres ---------- */
+
+function allBattleUnits() {
+    const L = state.landing;
+    const out = [];
+    for (const [owner, list] of Object.entries(L.roster)) {
+        const team = teamOfName(owner);
+        for (const line of list) for (let i = 1; i <= line.qty; i++) out.push({ id: unitIdOf(owner, line.uid, i), owner, team, line, idx: i });
+    }
+    return out;
+}
+const unitPos = (id) => state.landing.b?.pos?.[id] ?? state.landing.placed[id] ?? null;
+function findUnitAny(id) {
+    const owner = String(id).slice(0, Math.max(0, String(id).indexOf('|')));
+    const rk = keyOf(state.landing.roster, owner);
+    return rk ? findLine(rk, id) && { ...findLine(rk, id), team: teamOfName(rk) } : null;
+}
+function battleLog(text) {
+    const b = state.landing.b;
+    if (!b) return;
+    b.log.push({ t: Date.now(), text: String(text).slice(0, 200) });
+    if (b.log.length > 40) b.log.shift();
+}
+const rollD = (n) => crypto.randomInt(1, n + 1);
+// Dé d'initiative : chaque équipe lance un D6, on relance en cas d'égalité.
+function rollInitiative() {
+    let roll;
+    do { roll = { t1: rollD(6), t2: rollD(6) }; } while (roll.t1 === roll.t2);
+    return { roll, first: roll.t1 > roll.t2 ? 't1' : 't2' };
+}
+// Équipe suivante : l'autre équipe s'il lui reste des unités à placer, sinon la même.
+function advanceBattleTurn(justPlayed) {
+    const b = state.landing.b;
+    const left = allBattleUnits().filter((u) => !b.done[u.id]);
+    const other = justPlayed === 't1' ? 't2' : 't1';
+    if (left.some((u) => u.team === other)) b.active = other;
+    else if (left.some((u) => u.team === justPlayed)) b.active = justPlayed;
+}
+// Une unité peut s'arrêter sur : ni montagne, ni eau (sauf pont ou Saurus), ni tuile supprimée.
+function stopBlock(tile, army) {
+    const t = state.gridData[tile];
+    if (t?.removed) return 'Cette tuile n’existe plus sur la carte.';
+    if ((t?.terrain ?? 'plain') === 'mountain') return 'Les montagnes sont infranchissables.';
+    if ((t?.terrain ?? 'plain') === 'water' && t?.object !== 'bridge' && army !== 'saurus') return 'Seuls les Saurus peuvent se tenir sur l’eau.';
+    return null;
+}
+function pruneBattle() {
+    const L = state.landing;
+    const b = L.b;
+    if (!b) return;
+    const ids = new Set(allBattleUnits().map((u) => u.id));
+    for (const k of ['pos', 'orient', 'done', 'orders']) for (const id of Object.keys(b[k])) if (!ids.has(id)) delete b[k][id];
+    for (const [id, o] of Object.entries(b.orders)) if (o.target && !ids.has(o.target)) delete b.orders[id];
+    b.stack = b.stack.filter((id) => ids.has(id));
+}
+
 function emitLanding() {
+    pruneBattle();
     pruneGeneral();
     pruneSim();
     for (const s of io.sockets.sockets.values()) {
@@ -2359,7 +2451,7 @@ io.on('connection', (socket) => {
     /* ---------- Débarquement ---------- */
 
     const landingFail = (ack, message) => reply(ack, { success: false, message });
-    const landingOk = (ack, extra = {}) => { pruneGeneral(); pruneSim(); scheduleSave(); emitLanding(); reply(ack, { success: true, ...extra }); };
+    const landingOk = (ack, extra = {}) => { pruneBattle(); pruneGeneral(); pruneSim(); scheduleSave(); emitLanding(); reply(ack, { success: true, ...extra }); };
 
     // Le MJ lance le débarquement : les zones sont détectées à partir des losanges et triangles.
     socket.on('landing-start', (payload, ack) => {
@@ -2642,6 +2734,178 @@ io.on('connection', (socket) => {
         landingOk(ack);
     });
 
+
+    /* ---------- Bataille : placement à tour de rôle ---------- */
+
+    const battleCell = (tile) => { if (!/^\d{1,3},\d{1,3}$/.test(String(tile))) return null; const [c, r] = String(tile).split(',').map(Number); return mapHas(c, r) ? String(tile) : null; };
+
+    // MJ : passe de « verrouillé » au tour de placement ; le dé désigne l'équipe qui commence.
+    socket.on('landing-battle', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase !== 'locked') return landingFail(ack, 'Verrouillez d’abord les placements.');
+        const { roll, first } = rollInitiative();
+        L.b = { first, active: first, turn: 1, roll, pos: {}, orient: {}, done: {}, orders: {}, gorders: {}, ready: {}, revealed: false, stack: [], log: [] };
+        L.phase = 'bplace';
+        battleLog(`🎲 Dé d’initiative : ${state.fichesTeams.names[ 't1'] || 'Équipe 1'} ${roll.t1} · ${state.fichesTeams.names['t2'] || 'Équipe 2'} ${roll.t2} → ${state.fichesTeams.names[first] || first} place en premier.`);
+        landingOk(ack);
+    });
+
+    // MJ : relance le dé d'initiative tant qu'aucune unité n'a été placée.
+    socket.on('battle-roll', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase !== 'bplace' || !L.b) return landingFail(ack, 'Le tour de placement n’est pas en cours.');
+        if (L.b.stack.length) return landingFail(ack, 'Des unités ont déjà été placées.');
+        const { roll, first } = rollInitiative();
+        Object.assign(L.b, { roll, first, active: first });
+        battleLog(`🎲 Nouveau dé : ${roll.t1} contre ${roll.t2} → ${state.fichesTeams.names[first] || first} commence.`);
+        landingOk(ack);
+    });
+
+    // Un joueur place une unité (de sa tuile de débarquement vers une tuile permise) et choisit son orientation (0 à 5).
+    socket.on('battle-place', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'bplace' || !L.b) return landingFail(ack, 'Ce n’est pas le tour de placement.');
+        const f = findLine(name, payload?.unit);
+        if (!f) return landingFail(ack, 'Unité inconnue.');
+        const team = teamOfName(name);
+        if (!team || team !== L.b.active) return landingFail(ack, 'Ce n’est pas le tour de votre équipe.');
+        if (L.b.done[f.id]) return landingFail(ack, 'Cette unité est déjà placée.');
+        const home = L.placed[f.id];
+        if (!home) return landingFail(ack, 'Cette unité n’a pas été déposée.');
+        const orient = Number(payload?.orient);
+        if (!Number.isInteger(orient) || orient < 0 || orient > 5) return landingFail(ack, 'Orientation invalide.');
+        const tile = battleCell(payload?.tile ?? home);
+        if (!tile) return landingFail(ack, 'Tuile invalide.');
+        if (tile !== home) {
+            if (hexDistance(home, tile) > Math.max(1, f.line.dep) + 10) return landingFail(ack, 'Cette tuile est hors de portée.');
+            const blocked = stopBlock(tile, f.line.army);
+            if (blocked) return landingFail(ack, blocked);
+        }
+        const inZone = L.zones.some((z) => z.tiles.includes(tile));
+        if (!inZone && allBattleUnits().some((u) => u.id !== f.id && unitPos(u.id) === tile)) return landingFail(ack, 'Cette tuile est déjà occupée.');
+        if (tile === home) delete L.b.pos[f.id]; else L.b.pos[f.id] = tile;
+        L.b.orient[f.id] = orient;
+        L.b.done[f.id] = true;
+        L.b.stack.push(f.id);
+        battleLog(`${name} place ${f.line.name} ${f.idx}${tile === home ? ' (reste en place)' : ''}.`);
+        advanceBattleTurn(team);
+        landingOk(ack);
+    });
+
+    // MJ : annule le dernier placement.
+    socket.on('battle-undo', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase !== 'bplace' || !L.b || !L.b.stack.length) return landingFail(ack, 'Rien à annuler.');
+        const id = L.b.stack.pop();
+        delete L.b.done[id]; delete L.b.pos[id]; delete L.b.orient[id];
+        const u = allBattleUnits().find((x) => x.id === id);
+        if (u?.team) L.b.active = u.team;
+        battleLog(`↩️ Placement annulé par le MJ (${u ? `${u.line.name} ${u.idx}` : id}).`);
+        landingOk(ack);
+    });
+
+    // MJ : passe à la pose des ordres.
+    socket.on('landing-orders', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase !== 'bplace' || !L.b) return landingFail(ack, 'Étape incorrecte.');
+        const left = allBattleUnits().filter((u) => !L.b.done[u.id]).length;
+        if (left && !payload?.force) return reply(ack, { success: false, code: 'missing', left, message: `${left} unité(s) ne sont pas encore placées.` });
+        L.phase = 'orders';
+        L.b.ready = {};
+        battleLog('📝 Pose des ordres : chaque joueur donne ses ordres (visibles de son équipe seulement).');
+        landingOk(ack);
+    });
+
+    /* ---------- Bataille : ordres ---------- */
+
+    // order : null (efface) ou { type: charge|tir|depl|marche|tirailleur, target?, tile? }.
+    socket.on('battle-order', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'orders' || !L.b) return landingFail(ack, 'Ce n’est pas la pose des ordres.');
+        const f = findLine(name, payload?.unit);
+        if (!f) return landingFail(ack, 'Unité inconnue.');
+        const myTeam = teamOfName(name);
+        if (L.b.ready[f.owner]) return landingFail(ack, 'Vous avez déjà validé vos ordres : annulez la validation pour les modifier.');
+        const o = payload?.order;
+        if (o == null) { delete L.b.orders[f.id]; return landingOk(ack); }
+        if (!ORDER_TYPES.includes(o.type)) return landingFail(ack, 'Ordre inconnu.');
+        const me = unitPos(f.id);
+        if (!me) return landingFail(ack, 'Unité non placée.');
+        const gord = L.b.gorders[f.owner] ?? null;
+        const gen = L.gen[f.owner] ? unitPos(L.gen[f.owner]) : null;
+        const nearGen = Boolean(gen && hexDistance(me, gen) <= 6);
+        const dep = Math.max(0, f.line.dep);
+        const entry = { type: o.type };
+        if (o.type === 'charge' || o.type === 'tir') {
+            const t = findUnitAny(o.target);
+            if (!t || t.team === myTeam || !t.team) return landingFail(ack, 'Choisissez une unité de l’équipe adverse.');
+            const tp = unitPos(t.id);
+            if (!tp) return landingFail(ack, 'Cible non placée.');
+            const d = hexDistance(me, tp);
+            const max = o.type === 'charge' ? 5 + (gord === 'charge' && nearGen ? 2 : 0) : (f.line.type === 'art' ? 10 : 7);
+            if (d > max) return landingFail(ack, `Cible trop loin (${d} hexagones, maximum ${max}).`);
+            entry.target = t.id;
+        } else if (o.type === 'depl' || o.type === 'marche') {
+            const tile = battleCell(o.tile);
+            if (!tile) return landingFail(ack, 'Choisissez une tuile de destination.');
+            const base = o.type === 'marche' ? dep * 2 : dep + (gord === 'mvt' && nearGen ? 3 : 0);
+            const d = hexDistance(me, tile);
+            if (d > base) return landingFail(ack, `Destination trop loin (${d} hexagones, maximum ${base}).`);
+            const blocked = stopBlock(tile, f.line.army);
+            if (blocked) return landingFail(ack, blocked);
+            entry.tile = tile;
+        } else if (o.type === 'tirailleur') {
+            if (!/T/.test(String(f.line.type))) return landingFail(ack, 'Seules les unités tirailleurs (T) peuvent recevoir cet ordre.');
+        }
+        L.b.orders[f.id] = entry;
+        landingOk(ack);
+    });
+
+    // Ordre du général : att (attaque −1 pour les unités à 6 hex), mvt (+3 hex), charge (+2 hex), ou null.
+    socket.on('battle-gorder', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'orders' || !L.b) return landingFail(ack, 'Ce n’est pas la pose des ordres.');
+        const rk = keyOf(L.roster, name);
+        if (!rk || !L.gen[rk]) return landingFail(ack, 'Vous n’avez pas désigné de général.');
+        if (L.b.ready[rk]) return landingFail(ack, 'Vous avez déjà validé vos ordres.');
+        if (payload?.order == null) delete L.b.gorders[rk];
+        else if (GEN_ORDERS.includes(payload.order)) L.b.gorders[rk] = payload.order;
+        else return landingFail(ack, 'Ordre du général inconnu.');
+        landingOk(ack);
+    });
+
+    // Un joueur valide (ou annule la validation de) ses ordres.
+    socket.on('battle-ready', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'orders' || !L.b) return landingFail(ack, 'Ce n’est pas la pose des ordres.');
+        const rk = keyOf(L.roster, name);
+        if (!rk) return landingFail(ack, 'Vous n’avez pas d’unités.');
+        if (payload?.on === false) delete L.b.ready[rk]; else L.b.ready[rk] = true;
+        landingOk(ack);
+    });
+
+    // MJ : révèle (ou recache) les ordres à tous.
+    socket.on('battle-reveal', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase !== 'orders' || !L.b) return landingFail(ack, 'Ce n’est pas la pose des ordres.');
+        L.b.revealed = payload?.on !== false;
+        battleLog(L.b.revealed ? '👁 Les ordres sont révélés à tous.' : 'Les ordres sont de nouveau cachés.');
+        landingOk(ack);
+    });
+
     // Retour à une étape précédente (les données déjà saisies sont conservées) ou arrêt complet.
     socket.on('landing-goto', (payload, ack) => {
         if (!requireAdmin(socket, ack)) return;
@@ -2649,8 +2913,10 @@ io.on('connection', (socket) => {
         const target = payload?.phase;
         purgeLandingHistory();
         if (target === 'off') { state.landing = defaultLanding(); return landingOk(ack); }
-        const order = ['zones', 'choose', 'place', 'locked'];
+        const order = ['zones', 'choose', 'place', 'locked', 'bplace', 'orders'];
         if (!order.includes(target) || order.indexOf(target) > order.indexOf(L.phase)) return landingFail(ack, 'Étape invalide.');
+        if (order.indexOf(target) < order.indexOf('bplace')) L.b = null; // retour avant la bataille : positions et ordres de bataille effacés
+        else if (target === 'bplace' && L.b) { L.b.orders = {}; L.b.gorders = {}; L.b.ready = {}; L.b.revealed = false; }
         if (target === 'zones') { L.teamEntry = null; L.choices = {}; L.roster = {}; L.placed = {}; L.std = {}; L.gen = {}; L.chev = {}; L.sim = {}; }
         // Retour au choix des zones : les joueurs déjà figés gardent leur zone et leurs unités posées.
         if (target === 'place') { /* les unités restent placées */ }
