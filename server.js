@@ -1526,7 +1526,7 @@ async function buildGamePackage() {
 
 const app = express();
 app.disable('x-powered-by');
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res, p) => { if (/\.html$/.test(p)) res.setHeader('Cache-Control', 'no-cache, must-revalidate'); } }));
 
 // Image de fond de la page de connexion ; le numéro de version dans l'adresse permet un cache durable.
 app.get('/background.jpg', (req, res) => {
