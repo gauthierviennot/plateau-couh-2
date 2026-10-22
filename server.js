@@ -956,7 +956,7 @@ function checkFichesArmy(id, army) {
     if (army.composites != null && (!Array.isArray(army.composites) || army.composites.length > 60
         || army.composites.some((c) => !c || typeof c.id !== 'string' || !/^[\w-]{1,16}$/.test(c.id) || !ids.has(c.legion)
             || typeof c.base !== 'string' || typeof c.extra !== 'string' || c.base.length > 100 || c.extra.length > 100 || c.base === c.extra
-            || !Number.isInteger(c.size) || c.size < 2 || c.size > 40))) return 'unités composées invalides';
+            || (c.per != null ? !(Number.isInteger(c.per) && c.per >= 1 && c.per <= 20) : !(Number.isInteger(c.size) && c.size >= 2 && c.size <= 40))))) return 'unités composées invalides';
     if (army.sections != null && (!Array.isArray(army.sections) || army.sections.length > 60
         || army.sections.some((x) => typeof x !== 'string' || x.length > 80))) return 'sections invalides';
     if (JSON.stringify(army).length > FICHES_MAX_BYTES) return 'fiche trop volumineuse';
@@ -1157,20 +1157,34 @@ const unitKey = (armyId, u) => u.uid || `${armyId}-r${u.row}`;
 // Unités composées : le reste d'une ligne (nombre de figurines non multiple de la taille habituelle) se complète avec une figurine seule.
 // size = taille habituelle d'une unité de la ligne de base.
 const DEFAULT_COMPOSITES = [
+    // Reste d'une ligne complété par une figurine seule (size = taille habituelle d'une unité).
     { army: 'nains', legion: '1', base: 'inf lourde', extra: 'champion sur bouclier', size: 8 },
     { army: 'orcs', legion: '1', base: 'caval lourde (C)', extra: 'champion sur sanglier (C)', size: 4 },
     { army: 'hauts_elfes', legion: '1', base: 'caval lourde (C)', extra: 'commandeur à cheval (C)', size: 4 },
-    { army: 'thyranides', legion: '1', base: 'fusiller leger', extra: 'chef', size: 8 }
+    { army: 'thyranides', legion: '1', base: 'fusiller leger', extra: 'chef', size: 8 },
+    { army: 'elfes_noirs', legion: '1', base: 'mage (mag,spe)', extra: 'médusa (mag,spe)', size: 8 },
+    // Servants : chaque figurine de machine reçoit 2 servants (extra '@srv' = la ligne de servants de la légion).
+    ...[
+        ['alliance', '1', ['mitrailleuse (aL)']], ['bretonnie', '1', ['catapulte (art)']],
+        ['chaos', '1', ['canon (art)']], ['chaos', '3', ['canon (art)']], ['chaos', '4', ['canon (art)']],
+        ['empire', '1', ['canon (art)']], ['empire', '3', ['autel de guerre (aL,mag)', 'canon (art)']], ['empire', '4', ['canon (art)']],
+        ['federation', '4', ['arme lourde (aL)']], ['federation', '5', ['arme lourde (aL)']],
+        ['gobelins', '1', ['autel de guerre (aL,mag)', 'catapulte (art)']], ['hauts_elfes', '2', ['baliste (aL)']],
+        ['ispanie', '1', ['catapulte (art)']], ['morts_vivants', '1', ['autel de guerre (aL,BA,mag)']],
+        ['nains', '2', ['canon (art,spe)', 'arme lourde  (aL)']],
+        ['orcs', '1', ['catapulte / baliste geante (art)']], ['orcs', '2', ['catapulte / baliste geante (art)', 'baliste (aL)']], ['orcs', '3', ['catapulte / baliste geante (art)']],
+        ['saurus', '1', ['baliste (aL,BA)']]
+    ].flatMap(([army, legion, machines]) => machines.map((base) => ({ army, legion, base, extra: '@srv', per: 2 })))
 ];
-// Les unités composées d'une armée : celles enregistrées par le MJ (army.composites) ou, à défaut, les 4 associations d'origine.
+// Les unités composées d'une armée : celles enregistrées par le MJ (army.composites) ou, à défaut, les associations d'origine.
 function compositesOf(army) {
     if (Array.isArray(army.composites)) return army.composites;
     const out = [];
     DEFAULT_COMPOSITES.forEach((c, i) => {
         if (c.army !== army.id) return;
         const b = (army.units || []).find((u) => u.in_?.B === c.base && u.q?.[c.legion]);
-        const e = (army.units || []).find((u) => u.in_?.B === c.extra && u.q?.[c.legion]);
-        if (b && e) out.push({ id: `d${i}`, legion: c.legion, base: unitKey(army.id, b), extra: unitKey(army.id, e), size: c.size });
+        const e = (army.units || []).find((u) => (c.extra === '@srv' ? u.q?.[c.legion]?.[7] === 'srv' : u.in_?.B === c.extra) && u.q?.[c.legion]);
+        if (b && e) out.push({ id: `d${i}`, legion: c.legion, base: unitKey(army.id, b), extra: unitKey(army.id, e), ...(c.per ? { per: c.per } : { size: c.size }) });
     });
     return out;
 }
@@ -1181,6 +1195,25 @@ function applyComposites(army, lid, lines) {
         const ei = lines.findIndex((l) => l.uid === c.extra);
         if (bi < 0 || ei < 0) continue;
         const b = lines[bi], e = lines[ei];
+        if (c.per) {
+            // Chaque figurine de la ligne de base (une machine) reçoit `per` figurines de l'autre ligne (les servants) : une unité composée par machine.
+            const k = Math.min(b.figs, Math.floor(e.figs / c.per));
+            if (k <= 0) continue;
+            const comp = {
+                uid: `${b.uid}+${e.uid}`, name: `${b.name} + ${e.name}`.slice(0, 60), qty: k, figs: k * (1 + c.per), type: b.type,
+                stdMax: 0, dep: Math.min(b.dep, e.dep), army: b.army, legion: b.legion,
+                comp: [{ name: b.name, figs: 1, uid: b.uid }, { name: e.name, figs: c.per, uid: e.uid }]
+            };
+            const left = b.figs - k;
+            const out = [];
+            lines.forEach((l, i) => {
+                if (i === bi) { out.push(comp); if (left > 0) out.push({ ...b, qty: left, figs: left, stdMax: Math.min(b.stdMax, left) }); }
+                else if (i === ei) { const rest = e.figs - k * c.per; if (rest > 0) out.push({ ...e, figs: rest }); }
+                else out.push(l);
+            });
+            lines = out;
+            continue;
+        }
         const full = Math.floor(b.figs / c.size);
         const rest = b.figs - full * c.size;
         if (rest <= 0) continue;
