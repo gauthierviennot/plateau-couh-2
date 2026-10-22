@@ -1227,9 +1227,10 @@ function landingViewFor(socket) {
     }
     view.choices = {};
     for (const [n, z] of Object.entries(L.choices)) if (sees(n)) view.choices[n] = z;
+    view.bound = Boolean(name && keyOf(L.roster, name));
     view.myZone = name && keyOf(L.choices, name) ? L.choices[keyOf(L.choices, name)] : null;
     view.players = players.map((n) => ({
-        name: n, team: teamOf(n), pick: Boolean(keyOf(state.fichesPicks, n)), chosen: Boolean(keyOf(L.choices, n)),
+        name: n, team: teamOf(n), pick: Boolean(keyOf(state.fichesPicks, n)), chosen: Boolean(keyOf(L.choices, n)), bound: Boolean(keyOf(L.roster, n)),
         zone: sees(n) ? (L.choices[keyOf(L.choices, n) ?? ''] ?? null) : null
     })).filter((p) => everything || admin || p.team === myTeam);
     if (L.phase === 'place' || L.phase === 'locked') {
@@ -1257,6 +1258,34 @@ function landingViewFor(socket) {
         }
     }
     return view;
+}
+
+function releaseLandingPlayer(name) {
+    const L = state.landing;
+    const rk = keyOf(L.roster, name);
+    if (rk) {
+        for (const l of L.roster[rk]) for (let i = 1; i <= l.qty; i++) { const id = unitIdOf(rk, l.uid, i); delete L.placed[id]; delete L.std[id]; }
+        delete L.roster[rk];
+    }
+    const ck = keyOf(L.choices, name);
+    if (ck) delete L.choices[ck];
+}
+
+// Pendant le dépôt, les mercenaires ajoutés ou retirés par le MJ arrivent (ou partent) dans le secteur du joueur.
+function syncLandingMercs(name) {
+    const L = state.landing;
+    if (L.phase !== 'place') return false;
+    const rk = keyOf(L.roster, name);
+    if (!rk) return false;
+    const fresh = rosterFor(rk).filter((l) => l.merc);
+    const keep = L.roster[rk].filter((l) => !l.merc || fresh.some((f) => f.uid === l.uid));
+    for (const l of L.roster[rk]) {
+        if (l.merc && !fresh.some((f) => f.uid === l.uid)) for (let i = 1; i <= l.qty; i++) { const id = unitIdOf(rk, l.uid, i); delete L.placed[id]; delete L.std[id]; }
+    }
+    for (const f of fresh) if (!keep.some((l) => l.uid === f.uid)) keep.push(f);
+    L.roster[rk] = keep;
+    purgeLandingHistory();
+    return true;
 }
 
 function emitLanding() {
@@ -1949,8 +1978,10 @@ io.on('connection', (socket) => {
         } else {
             return reply(ack, { success: false, message: 'Action inconnue.' });
         }
+        const synced = syncLandingMercs(name);
         scheduleSave();
         broadcastPicks();
+        if (synced) emitLanding();
         return reply(ack, { success: true });
     });
 
@@ -2217,16 +2248,33 @@ io.on('connection', (socket) => {
         const name = socket.data.name;
         const L = state.landing;
         if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
-        if (L.phase !== 'choose') return landingFail(ack, 'Les choix de zone ne sont pas ouverts.');
+        const late = L.phase === 'place' && !keyOf(L.roster, name); // dépôt en cours : seul un joueur sans zone peut encore choisir
+        if (L.phase !== 'choose' && !late) return landingFail(ack, L.phase === 'place' ? 'Votre zone est figée : vous ne pouvez plus en changer.' : 'Les choix de zone ne sont pas ouverts.');
+        if (L.phase === 'choose' && keyOf(L.roster, name)) return landingFail(ack, 'Votre zone est figée : vous ne pouvez plus en changer.');
         const team = teamOfName(name);
         if (!team) return landingFail(ack, 'Vous n’êtes dans aucune équipe.');
         if (!keyOf(state.fichesPicks, name)) return landingFail(ack, 'Choisissez d’abord une légion.');
         const id = String(payload?.zone ?? '');
         const zone = zoneById(id);
         if (!zone || L.groups[id] !== groupOfTeam(team)) return landingFail(ack, 'Cette zone n’est pas accessible à votre équipe.');
+        const holder = Object.keys(L.choices).find((n) => L.choices[n] === id && n.toLowerCase() !== name.toLowerCase());
+        if (holder) return landingFail(ack, `Cette zone est déjà choisie par ${holder}.`);
         const old = keyOf(L.choices, name);
         if (old) delete L.choices[old];
         L.choices[name] = id;
+        if (late) L.roster[name] = rosterFor(name); // ses unités arrivent aussitôt, sans toucher à celles des autres
+        landingOk(ack);
+    });
+
+    // Le MJ libère un joueur figé : sa zone, ses unités et ses dépôts sont effacés, il peut rechoisir.
+    socket.on('landing-release', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const L = state.landing;
+        if (L.phase !== 'choose' && L.phase !== 'place') return landingFail(ack, 'Étape incorrecte.');
+        const name = keyOf(L.roster, String(payload?.name ?? '')) ?? keyOf(L.choices, String(payload?.name ?? ''));
+        if (!name) return landingFail(ack, 'Joueur inconnu.');
+        releaseLandingPlayer(name);
+        purgeLandingHistory();
         landingOk(ack);
     });
 
@@ -2238,10 +2286,8 @@ io.on('connection', (socket) => {
         const players = Object.keys(state.fichesTeams.members).filter((n) => state.fichesTeams.members[n]);
         const missing = players.filter((n) => !keyOf(L.choices, n));
         if (missing.length && !payload?.force) return reply(ack, { success: false, code: 'missing', missing, message: `${missing.length} joueur(s) n’ont pas choisi de zone.` });
-        L.roster = {};
-        for (const n of players) if (keyOf(L.choices, n)) L.roster[n] = rosterFor(n);
-        L.placed = {};
-        L.std = {};
+        // Les joueurs déjà figés gardent leurs unités posées ; seuls les nouveaux reçoivent leurs unités.
+        for (const n of players) if (keyOf(L.choices, n) && !keyOf(L.roster, n)) L.roster[n] = rosterFor(n);
         purgeLandingHistory();
         L.phase = 'place';
         landingOk(ack);
@@ -2321,7 +2367,7 @@ io.on('connection', (socket) => {
         const order = ['zones', 'choose', 'place', 'locked'];
         if (!order.includes(target) || order.indexOf(target) > order.indexOf(L.phase)) return landingFail(ack, 'Étape invalide.');
         if (target === 'zones') { L.teamEntry = null; L.choices = {}; L.roster = {}; L.placed = {}; L.std = {}; }
-        if (target === 'choose') { L.roster = {}; L.placed = {}; L.std = {}; }
+        // Retour au choix des zones : les joueurs déjà figés gardent leur zone et leurs unités posées.
         if (target === 'place') { /* les unités restent placées */ }
         L.phase = target;
         landingOk(ack);
