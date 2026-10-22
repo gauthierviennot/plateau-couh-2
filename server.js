@@ -319,7 +319,7 @@ const DEFAULT_BONUS = 2; // tuiles de déplacement supplémentaires par défaut,
 const TEAM_IDS = ['t1', 't2'];
 
 function defaultLanding() {
-    return { phase: 'off', zones: [], groups: {}, bonus: {}, teamEntry: null, choices: {}, roster: {}, placed: {}, std: {} };
+    return { phase: 'off', zones: [], groups: {}, bonus: {}, teamEntry: null, choices: {}, roster: {}, placed: {}, std: {}, gen: {}, chev: {} };
 }
 
 // Reconstruit l'état depuis le disque en ne gardant que des valeurs bien formées.
@@ -357,6 +357,9 @@ function normalizeLanding(raw) {
     }
     for (const [id, tile] of Object.entries(raw.placed || {}).slice(0, 12000)) if (typeof tile === 'string' && /^\d{1,3},\d{1,3}$/.test(tile)) out.placed[id] = tile;
     for (const [id, v] of Object.entries(raw.std || {}).slice(0, 12000)) if (v === true && id in out.placed) out.std[id] = true;
+    // Général : une unité par joueur le porte (gen) ; une unité proche (6 hexagones) peut recevoir le chevron actif (chev).
+    for (const [n, id] of Object.entries(raw.gen || {}).slice(0, 200)) if (n.length <= LIMITS.maxName && typeof id === 'string' && id in out.placed) out.gen[n] = id;
+    for (const [n, id] of Object.entries(raw.chev || {}).slice(0, 200)) if (n.length <= LIMITS.maxName && typeof id === 'string' && id in out.placed) out.chev[n] = id;
     return out;
 }
 
@@ -1327,8 +1330,12 @@ function landingViewFor(socket) {
         view.lines = [];
         view.placed = {};
         view.std = [];
+        view.gen = {};
+        view.chev = {};
         for (const [owner, list] of Object.entries(L.roster)) {
             if (!sees(owner)) continue;
+            if (L.gen?.[owner]) view.gen[owner] = L.gen[owner];
+            if (L.chev?.[owner]) view.chev[owner] = L.chev[owner];
             for (const l of list) {
                 view.lines.push({ ...l, owner, team: teamOf(owner) });
                 for (let i = 1; i <= l.qty; i++) {
@@ -1378,7 +1385,27 @@ function syncLandingMercs(name) {
     return true;
 }
 
+// Distance en hexagones (grille en lignes décalées, comme sur la carte).
+function hexDistance(a, b) {
+    const cube = (key) => { const [c, r] = key.split(',').map(Number); const x = c - (r - (r & 1)) / 2; return [x, -x - r, r]; };
+    const [x1, y1, z1] = cube(a);
+    const [x2, y2, z2] = cube(b);
+    return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
+}
+const GENERAL_RADIUS = 6;
+// Le général et le chevron actif n'ont de sens que si leur unité est posée ; le chevron doit rester à 6 hexagones ou moins du général.
+function pruneGeneral() {
+    const L = state.landing;
+    L.gen = L.gen || {}; L.chev = L.chev || {};
+    for (const [n, id] of Object.entries(L.gen)) if (!L.placed[id] || !findLine(n, id)) delete L.gen[n];
+    for (const [n, id] of Object.entries(L.chev)) {
+        const g = L.gen[n];
+        if (!g || !L.placed[id] || id === g || !findLine(n, id) || hexDistance(L.placed[g], L.placed[id]) > GENERAL_RADIUS) delete L.chev[n];
+    }
+}
+
 function emitLanding() {
+    pruneGeneral();
     for (const s of io.sockets.sockets.values()) {
         if (s.data?.name) s.emit('landing', landingViewFor(s));
     }
@@ -2266,7 +2293,7 @@ io.on('connection', (socket) => {
     /* ---------- Débarquement ---------- */
 
     const landingFail = (ack, message) => reply(ack, { success: false, message });
-    const landingOk = (ack, extra = {}) => { scheduleSave(); emitLanding(); reply(ack, { success: true, ...extra }); };
+    const landingOk = (ack, extra = {}) => { pruneGeneral(); scheduleSave(); emitLanding(); reply(ack, { success: true, ...extra }); };
 
     // Le MJ lance le débarquement : les zones sont détectées à partir des losanges et triangles.
     socket.on('landing-start', (payload, ack) => {
@@ -2412,6 +2439,44 @@ io.on('connection', (socket) => {
         landingOk(ack);
     });
 
+
+    // Général : le joueur l'affecte à l'une de ses unités posées (plusieurs figurines). Elle gagne 2 tuiles de placement supplémentaires.
+    socket.on('landing-general', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'place') return landingFail(ack, 'Le général s’attribue pendant le dépôt des unités.');
+        const rk = keyOf(L.roster, name);
+        if (!rk) return landingFail(ack, 'Vous n’avez pas d’unités à déposer.');
+        if (payload?.unit == null) { delete L.gen[rk]; delete L.chev[rk]; return landingOk(ack); }
+        const f = findLine(name, payload.unit);
+        if (!f) return landingFail(ack, 'Unité inconnue.');
+        if (!L.placed[f.id]) return landingFail(ack, 'Posez d’abord cette unité sur la carte.');
+        if (f.line.figs / Math.max(1, f.line.qty) <= 1) return landingFail(ack, 'Le général ne peut rejoindre qu’une unité de plusieurs figurines.');
+        L.gen[rk] = f.id;
+        if (L.chev[rk] === f.id) delete L.chev[rk];
+        landingOk(ack);
+    });
+
+    // Chevron de général : actif sur une seule unité située à 6 hexagones ou moins du général ; il donne les mêmes 2 tuiles supplémentaires.
+    socket.on('landing-chevron', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'place') return landingFail(ack, 'Le chevron s’attribue pendant le dépôt des unités.');
+        const rk = keyOf(L.roster, name);
+        if (!rk) return landingFail(ack, 'Vous n’avez pas d’unités à déposer.');
+        if (payload?.unit == null) { delete L.chev[rk]; return landingOk(ack); }
+        const g = L.gen[rk];
+        if (!g || !L.placed[g]) return landingFail(ack, 'Affectez d’abord le général à une unité.');
+        const f = findLine(name, payload.unit);
+        if (!f || !L.placed[f.id]) return landingFail(ack, 'Unité inconnue ou pas encore posée.');
+        if (f.id === g) return landingFail(ack, 'Cette unité porte déjà le général.');
+        if (hexDistance(L.placed[g], L.placed[f.id]) > GENERAL_RADIUS) return landingFail(ack, `Cette unité est à plus de ${GENERAL_RADIUS} hexagones du général.`);
+        L.chev[rk] = f.id;
+        landingOk(ack);
+    });
+
     // Étendards : le nombre d'unités d'une ligne qui en portent un est limité par la colonne E de la légion.
     socket.on('landing-standard', (payload, ack) => {
         const name = socket.data.name;
@@ -2456,7 +2521,7 @@ io.on('connection', (socket) => {
         if (target === 'off') { state.landing = defaultLanding(); return landingOk(ack); }
         const order = ['zones', 'choose', 'place', 'locked'];
         if (!order.includes(target) || order.indexOf(target) > order.indexOf(L.phase)) return landingFail(ack, 'Étape invalide.');
-        if (target === 'zones') { L.teamEntry = null; L.choices = {}; L.roster = {}; L.placed = {}; L.std = {}; }
+        if (target === 'zones') { L.teamEntry = null; L.choices = {}; L.roster = {}; L.placed = {}; L.std = {}; L.gen = {}; L.chev = {}; }
         // Retour au choix des zones : les joueurs déjà figés gardent leur zone et leurs unités posées.
         if (target === 'place') { /* les unités restent placées */ }
         L.phase = target;
