@@ -1205,6 +1205,8 @@ function applyComposites(army, lid, lines) {
                 comp: [{ name: b.name, figs: 1, uid: b.uid }, { name: e.name, figs: c.per, uid: e.uid }]
             };
             const left = b.figs - k;
+            // Étendards de la ligne de base : d'abord aux unités restées simples, le reste aux unités composées.
+            comp.stdMax = Math.min(k, Math.max(0, b.stdMax - left));
             const out = [];
             lines.forEach((l, i) => {
                 if (i === bi) { out.push(comp); if (left > 0) out.push({ ...b, qty: left, figs: left, stdMax: Math.min(b.stdMax, left) }); }
@@ -1222,6 +1224,8 @@ function applyComposites(army, lid, lines) {
             stdMax: 0, dep: Math.min(b.dep, e.dep), army: b.army, legion: b.legion,
             comp: [{ name: b.name, figs: rest, uid: b.uid }, { name: e.name, figs: e.figs, uid: e.uid }]
         };
+        // Étendards de la ligne de base : d'abord aux unités restées simples, le reste (s'il y en a) à l'unité composée.
+        comp.stdMax = (e.stdMax > 0 || b.stdMax - full > 0) ? 1 : 0; // la figurine seule portait déjà un étendard : l'unité composée le garde
         const out = lines.filter((_, i) => i !== bi && i !== ei);
         const at = Math.min(bi, ei);
         const repl = [];
