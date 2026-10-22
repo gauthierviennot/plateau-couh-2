@@ -81,7 +81,7 @@ tr.total td{font-weight:700;background:var(--head);border-bottom:none}tr.total t
 
 tr.compr td{box-shadow:inset 0 -1px 0 #7b3fe4,inset 0 1px 0 #7b3fe4}td.name.compn{border-left:4px solid #7b3fe4;background:#efe7ff!important;color:#000}.compwith{display:block;font:11px system-ui,sans-serif;color:#5b2fb0;margin-top:1px}
 tr.compr td.name{border-left:4px solid #7b3fe4}tr.compr1 td{border-top:2px solid #7b3fe4}tr.compr2 td{border-bottom:2px solid #7b3fe4}
-tr.compr td.name{background:#efe7ff;color:#000}td.compu{background:#efe7ff;color:#000;font-weight:700;vertical-align:middle}
+tr.compr td.name{background:#efe7ff;color:#000}td.stdchk,td.compu.stdchk{background:#ff5a5a!important;color:#000!important}td.compu{background:#efe7ff;color:#000;font-weight:700;vertical-align:middle}
 .chip.me{border-color:var(--accent)}
 .pk{display:inline-flex;align-items:center;gap:2px}
 th.lg.gs,td.lg.gs{border-left:2px solid var(--border)}
@@ -139,7 +139,7 @@ td.name{z-index:3}
       <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
       <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
       <span id="mjBadge" class="badge mj">MJ</span>
-      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v22-oct-17h</span>
+      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v22-oct-18h30</span>
     </div>
     <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
     <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
@@ -675,8 +675,9 @@ function renderFull(a){
             const attr=mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${k}"`:'';
             let txt=q?(k===0?`<span class="qty">${q[0]}</span>`:(k===1?uTxt(q):(q[k]||''))):(k===0?'<span class="dim">·</span>':'');
             if(ad){if(k===0)txt=ad.nb>0?`<span class="qty">${ad.nb}</span>`:'<span class="dim">·</span>';
-              else if(k===1){const nu=ad.u!=null?ad.u:ad.nb;txt=nu>0?nu+(ad.type||''):'';}}
-            h+=`<td class="lg ${k===0?'gs':''} ${on}"${attr}>${txt}</td>`;}
+              else if(k===1){const nu=ad.u!=null?ad.u:ad.nb;txt=nu>0?nu+(ad.type||''):'';}
+              else if(k===2&&ad.st)txt=ad.st.simple||'';}
+            h+=`<td class="lg ${k===0?'gs':''} ${on}${ad&&ad.st&&ad.st.flag&&k===2?' stdchk':''}"${attr}>${txt}</td>`;}
           if(w===4)h+=`<td class="lg ${on}">${q&&q[3]===q[3]&&q[3]!=null?Math.round(ad?q[3]*ad.nb/(q[0]||1):q[3]):''}</td>`;});
         h+=actTd(a,u,wh)+'</tr>';});
       h+=compBlocksFull(a,u,vl,w,cs,plans);
@@ -702,10 +703,10 @@ function compBlocksFull(a,u,vl,w,cs,plans){
     const totB=vl.reduce((t,l)=>t+nbB(l),0),totE=vl.reduce((t,l)=>t+nbE(l),0);
     [[u,1,nbB,totB],[eu,2,nbE,totE]].forEach(([x,k,nbf,tot])=>{
       h+='<tr class="compr compr'+k+'">'+cs.map(c=>c==='B'?`<td class="name compn">🧩 ${esc(x.in_.B||'')}</td>`:cellTd(a,x,'u',c,tot)).join('');
-      vl.forEach(l=>{const o=os[l.id];const on=S.sel===l.id?'on':'';const q=x.q[l.id];const n=nbf(l);
+      vl.forEach(l=>{const o=os[l.id];const on=S.sel===l.id?'on':'';const q=x.q[l.id];const n=nbf(l);const sdz=o?compStd(o,u.q[l.id]):{};
         if(!o){h+=`<td class="lg gs ${on}"><span class="dim">·</span></td><td class="lg ${on}"></td><td class="lg ${on}"></td>`+(w===4?`<td class="lg ${on}"></td>`:'');return;}
         h+=`<td class="lg gs ${on}"><span class="qty">${n}</span></td>`;
-        if(k===1)h+=`<td class="lg compu ${on}" rowspan="2">🧩 ${o.k}${esc(u.q[l.id][7]||'')}<br><small>unité${o.k>1?'s':''} composée${o.k>1?'s':''}</small></td><td class="lg compu ${on}" rowspan="2"></td>`;
+        if(k===1)h+=`<td class="lg compu ${on}" rowspan="2">🧩 ${o.k}${esc(u.q[l.id][7]||'')}<br><small>unité${o.k>1?'s':''} composée${o.k>1?'s':''}</small></td><td class="lg compu ${on}${sdz.flag?' stdchk':''}" rowspan="2">${sdz.comp||''}</td>`;
         if(w===4)h+=`<td class="lg ${on}">${q&&q[3]===q[3]&&q[3]!=null&&q[0]?Math.round(q[3]*n/q[0]):''}</td>`;});
       h+='</tr>';});
   });
@@ -745,11 +746,12 @@ function renderLegion(a){
         if(o1){nbS=o1.full*o1.size;uS=o1.full+(q[7]||'');}
         else if(ops.length){nbS=ops[0].left;uS=ops[0].left+(q[7]||'');}
         if(usedEx[u.uid]){nbS=q[0]-usedEx[u.uid];}
+        let eS=q[2]||'',eFlag=false;if(ops.length){const sd=compStd(ops[0],q);eS=sd.simple||'';eFlag=sd.flag;}
         ['u','l2'].forEach(wh=>{if(wh==='l2'&&!u.l2)return;if(nbS<=0)return;
           h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c,wh==='u'?nbS:undefined)).join('');
           if(wh==='u'){const at=i=>mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${i}"`:'';
             const okv=q[3]!=null&&q[3]===q[3];
-            h+=(qc.nb?`<td class="qty"${at(0)}>${nbS}</td>`:'')+(qc.u?`<td${at(1)}>${uS}</td>`:'')+(qc.e?`<td${at(2)}>${q[2]||''}</td>`:'')+(qc.pts?`<td>${okv?Math.round(q[3]*nbS/(q[0]||1)):''}</td>`:'');}
+            h+=(qc.nb?`<td class="qty"${at(0)}>${nbS}</td>`:'')+(qc.u?`<td${at(1)}>${uS}</td>`:'')+(qc.e?`<td${at(2)}${eFlag?' class="stdchk" title="Étendards à vérifier"':''}>${eS}</td>`:'')+(qc.pts?`<td>${okv?Math.round(q[3]*nbS/(q[0]||1)):''}</td>`:'');}
           else h+='<td></td>'.repeat(nq);
           h+=actTd(a,u,wh)+'</tr>';});
         ops.forEach(o=>{h+=compRows(a,l,o,cs,qc);});});
@@ -1526,13 +1528,16 @@ function compCalc(a,c,avail){
   const size=c.size||8,full=Math.floor(bq[0]/size),rest=bq[0]-full*size;
   return rest>0?{c,b,e,size,full,rest,k:1,used:eq[0]}:null;
 }
+function compStd(o,q){const units=Math.max(1,q[6]||1),Eb=Math.min(units,+q[2]||0),sim=o.per?o.left:o.full;
+  const ex=!o.per&&o.e&&o.e.q&&o.e.q[o.c.legion]&&(+o.e.q[o.c.legion][2]||0)>0;
+  return {simple:Math.min(Eb,sim),comp:o.per?Math.min(o.k,Math.max(0,Eb-sim)):((ex||Eb-sim>0)?1:0),flag:(Eb>0&&Eb<units)||ex};}
 function compAdj(plan,u,q){
-  let nb=q[0],inn=0,uu=null,hit=false;
+  let nb=q[0],inn=0,uu=null,hit=false,st=null;
   plan.forEach(o=>{
-    if(o.c.base===u.uid){hit=true;if(o.per){nb=o.left;inn+=o.k;}else{nb=o.full*o.size;inn+=o.rest;uu=o.full;}}
+    if(o.c.base===u.uid){hit=true;st=compStd(o,q);if(o.per){nb=o.left;inn+=o.k;}else{nb=o.full*o.size;inn+=o.rest;uu=o.full;}}
     else if(o.c.extra===u.uid){hit=true;if(o.per){nb=nb-o.used;inn+=o.used;}else{nb=0;inn+=o.used;}}});
   if(!hit)return null;
-  return {nb,in:inn,type:q[7]||'',u:uu!=null?uu:null};
+  return {nb,in:inn,type:q[7]||'',u:uu!=null?uu:null,st};
 }
 function compPlan(a,lid){
   const avail={},out=[];
@@ -1547,7 +1552,7 @@ function compText(a,c){const o=compOk(a,c);if(!o)return null;
   return `${o.full>0?o.full+' × '+o.size+' ':''}${esc(o.b.in_.B)}${o.full>0?' puis ':' : '}<b>1 unité composée</b> : ${o.rest} ${esc(o.b.in_.B)} + ${esc(o.e.in_.B)}`;}
 function compNote(a,l){
   const out=compPlan(a,l.id).map(o=>compText(a,o.c)).filter(Boolean);
-  return out.length?`<div class="hint">🧩 <b>Unités composées</b> de cette légion :<br>${out.join('<br>')}</div>`:'';
+  return out.length?`<div class="hint">🧩 <b>Unités composées</b> de cette légion :<br>${out.join('<br>')}<br><small>Étendards : d'abord aux unités simples, le reste à l'unité composée. Cellule E en rouge = répartition à vérifier.</small></div>`:'';
 }
 function compPanel(a){
   const list=a.composites||[];
@@ -1606,9 +1611,9 @@ function compAction(act,id){
 function compRows(a,l,o,cs,qc){
   const qb=o.b.q[l.id],qe=o.e.q[l.id];
   const val=(q,n)=>(q[3]!=null&&q[3]===q[3]&&q[0])?Math.round(q[3]*n/q[0]):'';
-  const nb=o.per?o.k:o.rest,ne=o.per?o.k*o.per:qe[0];
+  const nb=o.per?o.k:o.rest,ne=o.per?o.k*o.per:qe[0],sd=compStd(o,qb);
   const row=(u,n,q,k)=>'<tr class="compr compr'+k+'">'+cs.map(col=>col==='B'?`<td class="name compn">🧩 ${esc(u.in_.B||'')}</td>`:cellTd(a,u,'u',col,n)).join('')
-    +(qc.nb?`<td class="qty">${n}</td>`:'')+(k===1?(qc.u?`<td class="compu" rowspan="2">🧩 ${o.k}${esc(qb[7]||'')}<br><small>unité${o.k>1?'s':''} composée${o.k>1?'s':''}</small></td>`:'')+(qc.e?'<td class="compu" rowspan="2"></td>':''):'')+(qc.pts?`<td>${val(q,n)}</td>`:'')+'</tr>';
+    +(qc.nb?`<td class="qty">${n}</td>`:'')+(k===1?(qc.u?`<td class="compu" rowspan="2">🧩 ${o.k}${esc(qb[7]||'')}<br><small>unité${o.k>1?'s':''} composée${o.k>1?'s':''}</small></td>`:'')+(qc.e?`<td class="compu${sd.flag?' stdchk':''}" rowspan="2"${sd.flag?' title="Étendards à vérifier"':''}>${sd.comp||''}</td>`:''):'')+(qc.pts?`<td>${val(q,n)}</td>`:'')+'</tr>';
   return row(o.b,nb,qb,1)+row(o.e,ne,qe,2);
 }
 function showCompCard(t,a,l){
