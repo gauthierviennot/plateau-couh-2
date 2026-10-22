@@ -1400,6 +1400,11 @@
             land.dataset.land = 'toggle';
             land.textContent = '⚔️';
             list.push(land);
+            const sim = make('simb', 'Simulation : carte virtuelle des dépôts');
+            sim.dataset.land = 'sim';
+            sim.textContent = '🗺️';
+            sim.hidden = true;
+            list.push(sim);
             if (state.isAdmin) list.push(make('access', 'Accès des joueurs aux fiches'), make('freeze', 'Légions des joueurs'));
             queueMicrotask(updateFichesAccessUI);
             queueMicrotask(updateLandingUI);
@@ -3441,7 +3446,7 @@
             // Les étiquettes gardent une taille lisible (et touchable) même quand la carte est très dézoomée.
             const boost = Math.max(1, 24 / (R * 0.62 * VW.scale));
             const chipH = R * 0.62 * boost;
-            const unitW = R * 2.4 * boost;
+            const unitW = R * 1.9 * boost;
             const PER_COL = 8;
             const drawFlag = (fx, fy, h, state) => {
                 c.save();
@@ -3500,79 +3505,79 @@
                     c.textBaseline = 'middle';
                     // Croix de suppression (mes unités, pendant le dépôt) : l'unité retourne dans le sélecteur.
                     const hasCross = !opt && mine && LAND.view.phase === 'place' && !LAND.simOn;
-                    const leftPad = hasCross ? chipH * 1.0 : chipH * 0.28;
+                    const leftPad = hasCross ? chipH * 0.78 : chipH * 0.28;
                     const hasChev = u.near && (mine || u.chev);
                     // Tous les symboles (drapeau, chevron, général, puzzle) sont rangés à droite de l'étiquette ; le nom reste à gauche.
-                    const wFlag = hasFlag ? chipH * 1.05 : 0, wChev = hasChev ? chipH * 1.0 : 0, wGen = u.gen ? chipH * 0.95 : 0, wPuz = u.comp ? chipH * 0.8 : 0;
+                    const wFlag = hasFlag ? chipH * 0.74 : 0, wChev = hasChev ? chipH * 0.68 : 0, wGen = u.gen ? chipH * 0.68 : 0, wPuz = u.comp ? chipH * 0.58 : 0;
                     const rightW = wFlag + wChev + wGen + wPuz;
                     const textW = w - leftPad - rightW - chipH * 0.15;
                     let cross = null;
                     if (hasCross) {
-                        const cx = ox - w / 2 + chipH * 0.5;
+                        const cx = ox - w / 2 + chipH * 0.38;
                         c.beginPath();
-                        c.arc(cx, oy, chipH * 0.3, 0, Math.PI * 2);
+                        c.arc(cx, oy, chipH * 0.22, 0, Math.PI * 2);
                         c.fillStyle = '#d32f2f';
                         c.fill();
                         c.strokeStyle = '#fff';
-                        c.lineWidth = chipH * 0.08;
+                        c.lineWidth = chipH * 0.06;
                         c.lineCap = 'round';
                         c.beginPath();
-                        c.moveTo(cx - chipH * 0.12, oy - chipH * 0.12); c.lineTo(cx + chipH * 0.12, oy + chipH * 0.12);
-                        c.moveTo(cx + chipH * 0.12, oy - chipH * 0.12); c.lineTo(cx - chipH * 0.12, oy + chipH * 0.12);
+                        c.moveTo(cx - chipH * 0.09, oy - chipH * 0.09); c.lineTo(cx + chipH * 0.09, oy + chipH * 0.09);
+                        c.moveTo(cx + chipH * 0.09, oy - chipH * 0.09); c.lineTo(cx - chipH * 0.09, oy + chipH * 0.09);
                         c.stroke();
-                        cross = { x: sp.x + (ox - w / 2) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 0.95 * VW.scale, h: chipH * VW.scale };
+                        cross = { x: sp.x + (ox - w / 2) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 0.76 * VW.scale, h: chipH * VW.scale };
                         c.fillStyle = '#1b1b1b';
                     }
                     // Le numéro de l'unité reste toujours visible : c'est le nom qui est raccourci si besoin.
                     const num = ` ${u.idx}`;
-                    let nm = shortName(u.name, 12);
+                    let nm = u.type ? u.type : shortName(u.name, 12);
                     while (c.measureText(nm + num).width > textW && nm.length > 3) nm = `${nm.slice(0, -2)}…`;
                     c.fillText(nm + num, ox - w / 2 + leftPad, oy + chipH * 0.03);
                     const rEdge = ox + w / 2;
                     if (u.gen) {
                         // Général : trois chevrons dorés empilés.
                         c.save();
-                        c.strokeStyle = '#d9a400'; c.lineWidth = chipH * 0.1; c.lineCap = 'round'; c.lineJoin = 'round';
+                        c.strokeStyle = '#d9a400'; c.lineWidth = chipH * 0.075; c.lineCap = 'round'; c.lineJoin = 'round';
                         const gx = rEdge - wFlag - wChev - wGen / 2;
-                        for (const dy of [-0.27, 0, 0.27]) {
+                        for (const dy of [-0.2, 0, 0.2]) {
                             c.beginPath();
-                            c.moveTo(gx - chipH * 0.19, oy + chipH * (dy + 0.1));
-                            c.lineTo(gx, oy + chipH * (dy - 0.08));
-                            c.lineTo(gx + chipH * 0.19, oy + chipH * (dy + 0.1));
+                            c.moveTo(gx - chipH * 0.14, oy + chipH * (dy + 0.07));
+                            c.lineTo(gx, oy + chipH * (dy - 0.06));
+                            c.lineTo(gx + chipH * 0.14, oy + chipH * (dy + 0.07));
                             c.stroke();
                         }
                         c.restore();
                     }
                     if (u.comp) {
-                        c.font = `${chipH * 0.55}px system-ui, "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-                        c.fillText('🧩', rEdge - wFlag - wChev - wGen - wPuz + chipH * 0.08, oy + chipH * 0.03);
+                        c.font = `${chipH * 0.42}px system-ui, "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+                        c.fillText('🧩', rEdge - wFlag - wChev - wGen - wPuz + chipH * 0.06, oy + chipH * 0.03);
                         c.font = `600 ${chipH * 0.46}px system-ui, sans-serif`;
                     }
                     let flag = null;
                     if (hasFlag) {
                         const used = stdUsed.get(u.line) || 0;
                         const state = u.std ? 'on' : (used >= u.stdMax ? 'full' : 'off');
-                        drawFlag(ox + w / 2 - chipH * 0.55, oy, chipH * 0.8, state);
+                        drawFlag(ox + w / 2 - chipH * 0.4, oy, chipH * 0.58, state);
                         if (mine && LAND.view.phase === 'place' && !LAND.simOn) {
-                            flag = { x: sp.x + (ox + w / 2 - chipH * 1.05) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 1.05 * VW.scale, h: chipH * VW.scale };
+                            flag = { x: sp.x + (ox + w / 2 - chipH * 0.8) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 0.8 * VW.scale, h: chipH * VW.scale };
                         }
                     }
                     // Chevron de général : gris = disponible, or = actif (2 tuiles de placement supplémentaires).
                     let chev = null;
                     if (hasChev) {
-                        const cxv = ox + w / 2 - wFlag - chipH * 0.5;
+                        const cxv = ox + w / 2 - wFlag - chipH * 0.35;
                         const on = u.chev;
-                        if (on) { c.beginPath(); c.arc(cxv, oy, chipH * 0.4, 0, Math.PI * 2); c.fillStyle = '#ffc107'; c.fill(); }
+                        if (on) { c.beginPath(); c.arc(cxv, oy, chipH * 0.3, 0, Math.PI * 2); c.fillStyle = '#ffc107'; c.fill(); }
                         c.strokeStyle = on ? '#5d4300' : '#8a8a8a';
                         c.lineWidth = chipH * 0.09;
                         c.lineCap = 'round'; c.lineJoin = 'round';
-                        c.lineWidth = chipH * 0.12;
+                        c.lineWidth = chipH * 0.09;
                         c.beginPath();
-                        c.moveTo(cxv - chipH * 0.22, oy + chipH * 0.12);
-                        c.lineTo(cxv, oy - chipH * 0.1);
-                        c.lineTo(cxv + chipH * 0.22, oy + chipH * 0.12);
+                        c.moveTo(cxv - chipH * 0.16, oy + chipH * 0.09);
+                        c.lineTo(cxv, oy - chipH * 0.07);
+                        c.lineTo(cxv + chipH * 0.16, oy + chipH * 0.09);
                         c.stroke();
-                        if (mine && LAND.view.phase === 'place' && !LAND.simOn) chev = { x: sp.x + (cxv - chipH * 0.5) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * VW.scale, h: chipH * VW.scale };
+                        if (mine && LAND.view.phase === 'place' && !LAND.simOn) chev = { x: sp.x + (cxv - chipH * 0.4) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 0.8 * VW.scale, h: chipH * VW.scale };
                     }
                     c.globalAlpha = 1;
                     LAND.hits.push({ unit: u, units: [u], flag, chev, cross, x: sp.x + (ox - w / 2) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: w * VW.scale, h: chipH * VW.scale });
@@ -4107,16 +4112,18 @@
                     h += '<p class="lp-hint">Les placements sont verrouillés : vous voyez toutes les unités. Appui long sur une unité : portée de déplacement (cases bleues = bonus de sa section). Double toucher : la fiche de cette unité.</p>';
                 }
             }
-            if (v.myTeam && (v.phase === 'place' || v.phase === 'locked')) {
+            if (simAvail()) {
                 h += `<div class="lp-actions"><button class="btn ${LAND.simOn ? 'btn-primary' : 'btn-dark'}" data-land="sim">🗺️ ${LAND.simOn ? 'Quitter la simulation' : 'Simulation (carte virtuelle)'}</button></div>`;
             }
             panel.innerHTML = h;
             panel.hidden = false;
         }
 
+        const simAvail = () => landOn() && (LAND.view.phase === 'place' || LAND.view.phase === 'locked') && Boolean(LAND.view.myTeam || state.isAdmin);
+
         function setSim(on) {
             const v = LAND.view;
-            on = Boolean(on) && Boolean(v.myTeam) && (v.phase === 'place' || v.phase === 'locked');
+            on = Boolean(on) && simAvail();
             if (LAND.simOn === on) return;
             resetLandTransient();
             LAND.simOn = on;
@@ -4130,7 +4137,7 @@
                     ban.innerHTML = '<span id="simBanTxt"></span><button data-land="sim" style="background:#fff;color:#1b3a6b;border:0;border-radius:6px;padding:4px 8px;font-weight:600">Quitter</button>';
                     document.body.appendChild(ban);
                 }
-                document.getElementById('simBanTxt').textContent = v.phase === 'locked' ? '🗺️ Simulation de l’équipe (lecture seule)' : '🗺️ Simulation : déplacez vos unités dans leur portée (une seule unité par tuile hors dépôt)';
+                document.getElementById('simBanTxt').textContent = (v.phase === 'locked' || !v.myTeam) ? '🗺️ Simulation des joueurs (lecture seule)' : '🗺️ Simulation : déplacez vos unités dans leur portée (une seule unité par tuile hors dépôt)';
                 ban.hidden = false;
             } else if (ban) ban.hidden = true;
             updateLandingUI();
@@ -4324,6 +4331,13 @@
             renderLandingPanel();
             renderUnitBar();
             updateDock();
+            // Bouton 🗺️ du sélecteur (à côté de 📜 et ⚔️) : ouvre/ferme la carte virtuelle.
+            document.querySelectorAll('.fiche-btn[data-land="sim"]').forEach((b) => {
+                b.hidden = !simAvail();
+                b.classList.toggle('on', LAND.simOn);
+                b.title = LAND.simOn ? 'Quitter la simulation' : 'Simulation : carte virtuelle des dépôts';
+            });
+            const old = document.getElementById('simFab'); if (old) old.remove();
         }
 
         // Un changement d'étape (surtout un retour en arrière du MJ) invalide tout geste, aperçu, aire ou tuile survolée en cours :
@@ -4347,7 +4361,7 @@
             const prev = LAND.view.phase;
             if ((next?.phase || 'off') !== prev) resetLandTransient();
             LAND.view = next || { phase: 'off' };
-            if (LAND.simOn && !(LAND.view.myTeam && (LAND.view.phase === 'place' || LAND.view.phase === 'locked'))) { LAND.simOn = false; const bn = document.getElementById('simBanner'); if (bn) bn.hidden = true; }
+            if (LAND.simOn && !simAvail()) { LAND.simOn = false; const bn = document.getElementById('simBanner'); if (bn) bn.hidden = true; }
             LAND.units = buildUnits(LAND.view);
             if (LAND.preview && LAND.units.find((u) => u.id === LAND.preview.unit.id)?.tile !== LAND.preview.start) { LAND.preview = null; hideRangeInfo(); }
 
