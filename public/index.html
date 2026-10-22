@@ -202,7 +202,9 @@
         .lp-seg.on { background: #222; color: #fff; border-color: #222; }
         .lp-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         .lp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+        @media (max-width: 700px) { .fiches-modes { display: none !important; } }
         .ub-chip.done { opacity: .6; }
+        .ub-chip.gen-on { background: #fff3c4; box-shadow: 0 0 0 3px #ffc107; }
         .land-ghost { position: fixed; z-index: 400; transform: translate(-50%, -50%); background: #fff; border: 3px solid #555; border-radius: 10px; padding: 6px 10px; font: 700 .85rem system-ui, sans-serif; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
         [data-land="toggle"].on { box-shadow: 0 0 0 3px #1f78ff inset; }
         .range-info { position: fixed; top: calc(72px + var(--safe-top)); left: 50%; transform: translateX(-50%); z-index: 92; background: rgba(255,255,255,.97); border-radius: 12px; padding: 8px 12px; box-shadow: 0 4px 18px rgba(0,0,0,.35); font-size: .82rem; text-align: center; max-width: 92vw; }
@@ -2971,9 +2973,16 @@
             const std = new Set(v.std || []);
             const out = [];
             for (const l of v.lines || []) {
+                const genId = v.gen?.[l.owner] ?? null;
+                const genTile = genId ? placed[genId] ?? null : null;
                 for (let i = 1; i <= l.qty; i++) {
                     const id = `${l.owner}|${l.uid}#${i}`;
-                    out.push({ id, owner: l.owner, team: l.team, name: l.name, line: `${l.owner}|${l.uid}`, uid: l.uid, army: l.army, legion: l.legion, dep: l.dep, stdMax: l.stdMax, figs: l.figs, type: l.type, idx: i, tile: placed[id] ?? null, std: std.has(id), comp: l.comp || null });
+                    const tile = placed[id] ?? null;
+                    const isGen = genId === id;
+                    // Chevron de général : proposé aux unités posées à 6 hexagones ou moins de l'unité qui porte le général.
+                    const near = Boolean(tile && genTile && !isGen && hexDist(tile, genTile) <= 6);
+                    out.push({ id, owner: l.owner, team: l.team, name: l.name, line: `${l.owner}|${l.uid}`, uid: l.uid, army: l.army, legion: l.legion, dep: l.dep, stdMax: l.stdMax, figs: l.figs, type: l.type, idx: i, tile, std: std.has(id), comp: l.comp || null,
+                        multi: l.figs / Math.max(1, l.qty) > 1, gen: isGen, near, chev: v.chev?.[l.owner] === id });
                 }
             }
             return out;
@@ -3212,7 +3221,32 @@
                 if (d <= reach) end.push(key);
                 else if (area && area.has(key)) bonusEnd.push(key);
             }
-            return { dep: base, landCost, reach, extra: bonus, bonus, total, section: sec?.n ?? 0, sectionKind: sec?.kind ?? null, zone: zone?.id ?? null, start: unit.tile, end, bonusEnd, pass };
+            // Général (porté par l'unité ou chevron actif) : jusqu'à 2 tuiles plus loin que la zone d'arrivée normale (bonus de section compris),
+            // sans jamais franchir les frontières ni les tuiles bloquées déjà définies.
+            const genExtra = unit.gen || unit.chev ? 2 : 0;
+            const genEnd = [];
+            if (genExtra) {
+                const sources = end.length || bonusEnd.length ? [...end, ...bonusEnd] : [unit.tile];
+                const normal = new Set([...end, ...bonusEnd, unit.tile]);
+                const seen = new Map(sources.map((k) => [k, 0]));
+                let front = [...sources];
+                for (let step = 1; step <= genExtra; step++) {
+                    const next = [];
+                    for (const key of front) {
+                        const [c0, r0] = keyToHex(key);
+                        for (const [nc, nr] of landNeighbors(c0, r0)) {
+                            if (nc < 0 || nr < 0 || nc >= state.cols || nr >= state.rows) continue;
+                            const nk = `${nc},${nr}`;
+                            if (seen.has(nk) || blockedTile(nk) || lim.edges.has(edgeKey(key, nk))) continue;
+                            seen.set(nk, step);
+                            next.push(nk);
+                        }
+                    }
+                    front = next;
+                }
+                for (const [key, d] of seen) if (d > 0 && !normal.has(key) && canEnd(key)) genEnd.push(key);
+            }
+            return { dep: base, landCost, reach, extra: bonus, bonus, total, genExtra, genEnd, section: sec?.n ?? 0, sectionKind: sec?.kind ?? null, zone: zone?.id ?? null, start: unit.tile, end, bonusEnd, pass };
         }
 
         // Impression : les unités posées (telles que ce joueur les voit) sont dessinées sur l'image, sans aperçu ni geste en cours.
@@ -3329,6 +3363,16 @@
                     c.fillStyle = 'rgba(255,152,0,0.38)';
                     c.fill();
                 }
+                for (const key of p.genEnd || []) {
+                    const [pc, pr] = keyToHex(key);
+                    const { x, y } = hexCenter(pc, pr);
+                    hexPathAt(c, x, y, R * 0.9);
+                    c.fillStyle = 'rgba(255,193,7,0.6)';
+                    c.fill();
+                    c.lineWidth = R * 0.05;
+                    c.strokeStyle = 'rgba(150,100,0,0.95)';
+                    c.stroke();
+                }
                 for (const key of p.bonusEnd) {
                     const [pc, pr] = keyToHex(key);
                     const { x, y } = hexCenter(pc, pr);
@@ -3432,8 +3476,9 @@
                     // Croix de suppression (mes unités, pendant le dépôt) : l'unité retourne dans le sélecteur.
                     const hasCross = !opt && mine && LAND.view.phase === 'place';
                     const leftPad = hasCross ? chipH * 1.0 : chipH * 0.28;
-                    const puz = u.comp ? chipH * 0.8 : 0; // unité composée : petit morceau de puzzle devant le nom
-                    const textW = w - (hasFlag ? chipH * 1.05 : chipH * 0.3) - (leftPad - chipH * 0.28) - puz;
+                    const puz = (u.comp ? chipH * 0.8 : 0) + (u.gen ? chipH * 0.7 : 0); // unité composée : puzzle ; unité qui porte le général : étoile
+                    const hasChev = u.near && (mine || u.chev);
+                    const textW = w - (hasFlag ? chipH * 1.05 : chipH * 0.3) - (hasChev ? chipH * 1.0 : 0) - (leftPad - chipH * 0.28) - puz;
                     let cross = null;
                     if (hasCross) {
                         const cx = ox - w / 2 + chipH * 0.5;
@@ -3457,7 +3502,9 @@
                     while (c.measureText(nm + num).width > textW && nm.length > 3) nm = `${nm.slice(0, -2)}…`;
                     if (puz) {
                         c.font = `${chipH * 0.55}px system-ui, "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-                        c.fillText('🧩', ox - w / 2 + leftPad, oy + chipH * 0.03);
+                        let px = ox - w / 2 + leftPad;
+                        if (u.gen) { c.fillStyle = '#c79100'; c.fillText('★', px, oy + chipH * 0.03); c.fillStyle = '#1b1b1b'; px += chipH * 0.7; }
+                        if (u.comp) c.fillText('🧩', px, oy + chipH * 0.03);
                         c.font = `600 ${chipH * 0.46}px system-ui, sans-serif`;
                     }
                     c.fillText(nm + num, ox - w / 2 + leftPad + puz, oy + chipH * 0.03);
@@ -3470,8 +3517,26 @@
                             flag = { x: sp.x + (ox + w / 2 - chipH * 1.05) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 1.05 * VW.scale, h: chipH * VW.scale };
                         }
                     }
+                    // Chevron de général : gris = disponible, or = actif (2 tuiles de placement supplémentaires).
+                    let chev = null;
+                    if (hasChev) {
+                        const cxv = ox + w / 2 - (hasFlag ? chipH * 1.05 : 0) - chipH * 0.55;
+                        const on = u.chev;
+                        if (on) { c.beginPath(); c.arc(cxv, oy, chipH * 0.4, 0, Math.PI * 2); c.fillStyle = '#ffc107'; c.fill(); }
+                        c.strokeStyle = on ? '#5d4300' : '#8a8a8a';
+                        c.lineWidth = chipH * 0.09;
+                        c.lineCap = 'round'; c.lineJoin = 'round';
+                        for (const dy of [-0.14, 0.12]) {
+                            c.beginPath();
+                            c.moveTo(cxv - chipH * 0.2, oy + chipH * (dy + 0.1));
+                            c.lineTo(cxv, oy + chipH * (dy - 0.08));
+                            c.lineTo(cxv + chipH * 0.2, oy + chipH * (dy + 0.1));
+                            c.stroke();
+                        }
+                        if (mine && LAND.view.phase === 'place') chev = { x: sp.x + (cxv - chipH * 0.5) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * VW.scale, h: chipH * VW.scale };
+                    }
                     c.globalAlpha = 1;
-                    LAND.hits.push({ unit: u, units: [u], flag, cross, x: sp.x + (ox - w / 2) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: w * VW.scale, h: chipH * VW.scale });
+                    LAND.hits.push({ unit: u, units: [u], flag, chev, cross, x: sp.x + (ox - w / 2) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: w * VW.scale, h: chipH * VW.scale });
                 };
                 if (list.length === 1) {
                     place(list[0], 0, 0, unitW);
@@ -3624,14 +3689,14 @@
         function showPreview(unit) {
             if (!unit.tile) return toast('Cette unité n’est pas encore sur la carte.');
             const r = computeRange(unit);
-            if (!r.total) { LAND.preview = null; hideRangeInfo(); requestDraw(); return toast(`${unit.name} : portée de déplacement nulle.`); }
+            if (!r.total && !r.genExtra) { LAND.preview = null; hideRangeInfo(); requestDraw(); return toast(`${unit.name} : portée de déplacement nulle.`); }
             LAND.preview = { ...r, unit };
             const info = $('rangeInfo');
             const kind = r.sectionKind === 'mid' ? 'centre' : 'extrémité';
             const where = r.zone ? `section ${r.section} (${kind}) · zone ${r.zone.toUpperCase()}` : 'hors zone de débarquement';
-            const n = r.end.length + r.bonusEnd.length;
-            info.innerHTML = `<b>${shortName(unit.name, 22)}</b> ${unit.idx} · dep ${r.dep}${r.landCost ? ` − ${r.landCost} (tuile de débarquement)` : ''}${r.bonus ? ` <b>+ ${r.bonus}</b> tuile${r.bonus > 1 ? 's' : ''} supplémentaire${r.bonus > 1 ? 's' : ''}` : ''} = <b>${r.total}</b> pas`
-                + `<small>${where}${r.bonus ? ' · bonus seulement vers l’aire de cette section (cases bleues)' : ''} · ${n} case${n > 1 ? 's' : ''} d’arrivée</small>`;
+            const n = r.end.length + r.bonusEnd.length + r.genEnd.length;
+            info.innerHTML = `<b>${shortName(unit.name, 22)}</b> ${unit.idx} · dep ${r.dep}${r.landCost ? ` − ${r.landCost} (tuile de débarquement)` : ''}${r.bonus ? ` <b>+ ${r.bonus}</b> tuile${r.bonus > 1 ? 's' : ''} supplémentaire${r.bonus > 1 ? 's' : ''}` : ''} = <b>${r.total}</b> pas${r.genExtra ? ` · <b>★ + ${r.genExtra}</b> tuiles (général)` : ''}`
+                + `<small>${r.genExtra ? 'cases dorées = tuiles du général, dans les frontières de placement · ' : ''}${where}${r.bonus ? ' · bonus seulement vers l’aire de cette section (cases bleues)' : ''} · ${n} case${n > 1 ? 's' : ''} d’arrivée</small>`;
             info.hidden = false;
             requestDraw();
         }
@@ -3649,6 +3714,7 @@
             const hit = tokenAt(e.clientX - rect.left, e.clientY - rect.top);
             const unit = hit?.unit;
             if (!unit) {
+                if (LAND.genMode) { LAND.genMode = false; renderUnitBar(); }
                 if (LAND.preview) { LAND.preview = null; hideRangeInfo(); requestDraw(); }
                 LAND.tap = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
                 return;
@@ -3674,6 +3740,34 @@
                 }
                 if (px >= cr.x && px <= cr.x + cr.w && py >= cr.y && py <= cr.y + cr.h && canEditUnits()) {
                     landEmit('landing-place', { units: [unit.id], tile: null }).then((r) => { if (r.success) toast('Unité retirée de la carte : elle est de nouveau dans le sélecteur.'); });
+                    return;
+                }
+            }
+            // Mode « affecter le général » (après avoir touché la puce Général du sélecteur) : on touche l'une de ses unités posées.
+            if (LAND.genMode && ciEq(unit.owner, state.username)) {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                LAND.genMode = false;
+                renderUnitBar();
+                if (!unit.multi) { toast('Le général ne peut rejoindre qu’une unité de plusieurs figurines.', true); return; }
+                landEmit('landing-general', { unit: unit.id }).then((r) => { if (r.success) toast(`Général affecté à ${shortName(unit.name, 22)} ${unit.idx} : 2 tuiles de placement supplémentaires.`); });
+                return;
+            }
+            const cv = hit.chev;
+            if (cv) {
+                const px = e.clientX - rect.left;
+                const py = e.clientY - rect.top;
+                if (px >= cv.x && px <= cv.x + cv.w && py >= cv.y && py <= cv.y + cv.h) {
+                    if (!open) {
+                        e.stopImmediatePropagation();
+                        e.preventDefault();
+                        toast('Ouvrez un sélecteur (appui long sur la carte) pour modifier vos unités.');
+                        return;
+                    }
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    const next = !unit.chev;
+                    landEmit('landing-chevron', { unit: next ? unit.id : null }).then((r) => { if (r.success) toast(next ? 'Chevron actif : cette unité reçoit 2 tuiles de placement supplémentaires.' : 'Chevron retiré.'); });
                     return;
                 }
             }
@@ -3766,6 +3860,23 @@
         document.addEventListener('touchend', () => setTimeout(() => { if (!LAND.drag) document.querySelectorAll('.land-ghost').forEach((g) => g.remove()); }, 350), true);
         window.addEventListener('blur', cancelLandDrag);
         document.addEventListener('visibilitychange', () => { if (document.hidden) cancelLandDrag(); });
+
+        // Puce « Général » du sélecteur : un toucher lance l'affectation (puis on touche l'une de ses unités posées) ; si le général est déjà affecté, il est retiré.
+        document.addEventListener('click', (e) => {
+            const chip = e.target.closest?.('#unitBar [data-general]');
+            if (!chip) return;
+            resetIdleTimer();
+            const mine = myUnits();
+            if (mine.some((u) => u.gen)) {
+                LAND.genMode = false;
+                landEmit('landing-general', { unit: null }).then((r) => { if (r.success) toast('Général retiré : les chevrons et le bonus de placement disparaissent.'); });
+                return;
+            }
+            if (!mine.some((u) => u.tile && u.multi)) { toast('Posez d’abord au moins une unité de plusieurs figurines sur la carte.', true); return; }
+            LAND.genMode = !LAND.genMode;
+            renderUnitBar();
+            if (LAND.genMode) toast('Touchez l’une de vos unités posées (plusieurs figurines) pour lui affecter le général.');
+        });
 
         // Glisser depuis le sélecteur d'unités : on saisit les prochaines unités non posées de la ligne.
         document.addEventListener('pointerdown', (e) => {
@@ -3976,8 +4087,11 @@
                 const flags = g.filter((u) => u.std).length;
                 return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '⚑ '}${g[0].comp ? '🧩 ' : ''}${shortName(g[0].name, g[0].comp ? 12 : 14)}<br><b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${g[0].stdMax - flags}/${g[0].stdMax}` : ''}</div>`; // même principe que les unités : il en reste X à attribuer sur Y
             }).join('');
+            // Unité fictive « Général » : à affecter à l'une de ses unités posées (plusieurs figurines) ; 2 tuiles de placement supplémentaires.
+            const genUnit = units.find((u) => u.gen);
+            const genChip = `<div class="ub-chip ${genUnit ? 'done' : ''} ${LAND.genMode ? 'gen-on' : ''}" data-general="1" style="border-color:#c79100">★ Général<br><b>${genUnit ? `→ ${shortName(genUnit.name, 10)} ${genUnit.idx}` : (LAND.genMode ? 'touchez une unité' : 'à affecter')}</b></div>`;
             const info = `<div class="ub-info" title="Unités posées · zone ${(LAND.view.myZone || '').toUpperCase()}">${done}/${units.length}<br>zone ${(LAND.view.myZone || '').toUpperCase()}</div>`;
-            bar.innerHTML = info + (chips || '<div class="ub-info">✓<br>tout est posé</div>');
+            bar.innerHTML = info + genChip + (chips || '<div class="ub-info">✓<br>tout est posé</div>');
             bar.hidden = false;
             requestLayout();
         }
@@ -3999,6 +4113,7 @@
                 place: { title: 'Phase 3 · Dépôt des unités', items: [
                     'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur d’unités</b> (comme les sélecteurs de tuiles : appui long puis glisser pour le ranger sur un autre bord ; il se replie seul après 10 s, appui long sur la carte pour le rouvrir) vers une tuile de votre zone. Glissez un jeton pour le déplacer ; la <b>croix rouge</b> d’une étiquette le remet dans le sélecteur.',
                     'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de sa section s’applique.',
+                    '<b>★ Général</b> : touchez la puce « Général » du sélecteur puis l’une de vos unités posées (plusieurs figurines). Elle peut se poser jusqu’à <b>2 tuiles plus loin</b> (cases dorées à l’appui long), sans dépasser les frontières. Les unités à <b>6 hexagones ou moins</b> du général reçoivent un <b>chevron</b> : touchez-le pour l’activer sur <b>une seule</b> unité, qui reçoit le même bonus.',
                     'Vous ne voyez pas les unités de l’équipe adverse avant le verrouillage.',
                     '<b>▶ Verrouiller</b> quand tout est placé : tout le monde voit alors tous les débarquements. ◀ revient aux choix.'] },
                 locked: { title: 'Phase 4 · Placements verrouillés', items: [
@@ -4017,6 +4132,7 @@
                     'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur d’unités</b> vers une tuile de votre zone.',
                     'Pour déplacer une unité déjà posée, glissez son jeton sur une autre tuile de votre zone. Plusieurs unités peuvent partager une tuile.',
                     'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de la section s’applique.',
+                    '<b>★ Général</b> : touchez la puce « Général » du sélecteur puis l’une de vos unités posées (plusieurs figurines). Elle peut se poser jusqu’à <b>2 tuiles plus loin</b> (cases dorées à l’appui long), sans dépasser les frontières. Les unités à <b>6 hexagones ou moins</b> du général reçoivent un <b>chevron</b> : touchez-le pour l’activer sur <b>une seule</b> unité, qui reçoit le même bonus.',
                     'Vos coéquipiers voient vos unités en direct ; l’autre équipe ne voit rien avant le verrouillage.'] },
                 locked: { title: 'Placements verrouillés', items: [
                     'Tous les débarquements sont maintenant visibles.',
