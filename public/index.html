@@ -137,6 +137,8 @@
         .pal.dragging { z-index: 80; border-color: #1f78ff; box-shadow: 0 0 0 3px rgba(31,120,255,.45), 0 8px 20px rgba(0,0,0,.4); }
 
         /* Replié : seule une poignée de 14 px reste visible sur le bord */
+        .pal.sim-off { display: none !important; }
+        body.sim-on #btnProtect, body.sim-on #btnRelease, body.sim-on #btnLockToggle { display: none !important; }
         .pal.folded { cursor: pointer; overflow: hidden; }
         .pal.folded > * { visibility: hidden; }
         .pal.folded::after { content: ''; position: absolute; background: rgba(0,0,0,.4); border-radius: 3px; }
@@ -245,9 +247,12 @@
         @supports (height: 100dvh) { .lm-box { max-height: calc(100dvh - 24px); } }
         .lm-head { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
         .lm-head h3 { flex: 1; margin: 0; font-size: 1rem; }
+        .lm-body::-webkit-scrollbar { width: 12px; }
+        .lm-body::-webkit-scrollbar-track { background: #eee; border-radius: 6px; }
+        .lm-body::-webkit-scrollbar-thumb { background: #999; border-radius: 6px; border: 2px solid #eee; }
         .lm-btn { flex: 0 0 auto; width: 36px; height: 36px; border: 1px solid #bbb; border-radius: 8px; background: #f3f3f3; font-size: 1rem; cursor: pointer; }
         .lm-x { background: #d32f2f; color: #fff; border-color: #d32f2f; font-weight: 700; }
-        .lm-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+        .lm-body { flex: 1 1 auto; min-height: 0; overflow-y: scroll; padding-right: 4px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
         .lm-box .modal-actions { flex: 0 0 auto; max-height: 38%; overflow-y: auto; margin-top: 0; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
         .stack { display: flex; flex-direction: column; gap: 8px; }
@@ -481,9 +486,6 @@
         <div class="modal-content lm-box">
             <div class="lm-head">
                 <h3 id="landingModalTitle"></h3>
-                <button type="button" class="lm-btn" id="landingModalUp" title="Défiler vers le haut" aria-label="Haut">▲</button>
-                <button type="button" class="lm-btn" id="landingModalDown" title="Défiler vers le bas" aria-label="Bas">▼</button>
-                <button type="button" class="lm-btn lm-x" id="landingModalClose" title="Fermer" aria-label="Fermer">✕</button>
             </div>
             <div id="landingModalBody" class="lm-body"></div>
             <div class="modal-actions" id="landingModalActions"></div>
@@ -629,6 +631,7 @@
         let idleTimer = null;
         let tooltipTimer = null;
         let toastTimer = null;
+        document.addEventListener('DOMContentLoaded', () => { const t = document.getElementById('toast'); if (t) { t.style.pointerEvents = 'auto'; t.addEventListener('click', () => { t.hidden = true; }); } });
         let drawQueued = false;
         let closing = false;
         let lastRejectAt = 0;
@@ -1914,7 +1917,7 @@
             const edges = {};
             const thick = {};
             for (const edge of EDGES) {
-                edges[edge] = dock[edge].filter((name) => !PANELS[name].hidden);
+                edges[edge] = dock[edge].filter((name) => !PANELS[name].hidden && !PANELS[name].classList.contains('sim-off'));
                 thick[edge] = edges[edge].reduce((max, name) => Math.max(max, measurePanel(PANELS[name], isVertical(edge)).thickness), 0);
             }
 
@@ -2012,6 +2015,13 @@
             for (const name of FOLDING) PANELS[name].classList.toggle('folded', folded);
             // Unités et boutons : mêmes règles. Plateau verrouillé (pas de mode peindre), un appui les déplie pour 10 secondes.
             for (const name of SOFT_FOLDING) PANELS[name].classList.toggle('folded', folded && !softOpen);
+            // Simulation : le sélecteur qui porte le bouton « Retour à la carte de dépôt » reste toujours ouvert.
+            // Simulation : seul ce sélecteur est affiché (les autres sont masqués jusqu'au retour à la carte de dépôt).
+            const keep = SIM_LOCK ? document.querySelector('.fiche-btn[data-land="sim"]')?.closest('.pal') : null;
+            // Boussole et impression (panneau « stack ») restent ; aucun bouton qui modifie la carte (protection, verrou).
+            for (const p of Object.values(PANELS)) p.classList.toggle('sim-off', Boolean(keep) && p !== keep && p !== PANELS.stack);
+            document.body.classList.toggle('sim-on', Boolean(keep));
+            keep?.classList.remove('folded');
         }
 
         function softUnfold() {
@@ -2125,7 +2135,7 @@
                 } else if (panel.classList.contains('folded')) {
                     e.stopPropagation();
                     e.preventDefault();
-                    if (state.isLocked) softUnfold(); else unfoldSelectors();
+                    if (state.isLocked || SIM_LOCK) softUnfold(); else unfoldSelectors();
                 }
             }, true);
             panel.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -3820,14 +3830,7 @@
             const r = computeRange(unit);
             if (!r.total && !r.genExtra) { LAND.preview = null; hideRangeInfo(); requestDraw(); return toast(`${unit.name} : portée de déplacement nulle.`); }
             LAND.preview = { ...r, unit };
-            const info = $('rangeInfo');
-            const kind = r.sectionKind === 'mid' ? 'centre' : 'extrémité';
-            const where = r.zone ? `section ${r.section} (${kind}) · zone ${r.zone.toUpperCase()}` : 'hors zone de débarquement';
-            const rv = LAND.simOn ? simView({ ...r, unit }) : r;
-            const n = rv.end.length + rv.bonusEnd.length + rv.genEnd.length;
-            info.innerHTML = `<b>${shortName(unit.name, 22)}</b> ${unit.idx} · dep ${r.dep}${r.landCost ? ` − ${r.landCost} (tuile de débarquement)` : ''}${r.bonus ? ` <b>+ ${r.bonus}</b> tuile${r.bonus > 1 ? 's' : ''} supplémentaire${r.bonus > 1 ? 's' : ''}` : ''} = <b>${r.total}</b> pas${r.genExtra ? ` · <b>+ ${r.genExtra}</b> tuiles (général)` : ''}`
-                + `<small>${r.genExtra ? 'contour doré = tuiles du général, dans les frontières de placement · ' : ''}${where}${r.bonus ? ' · bonus seulement vers l’aire de cette section (contour bleu)' : ''} · ${n} case${n > 1 ? 's' : ''} d’arrivée</small>`;
-            info.hidden = false;
+            hideRangeInfo(); // pas de message de détail : les contours de couleur sur la carte suffisent
             requestDraw();
         }
 
@@ -4052,9 +4055,6 @@
             $('landingModalBody').scrollTop = 0;
             $('landingModal').hidden = false;
         }
-        $('landingModalUp').addEventListener('click', () => $('landingModalBody').scrollBy({ top: -($('landingModalBody').clientHeight * 0.8) }));
-        $('landingModalDown').addEventListener('click', () => $('landingModalBody').scrollBy({ top: $('landingModalBody').clientHeight * 0.8 }));
-        $('landingModalClose').addEventListener('click', () => { $('landingModal').hidden = true; });
         $('landingModal').addEventListener('click', (e) => { if (e.target === $('landingModal')) $('landingModal').hidden = true; });
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('landingModal').hidden) $('landingModal').hidden = true; });
 
@@ -4218,13 +4218,15 @@
                     ban = document.createElement('div');
                     ban.id = 'simBanner';
                     ban.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:8px;z-index:60;background:#1b3a6b;color:#fff;border-radius:10px;padding:6px 10px;font:13px/1.3 system-ui,sans-serif;box-shadow:0 2px 8px #0006;display:flex;gap:8px;align-items:center;max-width:94vw';
-                    ban.innerHTML = '<span id="simBanTxt"></span>';
-                    ban.style.pointerEvents = 'none';
+                    ban.innerHTML = '<span id="simBanTxt"></span><button type="button" id="simBanX" aria-label="Fermer le message" style="pointer-events:auto;border:0;border-radius:6px;background:#ffffff30;color:#fff;font-size:15px;line-height:1;width:26px;height:26px;cursor:pointer">✕</button>';
+                    ban.querySelector('#simBanX').addEventListener('click', () => { ban.hidden = true; });
                     document.body.appendChild(ban);
                 }
                 document.getElementById('simBanTxt').textContent = (v.phase === 'locked' || !v.myTeam) ? '🗺️ Simulation des joueurs (lecture seule)' : '🗺️ Simulation : déplacez vos unités dans leur portée (une seule unité par tuile hors dépôt)';
                 ban.hidden = false;
             } else if (ban) ban.hidden = true;
+            applyFolding();
+            requestLayout();
             updateLandingUI();
             requestDraw();
         }
@@ -4830,7 +4832,9 @@
                     minBtn.textContent = on ? '▢' : '—';
                     minBtn.title = on ? 'Rouvrir' : 'Réduire en barre';
                 });
-                bar.append(minBtn, mk('⛶', 'Plein écran', () => ov.classList.toggle('wfs')), mk('✕', 'Fermer', () => { ov.hidden = true; }));
+                const hasClose = [...box.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Fermer'); // pas de doublon avec un bouton « Fermer » déjà présent
+                bar.append(minBtn, mk('⛶', 'Plein écran', () => ov.classList.toggle('wfs')));
+                if (!hasClose) bar.append(mk('✕', 'Fermer', () => { ov.hidden = true; }));
                 box.prepend(bar);
                 new MutationObserver(() => { if (ov.hidden) { ov.classList.remove('wmin', 'wfs'); minBtn.textContent = '—'; } refresh(); })
                     .observe(ov, { attributes: true, attributeFilter: ['hidden'] });
