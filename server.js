@@ -351,7 +351,8 @@ function normalizeLanding(raw) {
             uid: u.uid, name: String(u.name || '').slice(0, 60), qty: Math.max(1, Math.min(400, Math.floor(Number(u.qty) || 1))),
             figs: Math.max(0, Math.min(5000, Math.floor(Number(u.figs) || 0))), type: String(u.type || '').slice(0, 12),
             dep: Number.isFinite(u.dep) ? u.dep : 0, army: String(u.army || '').slice(0, 40), legion: String(u.legion || '').slice(0, 12),
-            stdMax: Math.max(0, Math.min(400, Math.floor(Number(u.stdMax) || 0))), ...(u.merc === true ? { merc: true } : {})
+            stdMax: Math.max(0, Math.min(400, Math.floor(Number(u.stdMax) || 0))), ...(u.merc === true ? { merc: true } : {}),
+            ...(Array.isArray(u.comp) ? { comp: u.comp.slice(0, 4).map((c) => ({ name: String(c?.name || '').slice(0, 60), figs: Math.max(0, Math.min(5000, Math.floor(Number(c?.figs) || 0))), uid: String(c?.uid || '').slice(0, 100) })) } : {})
         }));
     }
     for (const [id, tile] of Object.entries(raw.placed || {}).slice(0, 12000)) if (typeof tile === 'string' && /^\d{1,3},\d{1,3}$/.test(tile)) out.placed[id] = tile;
@@ -952,6 +953,10 @@ function checkFichesArmy(id, army) {
     if (army.params != null && (typeof army.params !== 'object' || Array.isArray(army.params)
         || Object.entries(army.params).some(([k, v]) => !/^[A-Z]{1,2}\d{0,2}$/.test(k)
             || !(v == null || typeof v === 'number' || (typeof v === 'string' && v.length <= 20))))) return 'paramètres de bonus invalides';
+    if (army.composites != null && (!Array.isArray(army.composites) || army.composites.length > 60
+        || army.composites.some((c) => !c || typeof c.id !== 'string' || !/^[\w-]{1,16}$/.test(c.id) || !ids.has(c.legion)
+            || typeof c.base !== 'string' || typeof c.extra !== 'string' || c.base.length > 100 || c.extra.length > 100 || c.base === c.extra
+            || !Number.isInteger(c.size) || c.size < 2 || c.size > 40))) return 'unités composées invalides';
     if (army.sections != null && (!Array.isArray(army.sections) || army.sections.length > 60
         || army.sections.some((x) => typeof x !== 'string' || x.length > 80))) return 'sections invalides';
     if (JSON.stringify(army).length > FICHES_MAX_BYTES) return 'fiche trop volumineuse';
@@ -1149,7 +1154,55 @@ const unitKey = (armyId, u) => u.uid || `${armyId}-r${u.row}`;
 
 // Lignes d'une légion. Pour chaque ligne : nb = nombre total de figurines, U = nombre d'unités (avec leur type),
 // E = nombre d'unités portant un étendard. La colonne c des fiches Excel ne sert pas.
+// Unités composées : le reste d'une ligne (nombre de figurines non multiple de la taille habituelle) se complète avec une figurine seule.
+// size = taille habituelle d'une unité de la ligne de base.
+const DEFAULT_COMPOSITES = [
+    { army: 'nains', legion: '1', base: 'inf lourde', extra: 'champion sur bouclier', size: 8 },
+    { army: 'orcs', legion: '1', base: 'caval lourde (C)', extra: 'champion sur sanglier (C)', size: 4 },
+    { army: 'hauts_elfes', legion: '1', base: 'caval lourde (C)', extra: 'commandeur à cheval (C)', size: 4 },
+    { army: 'thyranides', legion: '1', base: 'fusiller leger', extra: 'chef', size: 8 }
+];
+// Les unités composées d'une armée : celles enregistrées par le MJ (army.composites) ou, à défaut, les 4 associations d'origine.
+function compositesOf(army) {
+    if (Array.isArray(army.composites)) return army.composites;
+    const out = [];
+    DEFAULT_COMPOSITES.forEach((c, i) => {
+        if (c.army !== army.id) return;
+        const b = (army.units || []).find((u) => u.in_?.B === c.base && u.q?.[c.legion]);
+        const e = (army.units || []).find((u) => u.in_?.B === c.extra && u.q?.[c.legion]);
+        if (b && e) out.push({ id: `d${i}`, legion: c.legion, base: unitKey(army.id, b), extra: unitKey(army.id, e), size: c.size });
+    });
+    return out;
+}
+function applyComposites(army, lid, lines) {
+    for (const c of compositesOf(army)) {
+        if (c.legion !== lid) continue;
+        const bi = lines.findIndex((l) => l.uid === c.base);
+        const ei = lines.findIndex((l) => l.uid === c.extra);
+        if (bi < 0 || ei < 0) continue;
+        const b = lines[bi], e = lines[ei];
+        const full = Math.floor(b.figs / c.size);
+        const rest = b.figs - full * c.size;
+        if (rest <= 0) continue;
+        const comp = {
+            uid: `${b.uid}+${e.uid}`, name: `${b.name} + ${e.name}`.slice(0, 60), qty: 1, figs: rest + e.figs, type: b.type,
+            stdMax: 0, dep: Math.min(b.dep, e.dep), army: b.army, legion: b.legion,
+            comp: [{ name: b.name, figs: rest, uid: b.uid }, { name: e.name, figs: e.figs, uid: e.uid }]
+        };
+        const out = lines.filter((_, i) => i !== bi && i !== ei);
+        const at = Math.min(bi, ei);
+        const repl = [];
+        if (full > 0) repl.push({ ...b, qty: full, figs: full * c.size, stdMax: Math.min(b.stdMax, full) });
+        repl.push(comp);
+        out.splice(at, 0, ...repl);
+        lines = out;
+    }
+    return lines;
+}
 function legionLines(army, lid) {
+    return applyComposites(army, lid, legionLinesRaw(army, lid));
+}
+function legionLinesRaw(army, lid) {
     return (army.units || []).filter((u) => Array.isArray(u.q?.[lid]) && u.q[lid][0] > 0).map((u) => {
         const q = u.q[lid];
         const units = Math.max(1, Math.min(400, Math.floor(Number(q[6]) || 1)));
