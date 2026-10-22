@@ -4335,7 +4335,7 @@
             updateFichesAccessUI();
             if (!frame.getAttribute('src')) {
                 state.fichesOpenTarget = target || null;
-                frame.src = '/fiches.html';
+                frame.src = '/fiches.html?v=' + Date.now();
             } else if (target) fichesPost({ type: 'fiches:ouvrir', armee: target.army, legion: target.legion, tab: target.tab, unit: target.unit });
             else fichesPost({ type: 'fiches:reopen' }); // rouvre sur la légion choisie par le joueur
         }

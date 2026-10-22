@@ -79,7 +79,7 @@ tr.total td{font-weight:700;background:var(--head);border-bottom:none}tr.total t
 @media print{:root,:root[data-theme="dark"]{--bg:#fff;--card:#fff;--fg:#000;--muted:#444;--border:#bbb;--head:#eee;--cat:#e6e6e6;--stick:#fff;--hl:#eee;--accent:#000}
  body{background:#fff;font-size:12px}.noprint,.top,.act,#modal,.toast{display:none!important}.scroll{overflow:visible;border:none}td.name,th.name{position:static}.wrap{padding:0;max-width:none}table{width:max-content}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{break-inside:avoid}thead{display:table-header-group}}
 
-td.name.compn{border-left:4px solid #7b3fe4;background:#efe7ff!important;color:#000}.compwith{display:block;font:11px system-ui,sans-serif;color:#5b2fb0;margin-top:1px}
+tr.compr td{box-shadow:inset 0 -1px 0 #7b3fe4,inset 0 1px 0 #7b3fe4}td.name.compn{border-left:4px solid #7b3fe4;background:#efe7ff!important;color:#000}.compwith{display:block;font:11px system-ui,sans-serif;color:#5b2fb0;margin-top:1px}
 tr.compr td.name{border-left:4px solid #7b3fe4}tr.compr1 td{border-top:2px solid #7b3fe4}tr.compr2 td{border-bottom:2px solid #7b3fe4}
 tr.compr td.name{background:#efe7ff;color:#000}td.compu{background:#efe7ff;color:#000;font-weight:700;vertical-align:middle}
 .chip.me{border-color:var(--accent)}
@@ -139,7 +139,7 @@ td.name{z-index:3}
       <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
       <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
       <span id="mjBadge" class="badge mj">MJ</span>
-      <span id="dbBadge" class="badge">local</span>
+      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v22-oct-17h</span>
     </div>
     <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
     <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
@@ -391,8 +391,8 @@ function cellTd(a,u,which,c,extra){
   const cls=['cell'];if(calc)cls.push('calc');if(ov)cls.push('ov');if(bad)cls.push('bad');
   const attr=ED()?` data-cell="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-w="${which}" data-col="${c}"`:'';
   const tip=ov?' title="Formule propre à cette cellule"':(bad&&row.err?` title="${esc(Object.values(row.err)[0])}"`:'');
-  const bg=xcol(a,c);
-  return `<td class="${cls.join(' ')}"${bg?` style="background:${bg};color:#000"`:''}${attr}${tip}>${esc(fnum(v))}</td>`;
+  const bg=xcol(a,c);const shown=(c==='A'&&typeof extra==='number')?extra:v;
+  return `<td class="${cls.join(' ')}"${bg?` style="background:${bg};color:#000"`:''}${attr}${tip}>${esc(fnum(shown))}</td>`;
 }
 
 
@@ -658,26 +658,57 @@ function renderFull(a){
   h+='</tr><tr>';
   vl.forEach(l=>{['nb','U','E'].concat(w===4?['pts']:[]).forEach((t,k)=>{h+=`<th class="lg sub ${k===0?'gs':''} ${S.sel===l.id?'on':''}" data-a="leg" data-leg="${esc(l.id)}">${t}</th>`;});});
   h+='</tr></thead><tbody>';
-  const span=cs.length+vl.length*w;
+  const span=cs.length+vl.length*w;const plans={};vl.forEach(l=>{plans[l.id]=compPlan(a,l.id);});
   groupUnits(a,null,mj).forEach(g=>{
     h+=secRow(a,g,span,mj);
-    g.units.forEach(u=>{['u','l2'].forEach(wh=>{
-      if(wh==='l2'&&!u.l2)return;
-      h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c)).join('');
-      if(wh==='l2')h+=`<td colspan="${vl.length*w}"></td>`;
-      else vl.forEach(l=>{const q=u.q[l.id];const on=S.sel===l.id?'on':'';
-        for(let k=0;k<3;k++){
-          const attr=mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${k}"`:'';
-          const txt=q?(k===0?`<span class="qty">${q[0]}</span>`:(k===1?uTxt(q):(q[k]||''))):(k===0?'<span class="dim">·</span>':'');
-          h+=`<td class="lg ${k===0?'gs':''} ${on}"${attr}>${txt}</td>`;}
-        if(w===4)h+=`<td class="lg ${on}">${q&&q[3]===q[3]&&q[3]!=null?Math.round(q[3]):''}</td>`;});
-      h+=actTd(a,u,wh)+'</tr>';});});
+    g.units.forEach(u=>{
+      const ads={};let sumIn=0,sumNb=0,anyAd=false;
+      vl.forEach(l=>{const q=u.q[l.id];if(!q)return;const ad=compAdj(plans[l.id]||[],u,q);ads[l.id]=ad;if(ad){anyAd=true;sumIn+=ad.in;sumNb+=ad.nb;}else sumNb+=q[0];});
+      const aAdj=anyAd?(+u.in_.A||0)-sumIn:undefined;
+      const hide=anyAd&&!mj&&sumNb<=0;
+      if(!hide)['u','l2'].forEach(wh=>{
+        if(wh==='l2'&&!u.l2)return;
+        h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c,wh==='u'?aAdj:undefined)).join('');
+        if(wh==='l2')h+=`<td colspan="${vl.length*w}"></td>`;
+        else vl.forEach(l=>{const q=u.q[l.id];const on=S.sel===l.id?'on':'';const ad=ads[l.id];
+          for(let k=0;k<3;k++){
+            const attr=mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${k}"`:'';
+            let txt=q?(k===0?`<span class="qty">${q[0]}</span>`:(k===1?uTxt(q):(q[k]||''))):(k===0?'<span class="dim">·</span>':'');
+            if(ad){if(k===0)txt=ad.nb>0?`<span class="qty">${ad.nb}</span>`:'<span class="dim">·</span>';
+              else if(k===1){const nu=ad.u!=null?ad.u:ad.nb;txt=nu>0?nu+(ad.type||''):'';}}
+            h+=`<td class="lg ${k===0?'gs':''} ${on}"${attr}>${txt}</td>`;}
+          if(w===4)h+=`<td class="lg ${on}">${q&&q[3]===q[3]&&q[3]!=null?Math.round(ad?q[3]*ad.nb/(q[0]||1):q[3]):''}</td>`;});
+        h+=actTd(a,u,wh)+'</tr>';});
+      h+=compBlocksFull(a,u,vl,w,cs,plans);
+    });
   });
   h+='<tr class="total"><td class="name">Total</td>'+cs.slice(1).map(()=>'<td></td>').join('');
   vl.forEach(l=>{const t=legTot(a,l);const on=S.sel===l.id?'on':'';
     h+=`<td class="lg gs ${on}">${t.n}</td><td class="lg ${on}">${t.c||''}</td><td class="lg ${on}">${t.e||''}</td>`+(w===4?`<td class="lg ${on}">${pts(t.v)}</td>`:'');});
   h+='</tr></tbody></table></div>';
   if(a.notes&&a.notes.length)h+='<div class="notes">'+a.notes.map(esc).join('<br>')+'</div>';
+  return h;
+}
+
+
+/* fiche armée : blocs d'unités composées (2 lignes l'une sous l'autre) placés sous leur ligne de base */
+function compBlocksFull(a,u,vl,w,cs,plans){
+  const exs=[];vl.forEach(l=>(plans[l.id]||[]).forEach(o=>{if(o.c.base===u.uid&&!exs.some(x=>x.ex===o.c.extra&&x.per===!!o.per))exs.push({ex:o.c.extra,per:!!o.per});}));
+  let h='';
+  exs.forEach(({ex,per})=>{
+    const eu=a.units.find(x=>x.uid===ex);if(!eu)return;
+    const os={};vl.forEach(l=>{const o=(plans[l.id]||[]).find(o=>o.c.base===u.uid&&o.c.extra===ex&&!!o.per===per);if(o)os[l.id]=o;});
+    const nbB=l=>{const o=os[l.id];return o?(o.per?o.k:o.rest):0;},nbE=l=>{const o=os[l.id];return o?(o.per?o.k*o.per:o.used):0;};
+    const totB=vl.reduce((t,l)=>t+nbB(l),0),totE=vl.reduce((t,l)=>t+nbE(l),0);
+    [[u,1,nbB,totB],[eu,2,nbE,totE]].forEach(([x,k,nbf,tot])=>{
+      h+='<tr class="compr compr'+k+'">'+cs.map(c=>c==='B'?`<td class="name compn">🧩 ${esc(x.in_.B||'')}</td>`:cellTd(a,x,'u',c,tot)).join('');
+      vl.forEach(l=>{const o=os[l.id];const on=S.sel===l.id?'on':'';const q=x.q[l.id];const n=nbf(l);
+        if(!o){h+=`<td class="lg gs ${on}"><span class="dim">·</span></td><td class="lg ${on}"></td><td class="lg ${on}"></td>`+(w===4?`<td class="lg ${on}"></td>`:'');return;}
+        h+=`<td class="lg gs ${on}"><span class="qty">${n}</span></td>`;
+        if(k===1)h+=`<td class="lg compu ${on}" rowspan="2">🧩 ${o.k}${esc(u.q[l.id][7]||'')}<br><small>unité${o.k>1?'s':''} composée${o.k>1?'s':''}</small></td><td class="lg compu ${on}" rowspan="2"></td>`;
+        if(w===4)h+=`<td class="lg ${on}">${q&&q[3]===q[3]&&q[3]!=null&&q[0]?Math.round(q[3]*n/q[0]):''}</td>`;});
+      h+='</tr>';});
+  });
   return h;
 }
 
@@ -715,7 +746,7 @@ function renderLegion(a){
         else if(ops.length){nbS=ops[0].left;uS=ops[0].left+(q[7]||'');}
         if(usedEx[u.uid]){nbS=q[0]-usedEx[u.uid];}
         ['u','l2'].forEach(wh=>{if(wh==='l2'&&!u.l2)return;if(nbS<=0)return;
-          h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c)).join('');
+          h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c,wh==='u'?nbS:undefined)).join('');
           if(wh==='u'){const at=i=>mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${i}"`:'';
             const okv=q[3]!=null&&q[3]===q[3];
             h+=(qc.nb?`<td class="qty"${at(0)}>${nbS}</td>`:'')+(qc.u?`<td${at(1)}>${uS}</td>`:'')+(qc.e?`<td${at(2)}>${q[2]||''}</td>`:'')+(qc.pts?`<td>${okv?Math.round(q[3]*nbS/(q[0]||1)):''}</td>`:'');}
@@ -1057,12 +1088,10 @@ async function doPick(armyId,lid){
 
 /* ===================== V4 : double clic, bonus, sections, unités, fusion, joueurs ===================== */
 function actTd(){return '';}
+function isCompU(a,u){initComposites(a);return (a.composites||[]).some(c=>c.base===u.uid||c.extra===u.uid);}
 function nameTd(a,u,which){
   if(which==='l2')return `<td class="name l2n">↳ 2ᵉ attaque</td>`;
   const attr=ED()?` data-ondbl="unit" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" title="Double-cliquez pour modifier l'unité"`:'';
-  const pa=(a.composites||[]).filter(c=>c.base===u.uid||c.extra===u.uid);
-  if(pa.length){const names=[...new Set(pa.map(c=>{const o=a.units.find(x=>x.uid===(c.base===u.uid?c.extra:c.base));return o?o.in_.B:'';}).filter(Boolean))];
-    return `<td class="name compn"${attr}>🧩 ${esc(u.in_.B||'')}<small class="compwith">unité composée avec ${esc(names.join(', '))}</small></td>`;}
   return `<td class="name"${attr}>${esc(u.in_.B||'')}</td>`;
 }
 function secRow(a,g,span,mj){
@@ -1497,6 +1526,14 @@ function compCalc(a,c,avail){
   const size=c.size||8,full=Math.floor(bq[0]/size),rest=bq[0]-full*size;
   return rest>0?{c,b,e,size,full,rest,k:1,used:eq[0]}:null;
 }
+function compAdj(plan,u,q){
+  let nb=q[0],inn=0,uu=null,hit=false;
+  plan.forEach(o=>{
+    if(o.c.base===u.uid){hit=true;if(o.per){nb=o.left;inn+=o.k;}else{nb=o.full*o.size;inn+=o.rest;uu=o.full;}}
+    else if(o.c.extra===u.uid){hit=true;if(o.per){nb=nb-o.used;inn+=o.used;}else{nb=0;inn+=o.used;}}});
+  if(!hit)return null;
+  return {nb,in:inn,type:q[7]||'',u:uu!=null?uu:null};
+}
 function compPlan(a,lid){
   const avail={},out=[];
   (a.composites||[]).filter(c=>c.legion===lid).forEach(c=>{
@@ -1570,7 +1607,7 @@ function compRows(a,l,o,cs,qc){
   const qb=o.b.q[l.id],qe=o.e.q[l.id];
   const val=(q,n)=>(q[3]!=null&&q[3]===q[3]&&q[0])?Math.round(q[3]*n/q[0]):'';
   const nb=o.per?o.k:o.rest,ne=o.per?o.k*o.per:qe[0];
-  const row=(u,n,q,k)=>'<tr class="compr compr'+k+'">'+cs.map(col=>col==='B'?`<td class="name">🧩 ${esc(u.in_.B||'')}</td>`:cellTd(a,u,'u',col)).join('')
+  const row=(u,n,q,k)=>'<tr class="compr compr'+k+'">'+cs.map(col=>col==='B'?`<td class="name compn">🧩 ${esc(u.in_.B||'')}</td>`:cellTd(a,u,'u',col,n)).join('')
     +(qc.nb?`<td class="qty">${n}</td>`:'')+(k===1?(qc.u?`<td class="compu" rowspan="2">🧩 ${o.k}${esc(qb[7]||'')}<br><small>unité${o.k>1?'s':''} composée${o.k>1?'s':''}</small></td>`:'')+(qc.e?'<td class="compu" rowspan="2"></td>':''):'')+(qc.pts?`<td>${val(q,n)}</td>`:'')+'</tr>';
   return row(o.b,nb,qb,1)+row(o.e,ne,qe,2);
 }
