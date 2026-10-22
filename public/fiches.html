@@ -1,10 +1,10 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
- <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Fiches d'armée</title>
-  <style>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fiches d'armée</title>
+<style>
 :root{--bg:#f6f4ef;--card:#fff;--fg:#1f1d1a;--muted:#6b665e;--border:#ddd8cd;--accent:#8a2b1d;--accent-fg:#fff;--hl:#f6e3d8;--head:#ece7db;--cat:#e4ddcc;--stick:#fff;--err:#b3261e;--ok:#2e6b34;--ovc:#c77b00}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#16140f;--card:#201d17;--fg:#ece7da;--muted:#9a9384;--border:#37332a;--accent:#d9795f;--accent-fg:#1a1410;--hl:#3b2a22;--head:#2a261e;--cat:#332e24;--stick:#201d17;--err:#ff8a80;--ok:#8fd19a;--ovc:#ffb74d}}
 :root[data-theme="dark"]{--bg:#16140f;--card:#201d17;--fg:#ece7da;--muted:#9a9384;--border:#37332a;--accent:#d9795f;--accent-fg:#1a1410;--hl:#3b2a22;--head:#2a261e;--cat:#332e24;--stick:#201d17;--err:#ff8a80;--ok:#8fd19a;--ovc:#ffb74d}
@@ -125,31 +125,27 @@ td.name{z-index:3}
 .scroll{max-height:72vh}
 .parmy{margin:2px 0 4px}
 </style>
- </head>
- <body>
-  <div class="wrap">
-   <div class="top noprint">
+</head>
+<body>
+<div class="wrap">
+  <div class="top noprint">
     <div class="tabs">
-     <button id="tabA" class="tab" data-a="tab-army">Armées</button>
-     <button id="tabF" class="tab" data-a="tab-form">Formules</button>
-     <button id="tabP" class="tab" data-a="tab-players" style="display:none">Équipes</button>
-     <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
-     <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
-     <span id="mjBadge" class="badge mj">MJ</span> <span id="dbBadge" class="badge">local</span>
+      <button id="tabA" class="tab" data-a="tab-army">Armées</button>
+      <button id="tabF" class="tab" data-a="tab-form">Formules</button>
+      <button id="tabP" class="tab" data-a="tab-players" style="display:none">Équipes</button>
+      <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
+      <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
+      <span id="mjBadge" class="badge mj">MJ</span>
+      <span id="dbBadge" class="badge">local</span>
     </div>
-    <div class="pseudo" style="display:none">
-     <label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo">
-     <button id="pseudoOk" class="btn">OK</button>
-    </div>
-    <div id="armyBar">
-     <label class="lbl" for="armySel">Armée</label><select id="armySel"></select>
-    </div>
-   </div>
-   <div id="view"></div>
+    <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
+    <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
   </div>
-  <div id="modal"></div>
-  <div class="toast" id="toast"></div>
-  <script>
+  <div id="view"></div>
+</div>
+<div id="modal"></div>
+<div class="toast" id="toast"></div>
+<script>
 /* ===== Mini-moteur de formules (sous-ensemble d'Excel) ===== */
 const FE=(function(){
   function fail(m){const e=new Error(m);e.fe=true;throw e;}
@@ -282,7 +278,7 @@ function legionValue(army,lid){
 if(typeof module!=='undefined')module.exports={FE,calcUnit,calcRow,legionValue};
 
 </script>
-  <script>
+<script>
 /* ===================== DONNÉES ===================== */
 const SEED='v18_1-b';
 const COLS='ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
@@ -295,7 +291,7 @@ const FAMNAME={S:'I (indicateur)',F:"att' (attaque pondérée)",J:"dep' (déplac
 const FAMDESC={S:'Copie le bonus « I » de l\'armée sur la ligne.',F:'Attaque pondérée selon le type (cc, ttc, cd2…).',J:'Coefficient de déplacement de base.',L:'Coefficient de déplacement ajusté par le type de mouvement.',M:'Valeur brute : attaque, PV, armure × déplacement.',Q:'Ajoute les bonus communs et d\'armée (T, C, U, tir…).',R:'Applique les multiplicateurs d\'armée (portée, PV, déplacement, typ).',W:'Valeur finale d\'une figurine (× 1,2 si colonne I).',X:'Valeur totale de la ligne = fig × nombre.',val:'Points d\'une ligne dans une légion (selon quantité, c et E).'};
 let FAM={},ARMIES=[];
 const HOSTED=(typeof DATA==='undefined');
-const S={restricted:false,admin:false,access:true,picks:{},myPick:null,catalog:null,loaded:!HOSTED,tab:'army',army:null,sel:null,view:'full',cols:new Set(DEFCOLS),pseudo:'',canWrite:null,dbOn:false,showCols:false,frozen:false,ft:null,pendingOpen:null,teams:null,roster:[],online:[]};
+const S={restricted:false,admin:false,access:true,picks:{},myPick:null,catalog:null,loaded:!HOSTED,tab:'army',army:null,sel:null,view:'full',cols:new Set(DEFCOLS),pseudo:'',canWrite:null,dbOn:false,showCols:false,frozen:false,ft:null,pendingOpen:null,teams:null,mercs:{},roster:[],online:[]};
 const isMJ=()=>HOSTED?S.admin:S.pseudo.trim().toLowerCase()==='mj';
 // Les modifications ne sont possibles que sur la fiche armée complète (jamais sur une fiche légion).
 const ED=()=>isMJ()&&S.tab==='army'&&S.view==='full';
@@ -966,7 +962,7 @@ function onClick2(e){
 /* ---- liaison serveur : chargement, sélection, choix ---- */
 function applyServer(res){
   S.restricted=res.mode==='own';S.access=!!res.access;S.frozen=!!res.frozen;S.picks=res.picks||{};S.catalog=res.catalog||null;
-  S.teams=res.teams||null;S.roster=res.roster||[];S.online=res.online||[];
+  S.teams=res.teams||null;S.mercs=res.mercs||{};S.roster=res.roster||[];S.online=res.online||[];
   const mine=Object.entries(S.picks).find(([n])=>isMe(n));S.myPick=mine?mine[1]:null;
   FAM={};(res.families||[]).forEach(f=>{const o=pretty(f.rel);FAM[f.id]={id:f.id,col:f.col,text:o,orig:f.custom?null:o,custom:!!f.custom};});
   for(const id in (res.famTexts||{}))if(FAM[id]&&!FAM[id].custom)FAM[id].text=res.famTexts[id];
@@ -1204,15 +1200,33 @@ function legSelect(name){
       h+=`<option value="${esc(a.id)}|${esc(l.id)}" ${sel?'selected':''} ${o&&!sel?'disabled':''}>${esc(legName(l))}${o&&!sel?' · '+esc(o):''}</option>`;});h+='</optgroup>';});
   return h+'</select>';
 }
+function pickPts(n){
+  const p=(S.picks||{})[n];if(!p)return null;const a=getArmy(p.army);const l=a&&a.legions.find(x=>x.id===p.legion);if(!l)return null;
+  let v=legTot(a,l).v;
+  if(l.partner){const pa=getArmy(l.partner.army);const pl=pa&&pa.legions.find(x=>x.id===l.partner.legion);if(pl)v+=legTot(pa,pl).v;}
+  return v;
+}
+function mercList(n){return (S.mercs&&S.mercs[n])||[];}
+function mercPts(n){return mercList(n).reduce((s,m)=>s+m.ptsUnit*m.units,0);}
+function pointsHtml(n){
+  const v=pickPts(n),mp=mercPts(n);
+  if(v==null&&!mp)return '';
+  return `<div class="small ppts">💰 Légion : <b>${v==null?'–':pts(v)}</b> pts${mp?` · mercenaires : <b>${pts(mp)}</b> pts · total <b>${pts((v||0)+mp)}</b>`:''}</div>`;
+}
+function mercHtml(n,edit){
+  const l=mercList(n);if(!l.length&&!edit)return '';
+  const a=id=>{const x=getArmy(id);return x?x.name:id;};
+  return `<div class="small pmerc">${l.map(m=>`<div>🗡️ ${m.units} × ${esc(m.name)} <span style="opacity:.75">(${esc(a(m.army))} · ${pts(m.ptsUnit*m.units)} pts, sans bonus)</span>${edit?` <button class="mini" data-a="merc-del" data-name="${esc(n)}" data-id="${esc(m.id)}" title="Retirer">✕</button>`:''}</div>`).join('')}${edit?`<button class="btn" style="margin-top:4px" data-a="merc-add" data-name="${esc(n)}">+ Mercenaires</button>`:''}</div>`;
+}
 function playerCard(n){
   const on=(S.online||[]).includes(n);
-  return `<div class="pcard" data-name="${esc(n)}"><span class="grip" data-grip="1" title="Faire glisser vers une équipe">⠿</span><div class="pbody"><div class="pname">${on?'<span class="dot" title="connecté"></span>':''}${esc(n)}</div><div class="small parmy">${armyOf(n)}</div>${legSelect(n)}</div><div class="pbtn"><button class="mini" data-a="pl-ren" data-name="${esc(n)}" title="Renommer">✎</button><button class="mini" data-a="pl-del" data-name="${esc(n)}" title="Supprimer">✕</button></div></div>`;
+  return `<div class="pcard" data-name="${esc(n)}"><span class="grip" data-grip="1" title="Faire glisser vers une équipe">⠿</span><div class="pbody"><div class="pname">${on?'<span class="dot" title="connecté"></span>':''}${esc(n)}</div><div class="small parmy">${armyOf(n)}</div>${legSelect(n)}${pointsHtml(n)}${mercHtml(n,true)}</div><div class="pbtn"><button class="mini" data-a="pl-ren" data-name="${esc(n)}" title="Renommer">✎</button><button class="mini" data-a="pl-del" data-name="${esc(n)}" title="Supprimer">✕</button></div></div>`;
 }
 function armyOf(n){const p=(S.picks||{})[n];const a=p&&getArmy(p.army);return a?`⚔️ Armée : <b>${esc(a.name)}</b>`:'<i>pas d\'armée choisie</i>';}
 function legLabelOf(n){const p=(S.picks||{})[n];if(!p)return '';const a=getArmy(p.army);const l=a&&a.legions.find(x=>x.id===p.legion);return l?`${a.name} · ${legName(l)}`:'';}
 function teamCardRO(n){
   const on=(S.online||[]).includes(n);const p=(S.picks||{})[n];const lab=legLabelOf(n);
-  return `<div class="pcard"><div class="pbody"><div class="pname">${on?'<span class="dot" title="connecté"></span>':''}${esc(n)}${isMe(n)?' <span class="small">(moi)</span>':''}</div><div class="small parmy">${armyOf(n)}</div>${lab?`<button class="chip sm" data-a="openpick" data-army="${esc(p.army)}" data-leg="${esc(p.legion)}">${esc(lab)}</button>`:'<div class="small">pas de légion</div>'}</div></div>`;
+  return `<div class="pcard"><div class="pbody"><div class="pname">${on?'<span class="dot" title="connecté"></span>':''}${esc(n)}${isMe(n)?' <span class="small">(moi)</span>':''}</div><div class="small parmy">${armyOf(n)}</div>${lab?`<button class="chip sm" data-a="openpick" data-army="${esc(p.army)}" data-leg="${esc(p.legion)}">${esc(lab)}</button>`:'<div class="small">pas de légion</div>'}${pointsHtml(n)}${mercHtml(n,false)}</div></div>`;
 }
 function renderTeamsRO(){
   const t=S.teams||{names:{t1:'Équipe 1',t2:'Équipe 2'},members:{}};const names=allNames();
@@ -1239,9 +1253,42 @@ async function setLegionOf(name,val){
 function playersAction(el){
   const a=el.dataset.a,name=el.dataset.name;
   if(a==='pl-add'){const v=cleanName(mval('plNew'),15);if(!v)return toast('Saisissez un pseudo.');teamOp({op:'add',name:v});}
+  else if(a==='merc-add')mercDialog(name);
+  else if(a==='merc-del')hostReq('fiches-merc',{op:'remove',name,id:el.dataset.id}).then(r=>{if(!r.success)toast(r.message||'Impossible.');loadHosted(false);});
   else if(a==='pl-lock'){hostReq('fiches-freeze',{freeze:!S.frozen}).then(r=>{if(r.success){S.frozen=r.freeze;toast(r.freeze?'Équipes et légions verrouillées.':'Équipes et légions déverrouillées.');render();}});}
   else if(a==='pl-del')openModal('Supprimer ce pseudo ?',`<div><b>${esc(name)}</b> sera retiré de la liste, de son équipe et sa légion sera libérée.</div>`,[{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{closeModal();teamOp({op:'remove',name});}}]);
   else if(a==='pl-ren')openModal('Renommer le pseudo',`<input id="plRn" class="ft" type="text" maxlength="15" value="${esc(name)}"><div class="small" style="margin-top:6px">Le choix de légion et l'équipe suivent le nouveau pseudo.</div>`,[{label:'Annuler',fn:closeModal},{label:'Renommer',cls:'pri',fn:()=>{const to=cleanName(mval('plRn'),15);closeModal();if(to&&to!==name)teamOp({op:'rename',name,to});}}]);
+}
+/* mercenaires : infanterie légère d'une légion libre, ajoutée par le MJ, sans bonus d'armée */
+const LIGHT_INF=/\binf\w*\.?\s*l[eé]g/i;
+function mercCalc(a,u,lid){
+  const cp=JSON.parse(JSON.stringify(u));cp.v={};if(cp.l2)cp.l2.v={};
+  calcUnit(cp,Object.assign({},a,{params:{}}),FAM);
+  const q=cp.q[lid];if(!q||q[3]!==q[3]||q[3]==null)return null;
+  const row={};['C','D','E','G','H','I','K','P','S','V','W'].forEach(c=>{const v=cellRaw(cp,c);if(typeof v==='number'&&v===v)row[c]=v;else if(typeof v==='string'&&v)row[c]=v;});
+  return {ptsUnit:q[3]/Math.max(1,q[6]||1),row};
+}
+function mercDialog(name){
+  const free=[];
+  ARMIES.forEach(a=>a.legions.forEach(l=>{if(l.id==='ni'||pickOwner(a.id,l.id))return;if(l.partner&&pickOwner(l.partner.army,l.partner.legion))return;
+    const us=a.units.filter(u=>u.q[l.id]&&u.q[l.id][0]>0&&LIGHT_INF.test(String(u.in_.B||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')));
+    if(us.length)free.push({a,l,us});}));
+  if(!free.length){toast('Aucune légion libre ne contient d’infanterie légère.');return;}
+  const optsL=free.map((f,i)=>`<option value="${i}">${esc(f.a.name)} · ${esc(legName(f.l))}</option>`).join('');
+  openModal('Mercenaires pour '+name,`<div class="small" style="margin-bottom:6px">Infanterie légère prise dans une légion qu'aucun joueur n'a choisie. Aucun bonus d'armée ne s'applique.</div>
+   <select id="mcL" class="ft">${optsL}</select><select id="mcU" class="ft" style="margin-top:6px"></select>
+   <div class="row" style="margin-top:6px"><label class="small">Nombre d'unités</label><input id="mcN" class="ft" type="number" min="1" value="1" style="width:90px"></div><div id="mcP" class="small" style="margin-top:6px"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Ajouter',cls:'pri',fn:async()=>{
+     const f=free[+mval('mcL')],u=f.us[+mval('mcU')];if(!f||!u)return;
+     const c=mercCalc(f.a,u,f.l.id);if(!c){toast('Valeur de l’unité non calculable.');return;}
+     const r=await hostReq('fiches-merc',{op:'add',name,army:f.a.id,legion:f.l.id,uid:u.uid,units:Math.max(1,parseInt(mval('mcN'))||1),ptsUnit:c.ptsUnit,row:c.row});
+     if(!r.success){toast(r.message||'Impossible.');return;}closeModal();toast('Mercenaires ajoutés.');loadHosted(false);}}]);
+  let lastL=-1;
+  const upd=()=>{const f=free[+mval('mcL')];const us=document.getElementById('mcU');
+    if(lastL!==mval('mcL')){lastL=mval('mcL');us.innerHTML=f.us.map((u,i)=>`<option value="${i}">${esc(u.in_.B)} (${u.q[f.l.id][6]||1} unités)</option>`).join('');}
+    const u=f.us[+mval('mcU')]||f.us[0];const c=u&&mercCalc(f.a,u,f.l.id);const n=Math.max(1,parseInt(mval('mcN'))||1);
+    document.getElementById('mcP').innerHTML=c?`Valeur par unité : <b>${pts(c.ptsUnit)}</b> pts · total : <b>${pts(c.ptsUnit*n)}</b> pts`:'Valeur non calculable.';};
+  const m=document.getElementById('modal');['mcL','mcU','mcN'].forEach(id=>{const e=document.getElementById(id);e.addEventListener('input',upd);e.addEventListener('change',upd);});upd();
 }
 /* glisser-déposer au pointeur (souris et tactile) */
 let DRAG=null;
@@ -1346,7 +1393,17 @@ function mjHelp(force){
 
 /* ---- fiche d'une unité posée sur la carte (fenêtre contextuelle) ---- */
 const CARD_HIDE=new Set(['S','F','J','L','M','Q','R','X','T','U']); // résultats intermédiaires : masqués dans la fiche d'une unité
+function showMercCard(t){
+  const m=((S.mercs||{})[t.owner]||[]).find(x=>'merc-'+x.id===t.uid);
+  if(!m){openModal('Unité introuvable',`<div class="small">Ces mercenaires ne sont plus disponibles.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
+  const un=Math.max(1,t.units||m.units);const fpu=(t.figs??m.figsPerUnit*m.units)/un;
+  const row=(lab,val)=>`<tr><th style="text-align:left;white-space:normal">${esc(lab)}</th><td style="text-align:right">${esc(val)}</td></tr>`;
+  const cols=COLS.filter(c=>c!=='B'&&c!=='A'&&m.row[c]!=null&&m.row[c]!=='');
+  const h=`<div class="small" style="margin-bottom:6px">Mercenaire${t.owner?' · '+esc(t.owner):''}</div><div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${t.idx||1}</b><span>unité n° (sur ${un})</span></div><div class="kpi"><b>${fpu%1?fpu.toFixed(1):fpu}</b><span>figurines dans l'unité</span></div><div class="kpi"><b>${Math.round(m.ptsUnit)}</b><span>valeur de l'unité</span></div></div><div class="scroll" style="max-height:34vh"><table style="width:100%">${cols.map(c=>row(LONG[c]||c,fnum(m.row[c]))).join('')}</table></div><div class="lbl2" style="margin-top:10px">Bonus d'armée</div><div class="small">Aucun (mercenaires).</div>`;
+  openModal(m.name+(t.idx?' n°'+t.idx:''),h,[{label:'Fermer',cls:'pri',fn:closeModal}]);
+}
 function showUnitCard(t){
+  if(String(t.uid||'').startsWith('merc-')){showMercCard(t);return;}
   const a=getArmy(t.army);const u=a&&a.units.find(x=>x.uid===t.uid);
   if(!u){openModal('Unité introuvable',`<div class="small">Cette unité n'est plus disponible dans les fiches.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
   ensureBonuses(a);S.uc=Object.assign({},t);
@@ -1416,5 +1473,5 @@ function stdBoxHtml(){
 })();
 
 </script>
- </body>
+</body>
 </html>

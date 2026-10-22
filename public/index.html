@@ -692,6 +692,7 @@
         /* ============================================================ */
 
         function showPage(name) {
+            if (typeof cancelLandDrag === 'function') cancelLandDrag();
             for (const [key, page] of Object.entries(el.pages)) {
                 page.classList.toggle('active', key === name);
             }
@@ -3174,7 +3175,10 @@
             const sec = zone ? zoneSections(zone).find((x) => x.tiles.includes(unit.tile)) : null;
             const bonus = sec && base > 0 ? sec.bonus : 0;
             const area = zone && bonus > 0 ? zoneAreas(zone).get(sec.key) : null;
-            const total = base + bonus;
+            // La tuile de débarquement compte pour 1 point de déplacement : dep 2 = 1 pas depuis la tuile (ses voisines, zone comprise), + le bonus de section.
+            const landCost = zone ? 1 : 0;
+            const reach = Math.max(0, base - landCost);
+            const total = reach + bonus;
             const blockedTile = (key) => lim.blocked.has(key) || Boolean(state.gridData[key]?.removed);
             const canEnd = (key) => {
                 const tile = state.gridData[key];
@@ -3205,10 +3209,10 @@
             for (const [key, d] of dist) {
                 if (key === unit.tile) continue;
                 if (!canEnd(key)) { pass.push(key); continue; }
-                if (d <= base) end.push(key);
+                if (d <= reach) end.push(key);
                 else if (area && area.has(key)) bonusEnd.push(key);
             }
-            return { dep: base, extra: bonus, bonus, total, section: sec?.n ?? 0, sectionKind: sec?.kind ?? null, zone: zone?.id ?? null, start: unit.tile, end, bonusEnd, pass };
+            return { dep: base, landCost, reach, extra: bonus, bonus, total, section: sec?.n ?? 0, sectionKind: sec?.kind ?? null, zone: zone?.id ?? null, start: unit.tile, end, bonusEnd, pass };
         }
 
         // Impression : les unités posées (telles que ce joueur les voit) sont dessinées sur l'image, sans aperçu ni geste en cours.
@@ -3545,7 +3549,14 @@
             return { key, ok: Boolean(zone && zone.tiles.includes(key)) && ciEq(unit.owner, state.username) };
         }
 
+        // Annule tout glissement d'unité et supprime toute étiquette flottante restée à l'écran (changement de page, perte du doigt, etc.).
+        function cancelLandDrag() {
+            if (LAND.drag) { LAND.drag = null; LAND.hover = null; requestDraw(); }
+            document.querySelectorAll('.land-ghost').forEach((g) => g.remove());
+        }
+
         function makeGhost(unit, count) {
+            document.querySelectorAll('.land-ghost').forEach((g) => g.remove()); // jamais deux étiquettes flottantes
             const g = document.createElement('div');
             g.className = 'land-ghost';
             g.textContent = shortName(unit.name, 18);
@@ -3594,7 +3605,7 @@
             if (!canEditUnits() || !ciEq(unit.owner, state.username) || !list.length) return false;
             const chosen = batchOf(list);
             // Au doigt, la pastille est affichée 28 px au-dessus pour rester visible : c'est elle qui vise. À la souris elle est sous le pointeur.
-            LAND.drag = { unit, units: chosen.map((u) => u.id), ghost: makeGhost(unit, chosen.length), fromMap, tile: fromMap ? unit.tile : null, off: e.pointerType === 'touch' ? 28 : 0 };
+            LAND.drag = { unit, pid: e.pointerId, units: chosen.map((u) => u.id), ghost: makeGhost(unit, chosen.length), fromMap, tile: fromMap ? unit.tile : null, off: e.pointerType === 'touch' ? 28 : 0 };
             LAND.preview = null;
             hideRangeInfo();
             moveGhost(e);
@@ -3613,7 +3624,7 @@
             const kind = r.sectionKind === 'mid' ? 'centre' : 'extrémité';
             const where = r.zone ? `section ${r.section} (${kind}) · zone ${r.zone.toUpperCase()}` : 'hors zone de débarquement';
             const n = r.end.length + r.bonusEnd.length;
-            info.innerHTML = `<b>${shortName(unit.name, 22)}</b> ${unit.idx} · dep ${r.dep}${r.bonus ? ` <b>+ ${r.bonus}</b> tuile${r.bonus > 1 ? 's' : ''} supplémentaire${r.bonus > 1 ? 's' : ''} = <b>${r.total}</b>` : ''}`
+            info.innerHTML = `<b>${shortName(unit.name, 22)}</b> ${unit.idx} · dep ${r.dep}${r.landCost ? ` − ${r.landCost} (tuile de débarquement)` : ''}${r.bonus ? ` <b>+ ${r.bonus}</b> tuile${r.bonus > 1 ? 's' : ''} supplémentaire${r.bonus > 1 ? 's' : ''}` : ''} = <b>${r.total}</b> pas`
                 + `<small>${where}${r.bonus ? ' · bonus seulement vers l’aire de cette section (cases bleues)' : ''} · ${n} case${n > 1 ? 's' : ''} d’arrivée</small>`;
             info.hidden = false;
             requestDraw();
@@ -3734,6 +3745,21 @@
             const rect = el.canvas.getBoundingClientRect();
             if (tokenAt(e.clientX - rect.left, e.clientY - rect.top)) { e.stopImmediatePropagation(); e.preventDefault(); }
         }, true);
+
+        // Filet de sécurité : si le relâchement d'un doigt n'a jamais atteint le glisser en cours (écran qui change, geste interrompu par le
+        // système, application en arrière-plan), l'étiquette flottante est retirée au lieu de rester collée à l'écran.
+        for (const ev of ['pointerup', 'pointercancel']) {
+            document.addEventListener(ev, (e) => {
+                const pid = LAND.drag?.pid;
+                setTimeout(() => {
+                    if (LAND.drag && (pid === e.pointerId || e.pointerType === 'touch')) cancelLandDrag();
+                    else if (!LAND.drag) document.querySelectorAll('.land-ghost').forEach((g) => g.remove());
+                }, 350);
+            }, true);
+        }
+        document.addEventListener('touchend', () => setTimeout(() => { if (!LAND.drag) document.querySelectorAll('.land-ghost').forEach((g) => g.remove()); }, 350), true);
+        window.addEventListener('blur', cancelLandDrag);
+        document.addEventListener('visibilitychange', () => { if (document.hidden) cancelLandDrag(); });
 
         // Glisser depuis le sélecteur d'unités : on saisit les prochaines unités non posées de la ligne.
         document.addEventListener('pointerdown', (e) => {
@@ -3913,7 +3939,7 @@
             const chips = pending.map((g) => {
                 const rest = g.filter((u) => !u.tile).length;
                 const flags = g.filter((u) => u.std).length;
-                return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '⚑ '}${shortName(g[0].name, 14)}<br><b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${flags}/${g[0].stdMax}` : ''}</div>`;
+                return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '⚑ '}${shortName(g[0].name, 14)}<br><b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${g[0].stdMax - flags}/${g[0].stdMax}` : ''}</div>`; // même principe que les unités : il en reste X à attribuer sur Y
             }).join('');
             const info = `<div class="ub-info" title="Unités posées · zone ${(LAND.view.myZone || '').toUpperCase()}">${done}/${units.length}<br>zone ${(LAND.view.myZone || '').toUpperCase()}</div>`;
             bar.innerHTML = info + (chips || '<div class="ub-info">✓<br>tout est posé</div>');
@@ -4081,6 +4107,7 @@
             LAND.areaSet = new Set();
             LAND.hits = [];
             hideRangeInfo();
+            document.querySelectorAll('.land-ghost').forEach((g) => g.remove());
         }
 
         function onLandingView(next) {
