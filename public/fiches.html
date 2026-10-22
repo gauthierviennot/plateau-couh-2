@@ -1494,6 +1494,9 @@ function showMercCard(t){
 }
 function showUnitCard(t){
   if(String(t.uid||'').startsWith('merc-')){showMercCard(t);return;}
+  if(!(t.comp&&t.comp.length)&&String(t.uid||'').includes('+')){ // l'unité vient d'un ancien affichage sans sa composition : on la reconstruit depuis l'uid
+    const ca0=getArmy(t.army);const [bu,eu]=String(t.uid).split('+');const bb=ca0&&ca0.units.find(u=>u.uid===bu),ee=ca0&&ca0.units.find(u=>u.uid===eu);
+    if(bb&&ee){const ef=(ee.q[t.legion]||[1])[0];const tf=t.figs!=null?t.figs:ef+1;t={...t,comp:[{name:bb.in_.B,figs:Math.max(1,tf-ef),uid:bu},{name:ee.in_.B,figs:ef,uid:eu}]};}}
   if(t.comp&&t.comp.length){const ca=getArmy(t.army);const cl=ca&&ca.legions.find(l=>l.id===t.legion);if(ca&&cl){ensureBonuses(ca);S.uc=Object.assign({},t);showCompCard(t,ca,cl);return;}}
   const a=getArmy(t.army);const u=a&&a.units.find(x=>x.uid===t.uid);
   if(!u){openModal('Unité introuvable',`<div class="small">Cette unité n'est plus disponible dans les fiches.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
