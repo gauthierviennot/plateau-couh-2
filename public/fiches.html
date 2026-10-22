@@ -76,7 +76,7 @@ tr.total td{font-weight:700;background:var(--head);border-bottom:none}tr.total t
 .sh{font:700 17px system-ui,sans-serif;margin-bottom:10px}.sf{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;justify-content:flex-end}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);font:14px system-ui,sans-serif;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:200;max-width:90%}
 .toast.show{opacity:1}
-@media print{:root,:root[data-theme="dark"]{--bg:#fff;--card:#fff;--fg:#000;--muted:#444;--border:#bbb;--head:#eee;--cat:#e6e6e6;--stick:#fff;--hl:#eee;--accent:#000}
+@media print{:root:root:root{--bg:#fff!important;--card:#fff!important;--fg:#000!important;--muted:#444!important;--border:#bbb!important;--head:#eee!important;--cat:#e6e6e6!important;--stick:#fff!important;--hl:#eee!important;--accent:#000!important;--err:#b3261e!important;--ok:#2e6b34!important;--ovc:#c77b00!important;color-scheme:light}html,body{background:#fff!important;color:#000!important}
  body{background:#fff;font-size:12px}.noprint,.top,.act,#modal,.toast{display:none!important}.scroll{overflow:visible;border:none}td.name,th.name{position:static}.wrap{padding:0;max-width:none}table{width:max-content}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{break-inside:avoid}thead{display:table-header-group}}
 
 tr.compr td{box-shadow:inset 0 -1px 0 #7b3fe4,inset 0 1px 0 #7b3fe4}td.name.compn{border-left:4px solid #7b3fe4;background:#efe7ff!important;color:#000}.compwith{display:block;font:11px system-ui,sans-serif;color:#5b2fb0;margin-top:1px}
@@ -139,7 +139,7 @@ td.name{z-index:3}
       <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
       <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
       <span id="mjBadge" class="badge mj">MJ</span>
-      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v23-oct-22h00</span>
+      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v26-oct-22h50</span>
     </div>
     <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
     <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
@@ -381,7 +381,7 @@ async function printImage(){
     toast('Création de l\'image…');
     const view=document.getElementById('view');if(!view||!view.querySelector('table'))throw new Error('rien à imprimer');
     host=document.createElement('div');host.id='pimg';
-    host.style.cssText='position:absolute;left:-30000px;top:0;background:#fff;color:#000;padding:10px;--bg:#fff;--card:#fff;--fg:#000;--muted:#444;--border:#bbb;--head:#eee;--cat:#e6e6e6;--stick:#fff;--hl:#eee;--accent:#000;font-size:12px;width:max-content';
+    host.style.cssText='position:absolute;left:-30000px;top:0;background:#fff;color:#000;padding:10px;--bg:#fff;--card:#fff;--fg:#000;--muted:#444;--border:#bbb;--head:#eee;--cat:#e6e6e6;--stick:#fff;--hl:#eee;--accent:#000;--err:#b3261e;--ok:#2e6b34;--ovc:#c77b00;color-scheme:light;font-size:12px;width:max-content';
     stl=document.createElement('style');
     stl.textContent='#pimg .scroll{overflow:visible!important;border:none!important}#pimg td.name,#pimg th.name{position:static!important}#pimg table{width:max-content!important}#pimg .noprint,#pimg .act,#pimg .toast{display:none!important}';
     document.head.appendChild(stl);
@@ -803,22 +803,14 @@ function compBlocksFull(a,u,vl,w,cs,plans){
 }
 
 /* ---- fiche légion ---- */
-function renderLegion(a){
-  const l=a.legions.find(x=>x.id===S.sel);if(!l){S.view='full';return renderFull(a);}
-  const mj=false;const cs=visCols();const rows=a.units.filter(u=>u.q[l.id]);
-  const t=legTot(a,l);let h=picksBar();
-  const qc={nb:!S.hq.has('nb'),u:!S.hq.has('u'),e:!S.hq.has('e'),pts:!S.hq.has('pts')};const nq=Object.values(qc).filter(Boolean).length;
+function legBody(a,l,mj,cs,qc,nq,second){
+  const rows=a.units.filter(u=>u.q[l.id]);const t=legTot(a,l);let h='';
   const plan=compPlan(a,l.id),planBase={},hideEx={},usedEx={};
   plan.forEach(o=>{(planBase[o.c.base]=planBase[o.c.base]||[]).push(o);if(o.per)usedEx[o.c.extra]=(usedEx[o.c.extra]||0)+o.used;else hideEx[o.c.extra]=1;});
-  const vis=visLegions(a);const vi=vis.indexOf(l);const rs=HOSTED&&S.restricted;
-  const nav='';
-  h+=(rs?'':legBar(a))+`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${EDADD()?'<button class="btn" data-dbl="1" data-a="newunit" title="Double-cliquez">＋ Unité</button><button class="btn" data-dbl="1" data-a="newsec" title="Double-cliquez">＋ Section</button><button class="btn" data-dbl="1" data-a="comp-add" title="Double-cliquez">＋ 🧩 Unité composée</button>':''}${pickBtn(a)}</div>`;
-  if(mj&&l.id!=='ni')h+='<div class="row noprint"><button class="btn" data-a="editleg">✎ Modifier la légion</button><button class="btn" data-a="dupleg">⧉ Dupliquer</button><button class="btn" data-a="delleg">🗑 Supprimer</button><button class="btn" data-a="newleg">＋ Nouvelle légion</button></div>';
-  if(S.showCols)h+=colsPanel(a);
   h+=`<div class="card"><div class="sans small up">${esc(a.name)}</div><h1 style="font-size:26px;margin:2px 0">${esc(legName(l))}${l.tag?'<span class="tag">'+esc(l.tag)+'</span>':''}</h1>`;
   h+=`<div class="kpis"><div class="kpi"><b>${t.c}</b><span>unités</span></div><div class="kpi"><b>${t.n}</b><span>figurines</span></div><div class="kpi"><b>${pts(t.v)}</b><span>points</span></div><div class="kpi"><b>${rows.length}</b><span>types d'unités</span></div></div>`;
-  S.partner=l.partner||null;
-  if(l.partner){const pa=getArmy(l.partner.army);h+=`<div class="hint">Cette légion est formée de <b>deux armées</b> : elle est complétée par la légion ${esc(l.partner.legion)} des <b>${esc(pa?pa.name:l.partner.army)}</b>. <button class="btn" data-a="openpartner">Voir l'autre moitié</button></div>`;}
+  if(!second)S.partner=l.partner||null;
+  if(l.partner&&!second){const pa=getArmy(l.partner.army);h+=`<div class="hint">Cette légion est formée de <b>deux armées</b> : la fiche des <b>${esc(pa?pa.name:l.partner.army)}</b> (légion ${esc(l.partner.legion)}) suit ci-dessous.</div>`;}
   if(l.comp)h+=`<div class="comp">Composition : ${esc(l.comp)}</div>`;
   h+=compNote(a,l);
   h+='</div>';
@@ -847,6 +839,22 @@ function renderLegion(a){
     });
     h+=`<tr class="total"><td class="name">Total</td>${cs.slice(1).map(()=>'<td></td>').join('')}${qc.nb?`<td>${t.n}</td>`:''}${qc.u?`<td>${t.c||''}</td>`:''}${qc.e?`<td>${t.e||''}</td>`:''}${qc.pts?`<td>${pts(t.v)}</td>`:''}${mj?'<td class="noprint"></td>':''}</tr></tbody></table></div>`;
   }
+  return h;
+}
+function renderLegion(a){
+  const l=a.legions.find(x=>x.id===S.sel);if(!l){S.view='full';return renderFull(a);}
+  const mj=false;const cs=visCols();
+  let h=picksBar();
+  const qc={nb:!S.hq.has('nb'),u:!S.hq.has('u'),e:!S.hq.has('e'),pts:!S.hq.has('pts')};const nq=Object.values(qc).filter(Boolean).length;
+  const vis=visLegions(a);const vi=vis.indexOf(l);const rs=HOSTED&&S.restricted;
+  const nav='';
+  h+=(rs?'':legBar(a))+`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${EDADD()?'<button class="btn" data-dbl="1" data-a="newunit" title="Double-cliquez">＋ Unité</button><button class="btn" data-dbl="1" data-a="newsec" title="Double-cliquez">＋ Section</button><button class="btn" data-dbl="1" data-a="comp-add" title="Double-cliquez">＋ 🧩 Unité composée</button>':''}${pickBtn(a)}</div>`;
+  if(mj&&l.id!=='ni')h+='<div class="row noprint"><button class="btn" data-a="editleg">✎ Modifier la légion</button><button class="btn" data-a="dupleg">⧉ Dupliquer</button><button class="btn" data-a="delleg">🗑 Supprimer</button><button class="btn" data-a="newleg">＋ Nouvelle légion</button></div>';
+  if(S.showCols)h+=colsPanel(a);
+  h+=legBody(a,l,mj,cs,qc,nq,false);
+  if(l.partner){const pa=getArmy(l.partner.army),pl=pa&&pa.legions.find(x=>x.id===l.partner.legion);if(pl){h+='<div class="pgap" style="height:18px"></div>'+legBody(pa,pl,mj,cs,qc,nq,true);
+    const t1=legTot(a,l),t2=legTot(pa,pl),ty=a.units.filter(u=>u.q[l.id]).length+pa.units.filter(u=>u.q[pl.id]).length;
+    h+=`<div class="card"><div class="sans small up">Total de la légion entière</div><div style="font-weight:600;margin:2px 0">${esc(a.name)} + ${esc(pa.name)}</div><div class="kpis"><div class="kpi"><b>${t1.c+t2.c}</b><span>unités</span></div><div class="kpi"><b>${t1.n+t2.n}</b><span>figurines</span></div><div class="kpi"><b>${pts(t1.v+t2.v)}</b><span>points</span></div><div class="kpi"><b>${ty}</b><span>types d'unités</span></div></div></div>`;}}
   if(mj){const others=a.units.filter(u=>!u.q[l.id]);
     h+=`<div class="card noprint"><div class="lbl2">Ajouter une unité à cette légion</div><div class="row" style="margin:6px 0 0"><select id="addUnit" style="flex:1;min-width:160px">${others.map(u=>`<option value="${esc(u.uid)}">${esc(u.in_.B||'')}</option>`).join('')}</select><input id="addQty" type="number" min="1" value="1" style="width:84px"><button class="btn" data-a="addtoleg" ${others.length?'':'disabled'}>Ajouter</button></div></div>`;}
   if(l.sup&&Math.abs(l.sup)>0.01)h+=`<div class="hint">Le total inclut un supplément de ${pts(l.sup)} pts propre à la fiche d'origine, non ventilé par ligne.</div>`;
@@ -854,12 +862,13 @@ function renderLegion(a){
   h+=`<div class="hint noprint">Source : ${esc(a.file)}</div>`;
   return h;
 }
-function toText(a,l){
+function toText(a,l,sub){
   const cs=visCols();let t=`${a.name} — ${legName(l)}\n\n`;
   t+=cs.map(c=>c==='B'?'Unité':colLabel(a,c)).concat(['nb','U','E','pts']).join('\t')+'\n';
   a.units.filter(u=>u.q[l.id]).forEach(u=>{const q=u.q[l.id];
     t+=cs.map(c=>fnum(cellRaw(u,c))).concat([q[0],uTxt(q),q[2]||'',q[3]==null||q[3]!==q[3]?'':Math.round(q[3])]).join('\t')+'\n';
     if(u.l2)t+=cs.map(c=>c==='B'?'↳ 2e attaque':fnum(cellRaw(u.l2,c))).join('\t')+'\n';});
+  if(!sub&&l.partner){const pa=getArmy(l.partner.army),pl=pa&&pa.legions.find(x=>x.id===l.partner.legion);if(pl){t+='\n'+toText(pa,pl,true);const t1=legTot(a,l),t2=legTot(pa,pl);t+=`\nTotal de la légion entière : ${t1.c+t2.c} unités · ${t1.n+t2.n} figurines · ${Math.round(t1.v+t2.v)} pts\n`;}}
   return t;
 }
 
@@ -869,7 +878,7 @@ function render(){
   if(HOSTED&&!S.loaded){root.innerHTML='<div class="hint">Chargement des fiches…</div>';return;}
   const rs=HOSTED&&S.restricted;
   const $=id=>document.getElementById(id);
-  $('tabA').style.display='';$('tabA').textContent=rs?'Légions':'Armées';$('tabF').style.display=rs?'none':'';
+  $('tabA').style.display='';$('tabA').textContent=rs?'Légions':'Armées';$('tabF').style.display=(rs||!isMJ())?'none':'';
   $('tabP').style.display=HOSTED?'':'none';$('tabP').textContent='Équipes';$('tabP').className='tab'+(S.tab==='players'?' on':'');
   $('tabS').style.display=(HOSTED&&isMJ()&&!rs)?'':'none';$('tabS').className='tab'+(S.tab==='saves'?' on':'');
   $('tabH').style.display=(HOSTED&&isMJ())?'':'none';
@@ -893,6 +902,7 @@ function render(){
   if(S.tab==='players'&&HOSTED){$('armyBar').style.display='none';root.innerHTML=renderPlayers();return;}
   if(S.tab==='saves'&&HOSTED&&isMJ()){$('armyBar').style.display='none';root.innerHTML=renderSaves();if(!S.snaps)loadSnaps();return;}
   if(S.tab==='players'||S.tab==='saves')S.tab='army';
+  if(S.tab==='form'&&!isMJ())S.tab='army';
   if(S.tab==='form'){root.innerHTML=renderFormulas();return;}
   const ni=a.legions.find(l=>l.id==='ni');a._niFigs=ni?legStats(a,ni).figs:0;
   const head=S.view==='legion'?'':`<div class="sub noprint">${a.legions.filter(l=>l.id!=='ni').length} légion${a.legions.filter(l=>l.id!=='ni').length>1?'s':''} · fiche ${esc(a.version||'')} · ${a.units.length} types d'unités</div>`;

@@ -202,7 +202,7 @@
         .lp-seg.on { background: #222; color: #fff; border-color: #222; }
         .lp-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         .lp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
-        @media (max-width: 700px) { .fiches-modes [data-fiche="mini"], .fiches-modes [data-fiche="bar"] { display: none !important; } }
+        @media (max-width: 700px) { .fiches-modes [data-fiche="mini"], .fiches-modes [data-fiche="bar"], .fiches-modes [data-fiche="fullscreen"] { display: none !important; } }
         .ub-chip.done { opacity: .6; }
         .ub-chip.gen-on { background: #fff3c4; box-shadow: 0 0 0 3px #ffc107; }
         .land-ghost { position: fixed; z-index: 400; transform: translate(-50%, -50%); background: #fff; border: 3px solid #555; border-radius: 10px; padding: 6px 10px; font: 700 .85rem system-ui, sans-serif; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
@@ -559,6 +559,7 @@
         const LONG_PRESS_MS = 450; // appui long sur un sélecteur : repositionnement
         const BACKGROUND_MAX_SIDE = 1600;
         const A4 = { width: 2480, height: 3508, margin: 59, dpi: 300 }; // A4 à 300 dpi, marge de 5 mm
+        let SIM_LOCK = false; // simulation en cours : la carte est en lecture seule (ni terrain, ni objet, ni marqueur)
         const ADMIN_MODES = new Set(['select', 'erase', 'restore']);
         const GHOST_MODES = new Set(['select', 'erase', 'restore']);
         const ACTIVE_MODES = new Set(['paint', 'select', 'erase', 'restore']); // les sélecteurs s'allument
@@ -1653,7 +1654,7 @@
         // et se termine par 10 secondes d'inactivité ou par un triple toucher sur la carte.
         function setMode(mode) {
             const adminOnly = ADMIN_MODES.has(mode) && !state.isAdmin;
-            const lockedOut = state.isLocked && mode !== 'move' && mode !== 'printzone';
+            const lockedOut = (state.isLocked || SIM_LOCK) && mode !== 'move' && mode !== 'printzone';
             state.mode = adminOnly || lockedOut ? 'move' : mode;
 
             for (const [name, button] of Object.entries(toolButtons)) {
@@ -1693,7 +1694,7 @@
         el.btnLock.addEventListener('click', () => socket?.emit('toggle-lock', !state.isLocked));
 
         function editSelection(action, extra = {}) {
-            if (state.selection.size === 0) return;
+            if (state.selection.size === 0 || SIM_LOCK) return;
             resetIdleTimer();
             socket?.emit('edit-tiles', { keys: [...state.selection], action, ...extra });
         }
@@ -1726,6 +1727,7 @@
         // Annuler / rétablir : chacun revient sur ses propres modifications.
         // Ces boutons allument aussi les sélecteurs ; aucun pinceau n'est alors choisi, donc rien ne se peint par erreur.
         async function runHistory(event) {
+            if (SIM_LOCK) return;
             if (state.mode === 'move') {
                 state.brush = null;
                 markSelectedBrush();
@@ -2638,6 +2640,7 @@
         }
 
         function applyBrush(key, brush) {
+            if (SIM_LOCK) return;
             if (brush.kind === 'mark') {
                 socket?.emit('edit-tiles', { keys: [key], action: 'mark', mark: brush.id });
                 return;
@@ -2723,7 +2726,7 @@
         // Rotation d'un cran (1/6 de tour) d'un objet orienté. Possible en mode déplacer comme en mode peindre ;
         // depuis le mode déplacer, elle active automatiquement le mode peindre (sélecteurs dépliés, aucun pinceau choisi).
         function rotateObjectAt(key) {
-            if (state.isLocked) return;
+            if (state.isLocked || SIM_LOCK) return;
             if (state.mode === 'move') {
                 state.brush = null;
                 markSelectedBrush();
@@ -2802,14 +2805,14 @@
         }
 
         function removeTile(key, existing) {
-            if (!state.isAdmin || existing?.removed) return;
+            if (SIM_LOCK || !state.isAdmin || existing?.removed) return;
             state.gridData[key] = { removed: true, author: state.username };
             requestDraw();
             socket?.emit('edit-tiles', { keys: [key], action: 'remove' });
         }
 
         function restoreTile(key, existing) {
-            if (!state.isAdmin || !existing?.removed) return;
+            if (SIM_LOCK || !state.isAdmin || !existing?.removed) return;
             delete state.gridData[key];
             requestDraw();
             socket?.emit('edit-tiles', { keys: [key], action: 'restore' });
@@ -3508,7 +3511,7 @@
                     const leftPad = hasCross ? chipH * 0.78 : chipH * 0.28;
                     const hasChev = u.near && (mine || u.chev);
                     // Tous les symboles (drapeau, chevron, général, puzzle) sont rangés à droite de l'étiquette ; le nom reste à gauche.
-                    const wFlag = hasFlag ? chipH * 0.74 : 0, wChev = hasChev ? chipH * 0.68 : 0, wGen = u.gen ? chipH * 0.68 : 0, wPuz = u.comp ? chipH * 0.58 : 0;
+                    const wFlag = hasFlag ? chipH * 0.74 : 0, wChev = hasChev ? chipH * 0.68 : 0, wGen = u.gen ? chipH * 0.92 : 0, wPuz = u.comp ? chipH * 0.58 : 0;
                     const rightW = wFlag + wChev + wGen + wPuz;
                     const textW = w - leftPad - rightW - chipH * 0.15;
                     let cross = null;
@@ -3537,8 +3540,10 @@
                     if (u.gen) {
                         // Général : trois chevrons dorés empilés.
                         c.save();
-                        c.strokeStyle = '#d9a400'; c.lineWidth = chipH * 0.075; c.lineCap = 'round'; c.lineJoin = 'round';
                         const gx = rEdge - wFlag - wChev - wGen / 2;
+                        c.beginPath(); c.arc(gx, oy, chipH * 0.43, 0, Math.PI * 2); c.fillStyle = '#ffd400'; c.fill();
+                        c.strokeStyle = '#d32f2f'; c.lineWidth = chipH * 0.09; c.stroke();
+                        c.strokeStyle = '#000'; c.lineWidth = chipH * 0.075; c.lineCap = 'round'; c.lineJoin = 'round';
                         for (const dy of [-0.2, 0, 0.2]) {
                             c.beginPath();
                             c.moveTo(gx - chipH * 0.14, oy + chipH * (dy + 0.07));
@@ -3567,15 +3572,15 @@
                     if (hasChev) {
                         const cxv = ox + w / 2 - wFlag - chipH * 0.35;
                         const on = u.chev;
-                        if (on) { c.beginPath(); c.arc(cxv, oy, chipH * 0.3, 0, Math.PI * 2); c.fillStyle = '#ffc107'; c.fill(); }
-                        c.strokeStyle = on ? '#5d4300' : '#8a8a8a';
+                        if (on) { c.beginPath(); c.arc(cxv, oy, chipH * 0.3, 0, Math.PI * 2); c.fillStyle = '#ffd400'; c.fill(); c.strokeStyle = '#d32f2f'; c.lineWidth = chipH * 0.07; c.stroke(); }
+                        c.strokeStyle = on ? '#000' : '#8a8a8a';
                         c.lineWidth = chipH * 0.09;
                         c.lineCap = 'round'; c.lineJoin = 'round';
-                        c.lineWidth = chipH * 0.09;
+                        c.lineWidth = chipH * 0.075;
                         c.beginPath();
-                        c.moveTo(cxv - chipH * 0.16, oy + chipH * 0.09);
-                        c.lineTo(cxv, oy - chipH * 0.07);
-                        c.lineTo(cxv + chipH * 0.16, oy + chipH * 0.09);
+                        c.moveTo(cxv - chipH * 0.14, oy + chipH * 0.07);
+                        c.lineTo(cxv, oy - chipH * 0.06);
+                        c.lineTo(cxv + chipH * 0.14, oy + chipH * 0.07);
                         c.stroke();
                         if (mine && LAND.view.phase === 'place' && !LAND.simOn) chev = { x: sp.x + (cxv - chipH * 0.4) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 0.8 * VW.scale, h: chipH * VW.scale };
                     }
@@ -4118,7 +4123,7 @@
                 }
             }
             if (simAvail()) {
-                h += `<div class="lp-actions"><button class="btn ${LAND.simOn ? 'btn-primary' : 'btn-dark'}" data-land="sim">🗺️ ${LAND.simOn ? 'Quitter la simulation' : 'Simulation (carte virtuelle)'}</button></div>`;
+                h += `<div class="lp-actions"><button class="btn ${LAND.simOn ? 'btn-primary' : 'btn-dark'}" data-land="sim">${LAND.simOn ? '↩️ Retour à la carte de dépôt' : '🗺️ Simulation (carte virtuelle)'}</button></div>`;
             }
             panel.innerHTML = h;
             panel.hidden = false;
@@ -4132,6 +4137,8 @@
             if (LAND.simOn === on) return;
             resetLandTransient();
             LAND.simOn = on;
+            SIM_LOCK = on;
+            if (on) setMode('move');
             LAND.units = buildUnits(v);
             let ban = document.getElementById('simBanner');
             if (on) {
@@ -4139,7 +4146,8 @@
                     ban = document.createElement('div');
                     ban.id = 'simBanner';
                     ban.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:8px;z-index:60;background:#1b3a6b;color:#fff;border-radius:10px;padding:6px 10px;font:13px/1.3 system-ui,sans-serif;box-shadow:0 2px 8px #0006;display:flex;gap:8px;align-items:center;max-width:94vw';
-                    ban.innerHTML = '<span id="simBanTxt"></span><button data-land="sim" style="background:#fff;color:#1b3a6b;border:0;border-radius:6px;padding:4px 8px;font-weight:600">Quitter</button>';
+                    ban.innerHTML = '<span id="simBanTxt"></span>';
+                    ban.style.pointerEvents = 'none';
                     document.body.appendChild(ban);
                 }
                 document.getElementById('simBanTxt').textContent = (v.phase === 'locked' || !v.myTeam) ? '🗺️ Simulation des joueurs (lecture seule)' : '🗺️ Simulation : déplacez vos unités dans leur portée (une seule unité par tuile hors dépôt)';
@@ -4340,7 +4348,9 @@
             document.querySelectorAll('.fiche-btn[data-land="sim"]').forEach((b) => {
                 b.hidden = !simAvail();
                 b.classList.toggle('on', LAND.simOn);
-                b.title = LAND.simOn ? 'Quitter la simulation' : 'Simulation : carte virtuelle des dépôts';
+                b.textContent = LAND.simOn ? '↩️' : '🗺️';
+                b.title = LAND.simOn ? 'Retour à la carte de dépôt' : 'Simulation : carte virtuelle des dépôts';
+                b.setAttribute('aria-label', b.title);
             });
             const old = document.getElementById('simFab'); if (old) old.remove();
         }
@@ -4366,7 +4376,7 @@
             const prev = LAND.view.phase;
             if ((next?.phase || 'off') !== prev) resetLandTransient();
             LAND.view = next || { phase: 'off' };
-            if (LAND.simOn && !simAvail()) { LAND.simOn = false; const bn = document.getElementById('simBanner'); if (bn) bn.hidden = true; }
+            if (LAND.simOn && !simAvail()) { LAND.simOn = false; SIM_LOCK = false; const bn = document.getElementById('simBanner'); if (bn) bn.hidden = true; }
             LAND.units = buildUnits(LAND.view);
             if (LAND.preview && (() => { const pu = LAND.units.find((u) => u.id === LAND.preview.unit.id); return (pu?.home ?? pu?.tile) !== LAND.preview.start; })()) { LAND.preview = null; hideRangeInfo(); }
 
@@ -4547,6 +4557,7 @@
             if (!state.username) return;
             const frame = $('fichesFrame');
             $('fichesOverlay').hidden = false;
+            if (fichesPhone()) requestFullscreen(); // téléphone : plein écran permanent, sans barre d'adresse
             if (target?.unit) setFichesMini(true);
             updateFichesAccessUI();
             if (!frame.getAttribute('src')) {
@@ -4557,7 +4568,7 @@
         }
 
         function closeFiches() {
-            if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+            if (document.fullscreenElement && !fichesPhone()) document.exitFullscreen?.().catch(() => {});
             $('fichesOverlay').hidden = true;
             setFichesBar(false);
         }
@@ -4567,7 +4578,7 @@
         function setFichesMini(on) {
             if (fichesPhone()) on = false; // téléphone : les fiches s'ouvrent toujours en grand
             const box = $('fichesOverlay');
-            if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+            if (document.fullscreenElement && !fichesPhone()) document.exitFullscreen?.().catch(() => {});
             box.classList.toggle('mini', on);
             box.style.left = box.style.top = box.style.bottom = '';
             document.querySelector('[data-fiche="mini"]').textContent = on ? '🗖' : '🗗';
@@ -4578,7 +4589,7 @@
         function setFichesBar(on) {
             if (fichesPhone()) on = false;
             const box = $('fichesOverlay');
-            if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+            if (document.fullscreenElement && !fichesPhone()) document.exitFullscreen?.().catch(() => {});
             box.classList.toggle('bar', on);
             const b = document.querySelector('[data-fiche="bar"]');
             b.textContent = on ? '▢' : '—';
@@ -4587,6 +4598,7 @@
 
         // Plein écran du navigateur (quand il est pris en charge), sinon simple affichage agrandi.
         async function toggleFichesFullscreen() {
+            if (fichesPhone()) return; // téléphone : toujours en plein écran
             const box = $('fichesOverlay');
             setFichesMini(false);
             try {
