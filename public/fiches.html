@@ -139,7 +139,7 @@ td.name{z-index:3}
       <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
       <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
       <span id="mjBadge" class="badge mj">MJ</span>
-      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v22-oct-18h30</span>
+      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v22-oct-19h30</span>
     </div>
     <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
     <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
@@ -298,6 +298,7 @@ const S={hq:new Set(),restricted:false,admin:false,access:true,picks:{},myPick:n
 const isMJ=()=>HOSTED?S.admin:S.pseudo.trim().toLowerCase()==='mj';
 // Les modifications ne sont possibles que sur la fiche armée complète (jamais sur une fiche légion).
 const ED=()=>isMJ()&&S.tab==='army'&&S.view==='full';
+const EDADD=()=>isMJ()&&S.tab==='army'&&!(HOSTED&&S.restricted); /* ajouts (unité, section, unité composée) : fiche armée ou fiche légion */
 
 const pretty=t=>String(t).replace(/\[\+0\]/g,'');
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -518,7 +519,7 @@ function onClick(e){
     case 'print':printFit();break;
     case 'copy':{const l=cur.legions.find(x=>x.id===S.sel);const txt=toText(cur,l);
       (async()=>{try{await navigator.clipboard.writeText(txt);toast('Fiche copiée');}catch(x){try{const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();toast('Fiche copiée');}catch(y){toast('Copie indisponible ici');}}})();break;}
-    case 'newunit':if(ED())newUnit();break;
+    case 'newunit':if(EDADD())newUnit();break;
     case 'famtest':famTest(el.dataset.fam);break;
     case 'famapply':if(isMJ()){const r=famTest(el.dataset.fam);if(r&&!r.errs){FAM[el.dataset.fam].text=r.text;afterChange(ARMIES.map(x=>x.id),true);toast('Formule appliquée à toutes les lignes concernées');}}break;
     case 'famreset':if(isMJ()){FAM[el.dataset.fam].text=FAM[el.dataset.fam].orig;afterChange(ARMIES.map(x=>x.id),true);}break;
@@ -647,7 +648,7 @@ function renderFull(a){
   const cur=a.legions.find(l=>l.id===S.sel);
   h+=`<div class="row noprint"><button class="btn pri" data-a="mk" ${cur?'':'disabled'}>${cur?('Créer la fiche : '+esc(legName(cur))):'Sélectionnez une légion'}</button>`+pickBtn(a);
   h+=`<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button>`;
-  if(mj)h+='<button class="btn" data-dbl="1" data-a="newunit" title="Double-cliquez">＋ Unité</button><button class="btn" data-dbl="1" data-a="newsec" title="Double-cliquez">＋ Section</button>';
+  if(mj)h+='<button class="btn" data-dbl="1" data-a="newunit" title="Double-cliquez">＋ Unité</button><button class="btn" data-dbl="1" data-a="newsec" title="Double-cliquez">＋ Section</button><button class="btn" data-dbl="1" data-a="comp-add" title="Double-cliquez">＋ 🧩 Unité composée</button>';
   h+='</div>';
   if(mj)h+='<div class="hint noprint">Mode MJ : toute modification se fait par <b>double clic</b> (cellule, nom d\'unité, section, légion, bonus, boutons ＋). Les fiches légion ne sont pas modifiables.</div>';
   if(S.showCols)h+=colsPanel(a);
@@ -665,7 +666,7 @@ function renderFull(a){
       const ads={};let sumIn=0,sumNb=0,anyAd=false;
       vl.forEach(l=>{const q=u.q[l.id];if(!q)return;const ad=compAdj(plans[l.id]||[],u,q);ads[l.id]=ad;if(ad){anyAd=true;sumIn+=ad.in;sumNb+=ad.nb;}else sumNb+=q[0];});
       const aAdj=anyAd?(+u.in_.A||0)-sumIn:undefined;
-      const hide=anyAd&&!mj&&sumNb<=0;
+      const hide=anyAd&&sumNb<=0&&(aAdj===undefined||aAdj<=0);
       if(!hide)['u','l2'].forEach(wh=>{
         if(wh==='l2'&&!u.l2)return;
         h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c,wh==='u'?aAdj:undefined)).join('');
@@ -723,7 +724,7 @@ function renderLegion(a){
   plan.forEach(o=>{(planBase[o.c.base]=planBase[o.c.base]||[]).push(o);if(o.per)usedEx[o.c.extra]=(usedEx[o.c.extra]||0)+o.used;else hideEx[o.c.extra]=1;});
   const vis=visLegions(a);const vi=vis.indexOf(l);const rs=HOSTED&&S.restricted;
   const nav=rs?'':`<button class="btn" data-a="back">← Armée complète</button><button class="btn" data-a="prev" ${vi<=0?'disabled':''}>◀</button><button class="btn" data-a="next" ${vi>=vis.length-1?'disabled':''}>▶</button>`;
-  h+=`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${pickBtn(a)}</div>`;
+  h+=`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${EDADD()?'<button class="btn" data-dbl="1" data-a="newunit" title="Double-cliquez">＋ Unité</button><button class="btn" data-dbl="1" data-a="newsec" title="Double-cliquez">＋ Section</button><button class="btn" data-dbl="1" data-a="comp-add" title="Double-cliquez">＋ 🧩 Unité composée</button>':''}${pickBtn(a)}</div>`;
   if(mj&&l.id!=='ni')h+='<div class="row noprint"><button class="btn" data-a="editleg">✎ Modifier la légion</button><button class="btn" data-a="dupleg">⧉ Dupliquer</button><button class="btn" data-a="delleg">🗑 Supprimer</button><button class="btn" data-a="newleg">＋ Nouvelle légion</button></div>';
   if(S.showCols)h+=colsPanel(a);
   h+=`<div class="card"><div class="sans small up">${esc(a.name)}</div><h1 style="font-size:26px;margin:2px 0">${esc(legName(l))}${l.tag?'<span class="tag">'+esc(l.tag)+'</span>':''}</h1>`;
@@ -1035,13 +1036,13 @@ function onClick2(e){
     case 'unpickme':hostReq('fiches-pick',{clear:true}).then(r=>{if(!r.success)return toast(r.message||'Action impossible.');toast('Légion libérée');loadHosted(false);});break;
     case 'newleg':if(ED())createLegion();break;
     case 'newbonus':if(ED())bonusEditor(null);break;
-    case 'comp-add':case 'comp-edit':case 'comp-move':case 'comp-copy':case 'comp-del':if(ED())compAction(a.slice(5),el.dataset.id);break;
+    case 'comp-add':case 'comp-edit':case 'comp-move':case 'comp-copy':case 'comp-del':if(a==='comp-add'?EDADD():ED())compAction(a.slice(5),el.dataset.id);break;
     case 'tab-players':S.tab='players';render();break;
     case 'tab-saves':S.tab='saves';S.snaps=null;render();break;
     case 'tab-help':if(isMJ())mjHelp(true);break;
     case 'pl-add':case 'pl-lock':case 'pl-del':case 'pl-ren':case 'merc-add':case 'merc-del':if(isMJ())playersAction(el);break;
     case 'fam-scan':if(isMJ())scanDuplicates();break;
-    case 'newsec':if(ED())addSection();break;
+    case 'newsec':if(EDADD())addSection();break;
     case 'diag':if(isMJ())runDiag();break;
     case 'openpartner':if(S.partner)openFromLink(S.partner.army,S.partner.legion);break;
     case 'unit-std':{const t=S.uc;if(!t||!t.id)break;hostReq('landing-standard',{unit:t.id,on:!t.std}).then(r=>{if(!r.success)return toast(r.message||'Action impossible.');t.std=!t.std;t.stdUsed+=t.std?1:-1;const b=document.getElementById('stdBox');if(b)b.innerHTML=stdBoxHtml();toast(t.std?'Étendard attribué.':'Étendard retiré.');});break;}
@@ -1214,7 +1215,7 @@ function makeL2(a,u,att2,dis2){
   if(dis2!==''&&dis2!=null)u.l2.in_.E=isFinite(Number(dis2))?Number(dis2):dis2;
 }
 function newUnit(){
-  const a=curArmy();const cats=a.sections.filter(x=>x!=='');const types=allTypes();const mv=['m','vs','v','j','s'];
+  const a=curArmy();const lid=(S.view==='legion'&&S.sel&&S.sel!=='ni'&&a.legions.some(l=>l.id===S.sel))?S.sel:null;const cats=a.sections.filter(x=>x!=='');const types=allTypes();const mv=['m','vs','v','j','s'];
   const f=(id,lbl,val,t)=>`<label class="fl">${lbl}<input id="${id}" class="ft" type="${t||'text'}" value="${esc(val)}"></label>`;
   openModal('Nouvelle unité',`<div class="grid2">${f('nu_n','Nom','')}
    <label class="fl">Section<select id="nu_c" class="ft">${cats.map(c=>`<option>${esc(c)}</option>`).join('')}<option value="__new__">＋ Nouvelle section…</option></select></label>
@@ -1222,8 +1223,8 @@ function newUnit(){
    ${f('nu_C','att',1,'number')}<label class="fl">typ attaque<select id="nu_D" class="ft">${types.map(c=>`<option>${esc(c)}</option>`).join('')}</select></label>
    <div id="nu_l2box" style="display:none;grid-column:1/-1"><div class="grid2">${f('nu_C2','att (2ᵉ attaque)',1,'number')}${f('nu_E2','dis (2ᵉ attaque)','')}</div></div>
    ${f('nu_E','dis','')}${f('nu_G','PV',1,'number')}${f('nu_H','A (armure)','','number')}${f('nu_I','dep',3,'number')}
-   <label class="fl">typ dép<select id="nu_K" class="ft">${mv.map(c=>`<option>${c}</option>`).join('')}</select></label>${f('nu_A','Quantité',1,'number')}</div>
-   <div class="small" style="margin-top:6px">Les formules sont copiées d'une unité de même type. L'unité rejoint « Non intégré ».</div><div class="ftres err" id="nuerr"></div>`,
+   <label class="fl">typ dép<select id="nu_K" class="ft">${mv.map(c=>`<option>${c}</option>`).join('')}</select></label>${f('nu_A','Quantité',1,'number')}${lid?f('nu_U','Nombre d\'unités (U)',1,'number')+f('nu_Q','Étendards (E)',0,'number'):''}</div>
+   <div class="small" style="margin-top:6px">Les formules sont copiées d'une unité de même type. ${lid?'L\'unité rejoint cette légion et apparaît aussi dans la fiche de l\'armée.':'L\'unité rejoint « Non intégré ».'}</div><div class="ftres err" id="nuerr"></div>`,
    [{label:'Annuler',fn:closeModal},{label:'Créer',cls:'pri',fn:()=>{
      const name=mval('nu_n').trim();const er=document.getElementById('nuerr');if(!name){er.textContent='Nom requis.';return;}
      let cat=mval('nu_c');
@@ -1234,12 +1235,12 @@ function newUnit(){
      const num=id=>{const t=mval(id).trim();return t===''?undefined:Number(t);};
      const n=Math.max(1,num('nu_A')||1);
      const u={uid:uid(a),cat,in_:{A:n,B:name,C:num('nu_C')||0,D:type,G:num('nu_G')||0,I:num('nu_I')||0,K:mval('nu_K')},
-       fm:Object.assign({},tpl.fm),fo:{},v:{},q:{ni:[n,0,0,null,a.defVal,a.defVal]}};
+       fm:Object.assign({},tpl.fm),fo:{},v:{},q:lid?{[lid]:[n,0,Math.max(0,num('nu_Q')||0),null,a.defVal,a.defVal,Math.max(1,num('nu_U')||1),'']}:{ni:[n,0,0,null,a.defVal,a.defVal]}};
      u.fm0=Object.assign({},u.fm);delete u.fm.S;delete u.fm0.S;
      if(mval('nu_E').trim()!=='')u.in_.E=isFinite(Number(mval('nu_E')))?Number(mval('nu_E')):mval('nu_E');
      if(num('nu_H')!==undefined)u.in_.H=num('nu_H');
      if(isDouble(type))makeL2(a,u,num('nu_C2')||0,mval('nu_E2').trim());
-     insertUnit(a,u);closeModal();S.sel='ni';afterChange([a.id]);toast('Unité créée dans « Non intégré »'+(u.l2?' avec sa 2ᵉ attaque':''));}}]);
+     insertUnit(a,u);closeModal();if(!lid)S.sel='ni';afterChange([a.id]);toast(lid?'Unité créée dans cette légion':'Unité créée dans « Non intégré »'+(u.l2?' avec sa 2ᵉ attaque':''));}}]);
   const upd=()=>{document.getElementById('nu_newbox').style.display=mval('nu_c')==='__new__'||!cats.length?'block':'none';document.getElementById('nu_l2box').style.display=isDouble(mval('nu_D'))?'block':'none';};
   document.getElementById('nu_c').addEventListener('change',upd);document.getElementById('nu_D').addEventListener('change',upd);
   if(!cats.length)document.getElementById('nu_c').value='__new__';upd();
@@ -1561,7 +1562,7 @@ function compPanel(a){
   list.forEach(c=>{const lg=a.legions.find(l=>l.id===c.legion);const t=compText(a,c);
     h+=`<div class="row" style="margin:4px 0;align-items:center"><span class="sans" style="flex:1;min-width:200px"><b>${esc(lg?legName(lg):c.legion)}</b> · ${t||'<i>inactive (unités absentes de cette légion, ou aucun reste)</i>'}</span>`
       +`<button class="mini" data-a="comp-edit" data-id="${esc(c.id)}" title="Modifier">✎</button><button class="mini" data-a="comp-move" data-id="${esc(c.id)}" title="Déplacer vers une autre légion">⇄</button><button class="mini" data-a="comp-copy" data-id="${esc(c.id)}" title="Copier dans une autre légion">⧉</button><button class="mini" data-a="comp-del" data-id="${esc(c.id)}" title="Supprimer">✕</button></div>`;});
-  return h+'<div class="row" style="margin:6px 0 0"><button class="btn" data-a="comp-add">＋ Unité composée</button></div></div>';
+  return h+'</div>';
 }
 function compForm(c,isNew){
   const a=curArmy();const legs=a.legions.filter(l=>l.id!=='ni'&&a.units.some(u=>u.q[l.id]));
