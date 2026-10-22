@@ -3733,8 +3733,8 @@
             const zone = key && zoneAtKey(key);
             if (!zone) return;
             if (state.isAdmin && LAND.view.phase === 'zones' && state.mode === 'move') openZoneDialog(zone.id);
-            else if (!state.isAdmin && LAND.view.phase === 'choose') { if (zone.group === LAND.view.myGroup) chooseZone(zone.id); else toast(`Cette zone appartient aux entrées ${zone.group || '—'} : votre équipe débarque aux entrées ${LAND.view.myGroup}.`, true); }
-            else if (state.isAdmin && LAND.view.phase === 'choose') { if (LAND.view.myTeam && zone.group === LAND.view.myGroup) chooseZone(zone.id); else { LAND.open = true; renderLandingPanel(); } }
+            else if (!state.isAdmin && (LAND.view.phase === 'choose' || (LAND.view.phase === 'place' && canChooseZone()))) { if (zone.group === LAND.view.myGroup) chooseZone(zone.id); else toast(`Cette zone appartient aux entrées ${zone.group || '—'} : votre équipe débarque aux entrées ${LAND.view.myGroup}.`, true); }
+            else if (state.isAdmin && (LAND.view.phase === 'choose' || (LAND.view.phase === 'place' && canChooseZone()))) { if (LAND.view.myTeam && zone.group === LAND.view.myGroup) chooseZone(zone.id); else { LAND.open = true; renderLandingPanel(); } }
         }
         el.canvas.addEventListener('pointerup', (e) => finishPress(e, false), true);
         el.canvas.addEventListener('pointercancel', (e) => finishPress(e, true), true);
@@ -3816,9 +3816,21 @@
             ]);
         }
 
+        // Qui occupe une zone (parmi ce que je vois) ; une zone n'a qu'un seul joueur.
+        function zoneHolder(id) {
+            const me = String(state.username || '').toLowerCase();
+            const e = Object.entries(LAND.view.choices || {}).find(([n, z]) => z === id && n.toLowerCase() !== me);
+            return e ? e[0] : null;
+        }
+        // Un joueur figé ne change plus de zone ; pendant le dépôt, seul un joueur sans zone peut encore en choisir une.
+        const canChooseZone = () => !LAND.view.bound && (LAND.view.phase === 'choose' || (LAND.view.phase === 'place' && !LAND.view.myZone));
+
         function chooseZone(id) {
             const mine = (LAND.view.zones || []).find((z) => z.id === id);
             if (!mine) return;
+            if (!canChooseZone()) return toast('Votre zone est figée : vous ne pouvez plus en changer.', true);
+            const holder = zoneHolder(id);
+            if (holder) return toast(`La zone ${id.toUpperCase()} est déjà choisie par ${holder}.`, true);
             landingDialog(`Zone ${id.toUpperCase()}`, `<p>Débarquer votre légion dans la zone <b>${id.toUpperCase()}</b> (${mine.tiles.length} tuiles) ?</p>`, [
                 { label: 'Choisir cette zone', cls: 'btn-primary', fn: () => landEmit('landing-choose', { zone: id }).then((r) => { if (r.success) toast(`Zone ${id.toUpperCase()} choisie.`); }) },
                 { label: 'Annuler' }
@@ -3886,13 +3898,18 @@
                     if (v.myTeam) {
                         h += `<p class="lp-hint">Vous jouez dans l’équipe <b>${teamName(v.myTeam)}</b> (entrées ${v.myGroup}) : choisissez aussi votre zone.</p>`;
                         for (const z of (v.zones || []).filter((x) => x.group === v.myGroup)) {
-                            h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${GROUP_COL[z.group]}">${z.id.toUpperCase()}</button><span class="lp-grow">${z.tiles.length} tuiles</span><button class="lp-seg ${v.myZone === z.id ? 'on' : ''}" data-land="choose" data-zone="${z.id}">${v.myZone === z.id ? 'Choisie ✓' : 'Choisir'}</button></div>`;
+                            h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${GROUP_COL[z.group]}">${z.id.toUpperCase()}</button><span class="lp-grow">${zoneHolder(z.id) ? zoneHolder(z.id) : z.tiles.length + ' tuiles'}</span>${zoneBtn(z)}</div>`;
                         }
                     }
-                    h += playersTable(v.players || []);
+                    h += playersTable(v.players || [], true);
                     h += `<div class="lp-actions"><button class="btn btn-primary" data-land="freeze">Figer les affectations →</button></div>`;
                 } else if (v.phase === 'place') {
                     h += `<p class="lp-hint">Les joueurs déposent leurs unités sur leur zone. Vous voyez tout.</p>`;
+                    if (v.myTeam && canChooseZone()) {
+                        h += `<p class="lp-hint">Vous n’avez pas encore de zone : choisissez-en une libre (entrées ${v.myGroup}).</p>`;
+                        for (const z of (v.zones || []).filter((x) => x.group === v.myGroup)) h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${GROUP_COL[z.group]}">${z.id.toUpperCase()}</button><span class="lp-grow">${zoneHolder(z.id) || 'libre'}</span>${zoneBtn(z)}</div>`;
+                    }
+                    h += playersTable(v.players || [], true);
                     h += (v.progress || []).map((p) => `<div class="lp-row"><span class="lp-dot" style="background:${TEAM_COL[p.team] || '#888'}"></span><span class="lp-grow">${p.name}</span><b>${p.placed}/${p.total}</b></div>`).join('');
                     h += '<p class="lp-hint">Les placements de l’équipe adverse restent cachés jusqu’au verrouillage.</p>';
                     h += `<div class="lp-actions"><button class="btn btn-primary" data-land="lock">🔒 Verrouiller les placements</button></div>`;
@@ -3907,12 +3924,15 @@
                     h += `<p class="lp-hint">Votre équipe (<b>${teamName(v.myTeam)}</b>) débarque aux <b>entrées ${v.myGroup}</b>. Choisissez votre zone de débarquement (touchez la zone sur la carte ou ici). Les choix de l’autre équipe sont cachés.</p>`;
                     for (const z of (v.zones || []).filter((x) => x.group === v.myGroup)) {
                         const who = Object.entries(v.choices || {}).filter(([, id]) => id === z.id).map(([n]) => n);
-                        h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${GROUP_COL[z.group]}">${z.id.toUpperCase()}</button><span class="lp-grow">${who.length ? who.join(', ') : 'libre'}</span><button class="lp-seg ${v.myZone === z.id ? 'on' : ''}" data-land="choose" data-zone="${z.id}">${v.myZone === z.id ? 'Choisie ✓' : 'Choisir'}</button></div>`;
+                        h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${GROUP_COL[z.group]}">${z.id.toUpperCase()}</button><span class="lp-grow">${who.length ? who.join(', ') : 'libre'}</span>${zoneBtn(z)}</div>`;
                     }
                     h += playersTable(v.players || []);
                 } else if (v.phase === 'place') {
                     const units = myUnits();
-                    h += `<p class="lp-hint">Glissez vos unités depuis le sélecteur d’unités vers une tuile de votre zone <b>${(v.myZone || '?').toUpperCase()}</b>, une par une. Vous pouvez les déplacer ensuite. Vos coéquipiers voient vos unités en direct. <b>${units.filter((u) => u.tile).length}/${units.length}</b> posées.</p>`;
+                    if (canChooseZone()) {
+                        h += `<p class="lp-hint">Le dépôt est en cours et vous n’avez pas encore de zone : choisissez une zone <b>libre</b> de vos entrées ${v.myGroup} (sur la carte ou ici) pour recevoir vos unités.</p>`;
+                        for (const z of (v.zones || []).filter((x) => x.group === v.myGroup)) h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${GROUP_COL[z.group]}">${z.id.toUpperCase()}</button><span class="lp-grow">${zoneHolder(z.id) || 'libre'}</span>${zoneBtn(z)}</div>`;
+                    } else h += `<p class="lp-hint">Glissez vos unités depuis le sélecteur d’unités vers une tuile de votre zone <b>${(v.myZone || '?').toUpperCase()}</b>, une par une. Vous pouvez les déplacer ensuite. Vos coéquipiers voient vos unités en direct. <b>${units.filter((u) => u.tile).length}/${units.length}</b> posées.</p>`;
                 } else if (v.phase === 'locked') {
                     h += '<p class="lp-hint">Les placements sont verrouillés : vous voyez toutes les unités. Appui long sur une unité : portée de déplacement (cases bleues = bonus de sa section). Double toucher : la fiche de cette unité.</p>';
                 }
@@ -3921,9 +3941,18 @@
             panel.hidden = false;
         }
 
-        function playersTable(players) {
+        // Bouton « Choisir » d'une zone : grisé si la zone est prise par un autre joueur ou si ma zone est figée.
+        function zoneBtn(z) {
+            const v = LAND.view;
+            const mine = v.myZone === z.id;
+            const blocked = !mine && (!canChooseZone() || zoneHolder(z.id));
+            const label = mine ? (v.bound ? 'Figée 🔒' : 'Choisie ✓') : (zoneHolder(z.id) ? 'Prise' : 'Choisir');
+            return `<button class="lp-seg ${mine ? 'on' : ''}" data-land="choose" data-zone="${z.id}" ${blocked || (mine && v.bound) ? 'disabled' : ''}>${label}</button>`;
+        }
+
+        function playersTable(players, release) {
             if (!players.length) return '<p class="lp-hint">Aucun joueur dans une équipe.</p>';
-            return players.map((p) => `<div class="lp-row"><span class="lp-dot" style="background:${TEAM_COL[p.team] || '#888'}"></span><span class="lp-grow">${p.name}${p.pick ? '' : ' <i>(sans légion)</i>'}</span><b>${p.zone ? 'zone ' + p.zone.toUpperCase() : (p.chosen ? 'zone choisie ✓' : '—')}</b></div>`).join('');
+            return players.map((p) => `<div class="lp-row"><span class="lp-dot" style="background:${TEAM_COL[p.team] || '#888'}"></span><span class="lp-grow">${p.name}${p.pick ? '' : ' <i>(sans légion)</i>'}</span><b>${p.zone ? 'zone ' + p.zone.toUpperCase() : (p.chosen ? 'zone choisie ✓' : '—')}${p.bound ? ' 🔒' : ''}</b>${release && p.chosen ? `<button class="lp-seg" data-land="release" data-name="${p.name}" title="Libérer ce joueur : sa zone et ses unités posées sont effacées">Libérer</button>` : ''}</div>`).join('');
         }
 
         // Sélecteur d'unités à déposer : un sélecteur comme les autres (bord de l'écran, fond gris, repli automatique, déplaçable).
@@ -4026,12 +4055,15 @@
             if (v.phase === 'zones') return toast('C’est la première étape : il n’y a pas d’étape précédente.');
             const prev = { choose: 'zones', place: 'choose', locked: 'place' }[v.phase];
             const go = () => landEmit('landing-goto', { phase: prev });
+            if (v.phase === 'place') {
+                return landingDialog('Revenir au choix des zones ?', '<p>Les joueurs déjà figés <b>gardent leur zone et leurs unités posées</b>. Vous pourrez libérer un joueur à part si besoin, puis figer de nouveau pour donner leurs unités aux joueurs qui n’avaient pas de zone.</p>', [{ label: 'Revenir', cls: 'btn-danger', fn: go }, { label: 'Annuler' }]);
+            }
             if (v.phase === 'locked') {
                 return landingDialog('Revenir au dépôt ?', '<p>Les placements sont conservés : les joueurs pourront de nouveau déplacer leurs unités, et l’équipe adverse redeviendra invisible.</p>', [{ label: 'Revenir', cls: 'btn-danger', fn: go }, { label: 'Annuler' }]);
             }
             const lose = {
                 choose: 'Les <b>zones choisies par tous les joueurs</b> et l’affectation des équipes aux entrées A et B seront effacées.',
-                place: 'Toutes les <b>unités déjà déposées par vous et par les autres joueurs</b> (avec leurs étendards) seront effacées.'
+                place: ''
             }[v.phase];
             landingDialog('Revenir à l’étape précédente ?', `<p>${lose}</p><p><b>Cette action est irréversible.</b></p>`, [
                 {
@@ -4056,7 +4088,7 @@
             if (!state.isAdmin) return;
             const names = { off: 'Débarquement arrêté', zones: '1 · Zones', choose: '2 · Choix', place: '3 · Dépôt', locked: '4 · Verrouillé' };
             const nextT = { off: 'Lancer le débarquement', zones: 'Affecter les équipes', choose: 'Figer les affectations', place: 'Verrouiller les placements', locked: 'Dernière phase' }[LAND.view.phase];
-            const prevT = { off: '—', zones: 'Aucune étape précédente', choose: 'Retour au regroupement', place: 'Retour aux choix', locked: 'Retour au dépôt' }[LAND.view.phase];
+            const prevT = { off: '—', zones: 'Aucune étape précédente', choose: 'Retour au regroupement', place: 'Retour aux choix (rien n’est effacé)', locked: 'Retour au dépôt' }[LAND.view.phase];
             document.querySelector('#stackBr [data-land="next"]').title = `Suivant : ${nextT}`;
             document.querySelector('#stackBr [data-land="prev"]').title = `Précédent : ${prevT}`;
             document.querySelector('#stackBr [data-land="prev"]').disabled = LAND.view.phase === 'zones' || LAND.view.phase === 'off';
@@ -4149,6 +4181,13 @@
                 if (sec) landEmit('landing-bonus', { zone: z.id, section: sec.key, value: Math.max(0, Math.min(9, sec.bonus + Number(b.dataset.d))) });
             } else if (k === 'area') { const key = `${b.dataset.zone}:${b.dataset.section}`; LAND.showArea = LAND.showArea === key ? null : key; LAND.areaSig = ''; renderLandingPanel(); requestDraw(); }
             else if (k === 'choose') chooseZone(b.dataset.zone);
+            else if (k === 'release' && state.isAdmin) {
+                const n = b.dataset.name;
+                landingDialog(`Libérer ${n} ?`, `<p>La zone de <b>${n}</b> et toutes ses unités déjà posées (avec leurs étendards) seront effacées. Il pourra choisir une autre zone libre.</p>`, [
+                    { label: 'Libérer', cls: 'btn-danger', fn: () => landEmit('landing-release', { name: n }).then((r) => { if (r.success) toast(`${n} est libéré.`); }) },
+                    { label: 'Annuler' }
+                ]);
+            }
             else if (k === 'freeze' && state.isAdmin) adminStep('landing-freeze', {}, 'Figer quand même');
             else if (k === 'lock' && state.isAdmin) adminStep('landing-lock', {}, 'Verrouiller quand même');
             else if (k === 'back' && state.isAdmin) adminPrev();
