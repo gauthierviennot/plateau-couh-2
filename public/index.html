@@ -3432,7 +3432,8 @@
                     // Croix de suppression (mes unités, pendant le dépôt) : l'unité retourne dans le sélecteur.
                     const hasCross = !opt && mine && LAND.view.phase === 'place';
                     const leftPad = hasCross ? chipH * 1.0 : chipH * 0.28;
-                    const textW = w - (hasFlag ? chipH * 1.05 : chipH * 0.3) - (leftPad - chipH * 0.28);
+                    const puz = u.comp ? chipH * 0.8 : 0; // unité composée : petit morceau de puzzle devant le nom
+                    const textW = w - (hasFlag ? chipH * 1.05 : chipH * 0.3) - (leftPad - chipH * 0.28) - puz;
                     let cross = null;
                     if (hasCross) {
                         const cx = ox - w / 2 + chipH * 0.5;
@@ -3454,7 +3455,12 @@
                     const num = ` ${u.idx}`;
                     let nm = shortName(u.name, 12);
                     while (c.measureText(nm + num).width > textW && nm.length > 3) nm = `${nm.slice(0, -2)}…`;
-                    c.fillText(nm + num, ox - w / 2 + leftPad, oy + chipH * 0.03);
+                    if (puz) {
+                        c.font = `${chipH * 0.55}px system-ui, "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+                        c.fillText('🧩', ox - w / 2 + leftPad, oy + chipH * 0.03);
+                        c.font = `600 ${chipH * 0.46}px system-ui, sans-serif`;
+                    }
+                    c.fillText(nm + num, ox - w / 2 + leftPad + puz, oy + chipH * 0.03);
                     let flag = null;
                     if (hasFlag) {
                         const used = stdUsed.get(u.line) || 0;
@@ -3968,7 +3974,7 @@
             const chips = pending.map((g) => {
                 const rest = g.filter((u) => !u.tile).length;
                 const flags = g.filter((u) => u.std).length;
-                return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '⚑ '}${shortName(g[0].name, 14)}<br><b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${g[0].stdMax - flags}/${g[0].stdMax}` : ''}</div>`; // même principe que les unités : il en reste X à attribuer sur Y
+                return `<div class="ub-chip ${rest ? '' : 'done'}" data-line="${g[0].line}" style="border-color:${TEAM_COL[g[0].team] || '#555'}">${rest ? '' : '⚑ '}${g[0].comp ? '🧩 ' : ''}${shortName(g[0].name, g[0].comp ? 12 : 14)}<br><b>${rest}/${g.length}</b>${g[0].stdMax ? ` ⚑${g[0].stdMax - flags}/${g[0].stdMax}` : ''}</div>`; // même principe que les unités : il en reste X à attribuer sur Y
             }).join('');
             const info = `<div class="ub-info" title="Unités posées · zone ${(LAND.view.myZone || '').toUpperCase()}">${done}/${units.length}<br>zone ${(LAND.view.myZone || '').toUpperCase()}</div>`;
             bar.innerHTML = info + (chips || '<div class="ub-info">✓<br>tout est posé</div>');

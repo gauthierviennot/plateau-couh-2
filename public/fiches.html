@@ -77,8 +77,10 @@ tr.total td{font-weight:700;background:var(--head);border-bottom:none}tr.total t
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);font:14px system-ui,sans-serif;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:200;max-width:90%}
 .toast.show{opacity:1}
 @media print{:root,:root[data-theme="dark"]{--bg:#fff;--card:#fff;--fg:#000;--muted:#444;--border:#bbb;--head:#eee;--cat:#e6e6e6;--stick:#fff;--hl:#eee;--accent:#000}
- body{background:#fff;font-size:12px}.noprint,.top,.act,#modal,.toast{display:none!important}.scroll{overflow:visible;border:none}td.name,th.name{position:static}.wrap{padding:0}}
+ body{background:#fff;font-size:12px}.noprint,.top,.act,#modal,.toast{display:none!important}.scroll{overflow:visible;border:none}td.name,th.name{position:static}.wrap{padding:0;max-width:none}table{width:max-content}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{break-inside:avoid}thead{display:table-header-group}}
 
+tr.compr td.name{border-left:4px solid #7b3fe4}tr.compr1 td{border-top:2px solid #7b3fe4}tr.compr2 td{border-bottom:2px solid #7b3fe4}
+tr.compr td.name{background:#efe7ff;color:#000}td.compu{background:#efe7ff;color:#000;font-weight:700;vertical-align:middle}
 .chip.me{border-color:var(--accent)}
 .pk{display:inline-flex;align-items:center;gap:2px}
 th.lg.gs,td.lg.gs{border-left:2px solid var(--border)}
@@ -304,6 +306,28 @@ function uid(a){return a.id+'-'+Date.now().toString(36)+Math.random().toString(3
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';clearTimeout(toast.t);toast.t=setTimeout(()=>t.className='toast',2800);}
 const getArmy=id=>ARMIES.find(a=>a.id===id);
 const curArmy=()=>getArmy(S.army);
+/* Impression : on choisit paysage ou portrait selon la forme du tableau, et on réduit l'ensemble pour tout voir (colonnes et lignes). */
+function printFit(){
+  const view=document.getElementById('view');const tb=view&&view.querySelector('.scroll table');
+  document.querySelectorAll('#printfit').forEach(x=>x.remove());const st=document.createElement('style');st.id='printfit';let sc=null,undo=()=>{};
+  try{
+    if(tb){
+      sc=tb.parentElement;const old={w:tb.style.width,o:sc.style.overflow};
+      tb.style.width='max-content';sc.style.overflow='visible';
+      const W=Math.max(tb.offsetWidth,300);let extra=0;
+      [...view.children].forEach(ch=>{if(ch===sc||ch.classList.contains('noprint'))return;const cs=getComputedStyle(ch);extra+=ch.offsetHeight+parseFloat(cs.marginTop||0)+parseFloat(cs.marginBottom||0);});
+      const H=tb.offsetHeight+extra+20;const mm=3.7795,m=8;
+      const dims=o=>o==='L'?{w:(297-2*m)*mm,h:(210-2*m)*mm}:{w:(210-2*m)*mm,h:(297-2*m)*mm};
+      const fit=o=>{const d=dims(o);return Math.min(d.w/W,d.h/H);};
+      const land=fit('L')>fit('P');const s=Math.min(1.25,(land?fit('L'):fit('P'))*0.96); // toujours une seule page : pas de taille minimale
+      st.textContent=`@page{size:A4 ${land?'landscape':'portrait'};margin:${m}mm}@media print{#view{zoom:${s.toFixed(3)}}html,body{height:auto;overflow:hidden}}`;
+      document.head.appendChild(st);
+      undo=()=>{tb.style.width=old.w;sc.style.overflow=old.o;st.remove();};
+    }
+    window.addEventListener('afterprint',function f(){window.removeEventListener('afterprint',f);undo();});
+    window.print();
+  }catch(x){undo();toast('Impression indisponible ici');}
+}
 function colLabel(a,c){if(c==='V'&&a.hdr&&a.hdr.V)return String(a.hdr.V);return SHORT[c];}
 
 function recompute(){let dv=null;ARMIES.forEach(a=>{if(a.defVal)dv=dv||a.defVal;});ARMIES.forEach(a=>{if(!a.defVal)a.defVal=dv;a.units.forEach(u=>calcUnit(u,a,FAM));});}
@@ -360,7 +384,8 @@ function cellTd(a,u,which,c,extra){
   const cls=['cell'];if(calc)cls.push('calc');if(ov)cls.push('ov');if(bad)cls.push('bad');
   const attr=ED()?` data-cell="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-w="${which}" data-col="${c}"`:'';
   const tip=ov?' title="Formule propre à cette cellule"':(bad&&row.err?` title="${esc(Object.values(row.err)[0])}"`:'');
-  return `<td class="${cls.join(' ')}"${attr}${tip}>${esc(fnum(v))}</td>`;
+  const bg=xcol(a,c);
+  return `<td class="${cls.join(' ')}"${bg?` style="background:${bg};color:#000"`:''}${attr}${tip}>${esc(fnum(v))}</td>`;
 }
 
 
@@ -482,7 +507,7 @@ function onClick(e){
     case 'cols-all':COLS.forEach(c=>S.cols.add(c));render();break;
     case 'cols-def':S.cols=new Set(DEFCOLS);render();break;
     case 'cols-none':S.cols=new Set();render();break;
-    case 'print':try{window.print();}catch(x){toast('Impression indisponible ici');}break;
+    case 'print':printFit();break;
     case 'copy':{const l=cur.legions.find(x=>x.id===S.sel);const txt=toText(cur,l);
       (async()=>{try{await navigator.clipboard.writeText(txt);toast('Fiche copiée');}catch(x){try{const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();toast('Fiche copiée');}catch(y){toast('Copie indisponible ici');}}})();break;}
     case 'newunit':if(ED())newUnit();break;
@@ -580,7 +605,11 @@ function renderCatalog(){
 }
 
 /* ---- boutons d'unité / de section ---- */
-function headTh(a,c,rs){return `<th class="${c==='B'?'name':'wrapth'}" ${rs?`rowspan="${rs}"`:''} title="${esc(LONG[c])}">${esc(c==='B'?'Unité':colLabel(a,c))}</th>`;}
+/* codes couleurs des fiches Excel : colonnes principales (att, dis, PV, A, dep, typ dép) et colonnes calculées en gris */
+const XC={C:'#ffcc00',E:'#ffcc00',F:'#969696',G:'#ff9900',H:'#ff0000',I:'#ffff99',J:'#969696',K:'#ffff99',L:'#969696',M:'#969696',Q:'#969696',R:'#969696'};
+const xcol=(a,c)=>(c==='H'&&a&&a.id==='bretonnie')?'#ff6600':XC[c];
+const hdrStyle=(a,c)=>`background:${xcol(a,c)||'#c0c0c0'};color:#000`;
+function headTh(a,c,rs){return `<th class="${c==='B'?'name':'wrapth'}" style="${hdrStyle(a,c)}" ${rs?`rowspan="${rs}"`:''} title="${esc(LONG[c])}">${esc(c==='B'?'Unité':colLabel(a,c))}</th>`;}
 function colsPanel(a){
   let h='<div class="card noprint"><div class="chips">';
   COLS.forEach(c=>{if(c==='B')return;const on=S.cols.has(c);h+=`<button class="chip sm ${on?'on':''}" data-a="col" data-col="${c}" title="${esc(LONG[c])}">${esc(colLabel(a,c))}<small>${c}</small></button>`;});
@@ -599,7 +628,7 @@ function renderFull(a){
   h+='</div>';
   const cur=a.legions.find(l=>l.id===S.sel);
   h+=`<div class="row noprint"><button class="btn pri" data-a="mk" ${cur?'':'disabled'}>${cur?('Créer la fiche : '+esc(legName(cur))):'Sélectionnez une légion'}</button>`+pickBtn(a);
-  h+=`<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button>`;
+  h+=`<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button>`;
   if(mj)h+='<button class="btn" data-dbl="1" data-a="newunit" title="Double-cliquez">＋ Unité</button><button class="btn" data-dbl="1" data-a="newsec" title="Double-cliquez">＋ Section</button>';
   h+='</div>';
   if(mj)h+='<div class="hint noprint">Mode MJ : toute modification se fait par <b>double clic</b> (cellule, nom d\'unité, section, légion, bonus, boutons ＋). Les fiches légion ne sont pas modifiables.</div>';
@@ -639,6 +668,7 @@ function renderLegion(a){
   const l=a.legions.find(x=>x.id===S.sel);if(!l){S.view='full';return renderFull(a);}
   const mj=false;const cs=visCols();const rows=a.units.filter(u=>u.q[l.id]);
   const t=legTot(a,l);let h=picksBar();
+  const compBase={},compEx={};(a.composites||[]).filter(c=>c.legion===l.id).forEach(c=>{const o=compOk(a,c);if(o&&!compBase[c.base]&&!compEx[c.extra]){compBase[c.base]={c,o};compEx[c.extra]=1;}});
   const vis=visLegions(a);const vi=vis.indexOf(l);const rs=HOSTED&&S.restricted;
   const nav=rs?'':`<button class="btn" data-a="back">← Armée complète</button><button class="btn" data-a="prev" ${vi<=0?'disabled':''}>◀</button><button class="btn" data-a="next" ${vi>=vis.length-1?'disabled':''}>▶</button>`;
   h+=`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${pickBtn(a)}</div>`;
@@ -657,12 +687,16 @@ function renderLegion(a){
     groupUnits(a,u=>u.q[l.id],false).forEach(g=>{
       h+=secRow(a,g,cs.length+4+(mj?1:0),false);
       g.units.forEach(u=>{const q=u.q[l.id];
-        ['u','l2'].forEach(wh=>{if(wh==='l2'&&!u.l2)return;
+        if(compEx[u.uid])return; // la figurine seule est affichée avec sa ligne de base, dans l'unité composée
+        const cb=compBase[u.uid];
+        ['u','l2'].forEach(wh=>{if(wh==='l2'&&!u.l2)return;if(cb&&cb.o.full===0)return;
           h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c)).join('');
           if(wh==='u'){const at=i=>mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${i}"`:'';
-            h+=`<td class="qty"${at(0)}>${q[0]}</td><td${at(1)}>${uTxt(q)}</td><td${at(2)}>${q[2]||''}</td><td>${q[3]==null||q[3]!==q[3]?'':Math.round(q[3])}</td>`;}
+            const nbS=cb?cb.o.full*cb.c.size:q[0];const okv=q[3]!=null&&q[3]===q[3];
+            h+=`<td class="qty"${at(0)}>${nbS}</td><td${at(1)}>${cb?cb.o.full+(q[7]||''):uTxt(q)}</td><td${at(2)}>${q[2]||''}</td><td>${okv?Math.round(q[3]*nbS/(q[0]||1)):''}</td>`;}
           else h+='<td></td><td></td><td></td><td></td>';
-          h+=actTd(a,u,wh)+'</tr>';});});
+          h+=actTd(a,u,wh)+'</tr>';});
+        if(cb)h+=compRows(a,l,cb,cs);});
     });
     h+=`<tr class="total"><td class="name">Total</td>${cs.slice(1).map(()=>'<td></td>').join('')}<td>${t.n}</td><td>${t.c||''}</td><td>${t.e||''}</td><td>${pts(t.v)}</td>${mj?'<td class="noprint"></td>':''}</tr></tbody></table></div>`;
   }
@@ -1471,6 +1505,14 @@ function compAction(act,id){
   else if(act==='del')a.composites=a.composites.filter(x=>x.id!==id),afterChange([a.id]);
   else if(act==='move')compPickLegion(c,'Déplacer',t=>{if(a.composites.some(x=>x.id!==c.id&&x.legion===t&&(x.base===c.base||x.extra===c.extra))){toast('Déjà utilisée dans cette légion.');return;}c.legion=t;});
   else if(act==='copy')compPickLegion(c,'Copier',t=>{if(a.composites.some(x=>x.legion===t&&(x.base===c.base||x.extra===c.extra))){toast('Déjà utilisée dans cette légion.');return;}a.composites.push({...c,id:'c'+Math.random().toString(36).slice(2,8),legion:t});});
+}
+/* unité composée dans la fiche de légion : les deux types de figurines l'un sous l'autre, dans un même cadre */
+function compRows(a,l,cb,cs){
+  const {c,o}=cb;const qb=o.b.q[l.id],qe=o.e.q[l.id];
+  const val=(q,n)=>(q[3]!=null&&q[3]===q[3]&&q[0])?Math.round(q[3]*n/q[0]):'';
+  const row=(u,n,q,k)=>'<tr class="compr compr'+k+'">'+cs.map(col=>col==='B'?`<td class="name">🧩 ${esc(u.in_.B||'')}</td>`:cellTd(a,u,'u',col)).join('')
+    +`<td class="qty">${n}</td>`+(k===1?`<td class="compu" rowspan="2">🧩 1${esc(qb[7]||'')}<br><small>unité composée</small></td><td class="compu" rowspan="2"></td>`:'')+`<td>${val(q,n)}</td></tr>`;
+  return row(o.b,o.rest,qb,1)+row(o.e,qe[0],qe,2);
 }
 function showCompCard(t,a,l){
   const parts=(t.comp||[]).map(c=>({c,u:a.units.find(x=>x.uid===c.uid)})).filter(x=>x.u);
