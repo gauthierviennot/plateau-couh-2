@@ -139,7 +139,7 @@ td.name{z-index:3}
       <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
       <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
       <span id="mjBadge" class="badge mj">MJ</span>
-      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v22-oct-20h</span>
+      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v22-oct-20h40</span>
     </div>
     <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
     <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
@@ -327,8 +327,11 @@ function printFit(){
       const H=tb.offsetHeight+extra+20;const mm=3.7795,m=8;
       const dims=o=>o==='L'?{w:(297-2*m)*mm,h:(210-2*m)*mm}:{w:(210-2*m)*mm,h:(297-2*m)*mm};
       const fit=o=>{const d=dims(o);return Math.min(d.w/W,d.h/H);};
-      const land=fit('L')>fit('P');const s=Math.min(1.25,(land?fit('L'):fit('P'))*0.96); // toujours une seule page : pas de taille minimale
-      st.textContent=`@page{size:A4 ${land?'landscape':'portrait'};margin:${m}mm}@media print{#view{zoom:${s.toFixed(3)}}html,body{height:auto;overflow:hidden}}`;
+      // Chrome pour Android ignore l'orientation demandée par la page (le dialogue d'impression reste en portrait) : on dimensionne alors pour le portrait,
+      // sinon les colonnes de droite seraient coupées. Ailleurs l'orientation (portrait ou paysage) est choisie automatiquement.
+      const android=/Android/i.test(navigator.userAgent||'');
+      const land=!android&&fit('L')>fit('P');const s=Math.min(1.25,(land?fit('L'):fit('P'))*0.96); // toujours une seule page : pas de taille minimale
+      st.textContent=`@page{${android?'':`size:A4 ${land?'landscape':'portrait'};`}margin:${m}mm}@media print{#view{zoom:${s.toFixed(3)}}html,body{height:auto;overflow:hidden}}`;
       document.head.appendChild(st);
       undo=()=>{tb.style.width=old.w;sc.style.overflow=old.o;st.remove();restoreCols();};
     }
@@ -336,6 +339,61 @@ function printFit(){
     window.print();
   }catch(x){undo();restoreCols();toast('Impression indisponible ici');}
 }
+
+/* Impression en image (téléphone) : la fiche telle qu'à l'impression est dessinée dans une image PNG (SVG puis canvas), sans orientation ni mise en page à gérer. */
+const PIMG_PROPS=['display','position','box-sizing','margin-top','margin-right','margin-bottom','margin-left','padding-top','padding-right','padding-bottom','padding-left',
+  'border-top-width','border-top-style','border-top-color','border-right-width','border-right-style','border-right-color','border-bottom-width','border-bottom-style','border-bottom-color','border-left-width','border-left-style','border-left-color',
+  'border-collapse','border-spacing','border-radius','background-color','color','font-family','font-size','font-weight','font-style','line-height','letter-spacing','text-align','text-transform','vertical-align','white-space','box-shadow','overflow','flex','flex-direction','flex-wrap','gap','align-items','justify-content','opacity','float','table-layout'];
+async function printImage(){
+  const keepCols=new Set(S.cols);let forced=false;
+  ['W','X','$pts'].forEach(c=>{if(!S.cols.has(c)){S.cols.add(c);forced=true;}});
+  const keepHq=new Set(S.hq);if(S.hq.size){S.hq.clear();forced=true;}
+  if(forced)render();
+  const restore=()=>{if(forced){forced=false;S.cols=keepCols;S.hq=keepHq;render();}};
+  let host=null,stl=null;
+  try{
+    toast('Création de l\'image…');
+    const view=document.getElementById('view');if(!view||!view.querySelector('table'))throw new Error('rien à imprimer');
+    host=document.createElement('div');host.id='pimg';
+    host.style.cssText='position:absolute;left:-30000px;top:0;background:#fff;color:#000;padding:10px;--bg:#fff;--card:#fff;--fg:#000;--muted:#444;--border:#bbb;--head:#eee;--cat:#e6e6e6;--stick:#fff;--hl:#eee;--accent:#000;font-size:12px;width:max-content';
+    stl=document.createElement('style');
+    stl.textContent='#pimg .scroll{overflow:visible!important;border:none!important}#pimg td.name,#pimg th.name{position:static!important}#pimg table{width:max-content!important}#pimg .noprint,#pimg .act,#pimg .toast{display:none!important}';
+    document.head.appendChild(stl);
+    [...view.children].forEach(ch=>{if(ch.classList.contains('noprint'))return;host.appendChild(ch.cloneNode(true));});
+    host.querySelectorAll('.noprint,.act').forEach(x=>x.remove());
+    document.body.appendChild(host);
+    const W=Math.ceil(host.scrollWidth),H=Math.ceil(host.scrollHeight);
+    // styles calculés recopiés en ligne : l'image SVG ne voit pas la feuille de style de la page
+    const live=[host,...host.querySelectorAll('*')];
+    live.forEach(el=>{const cs=getComputedStyle(el);let s='';PIMG_PROPS.forEach(p=>{s+=p+':'+cs.getPropertyValue(p)+';';});
+      if(/^(TD|TH)$/.test(el.tagName)){const r=el.getBoundingClientRect();s+=`width:${r.width}px;height:${r.height}px;box-sizing:border-box;`;}
+      el.setAttribute('style',s);});
+    host.setAttribute('xmlns','http://www.w3.org/1999/xhtml');
+    const xml=new XMLSerializer().serializeToString(host);
+    host.remove();host=null;stl.remove();stl=null;
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><foreignObject x="0" y="0" width="${W}" height="${H}">${xml}</foreignObject></svg>`;
+    const img=new Image();
+    await new Promise((ok,ko)=>{img.onload=ok;img.onerror=()=>ko(new Error('image'));img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);});
+    const scale=Math.max(0.5,Math.min(2,4096/W,Math.sqrt(14e6/(W*H))));
+    const cv=document.createElement('canvas');cv.width=Math.round(W*scale);cv.height=Math.round(H*scale);
+    const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(img,0,0,cv.width,cv.height);
+    const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+    if(!blob)throw new Error('png');
+    const a=curArmy(),l=a&&a.legions.find(x=>x.id===S.sel);
+    const name=((a?a.name:'fiche')+(S.view==='legion'&&l?'-'+legName(l):'-armee')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9_-]+/g,'_')+'.png';
+    const file=new File([blob],name,{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:name});restore();return;}catch(e){if(e&&e.name==='AbortError'){restore();return;}}
+    }
+    const url=URL.createObjectURL(blob);const lk=document.createElement('a');lk.href=url;lk.download=name;document.body.appendChild(lk);lk.click();lk.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),15000);toast('Image enregistrée : '+name);
+    restore();
+  }catch(x){
+    if(host)host.remove();if(stl)stl.remove();restore();
+    toast('Image impossible ici : impression classique.');printFit();
+  }
+}
+const TOUCH_DEV=()=>{try{return window.matchMedia('(pointer: coarse)').matches;}catch(e){return false;}};
 function colLabel(a,c){if(c==='V'&&a.hdr&&a.hdr.V)return String(a.hdr.V);return SHORT[c];}
 
 function recompute(){let dv=null;ARMIES.forEach(a=>{if(a.defVal)dv=dv||a.defVal;});ARMIES.forEach(a=>{if(!a.defVal)a.defVal=dv;a.units.forEach(u=>calcUnit(u,a,FAM));});}
@@ -516,7 +574,7 @@ function onClick(e){
     case 'cols-all':COLS.forEach(c=>S.cols.add(c));S.hq.clear();render();break;
     case 'cols-def':S.cols=new Set(DEFCOLS);S.hq.clear();render();break;
     case 'cols-none':S.cols=new Set();if(S.view==='legion')['nb','u','e','pts'].forEach(k=>S.hq.add(k));render();break;
-    case 'print':printFit();break;
+    case 'print':if(TOUCH_DEV())printImage();else printFit();break;
     case 'copy':{const l=cur.legions.find(x=>x.id===S.sel);const txt=toText(cur,l);
       (async()=>{try{await navigator.clipboard.writeText(txt);toast('Fiche copiée');}catch(x){try{const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();toast('Fiche copiée');}catch(y){toast('Copie indisponible ici');}}})();break;}
     case 'newunit':if(EDADD())newUnit();break;

@@ -202,7 +202,7 @@
         .lp-seg.on { background: #222; color: #fff; border-color: #222; }
         .lp-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         .lp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
-        @media (max-width: 700px) { .fiches-modes { display: none !important; } }
+        @media (max-width: 700px) { .fiches-modes [data-fiche="mini"], .fiches-modes [data-fiche="bar"] { display: none !important; } }
         .ub-chip.done { opacity: .6; }
         .ub-chip.gen-on { background: #fff3c4; box-shadow: 0 0 0 3px #ffc107; }
         .land-ghost { position: fixed; z-index: 400; transform: translate(-50%, -50%); background: #fff; border: 3px solid #555; border-radius: 10px; padding: 6px 10px; font: 700 .85rem system-ui, sans-serif; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
@@ -4463,7 +4463,9 @@
         }
 
         // Miniature : petite fenêtre déplaçable, la carte reste utilisable derrière.
+        const fichesPhone = () => window.matchMedia('(max-width: 700px)').matches;
         function setFichesMini(on) {
+            if (fichesPhone()) on = false; // téléphone : les fiches s'ouvrent toujours en grand
             const box = $('fichesOverlay');
             if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
             box.classList.toggle('mini', on);
@@ -4474,6 +4476,7 @@
 
         // Réduit en barre : seule la barre de titre reste visible, en bas de l'écran.
         function setFichesBar(on) {
+            if (fichesPhone()) on = false;
             const box = $('fichesOverlay');
             if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
             box.classList.toggle('bar', on);
