@@ -293,7 +293,7 @@ const FAMNAME={S:'I (indicateur)',F:"att' (attaque pondérée)",J:"dep' (déplac
 const FAMDESC={S:'Copie le bonus « I » de l\'armée sur la ligne.',F:'Attaque pondérée selon le type (cc, ttc, cd2…).',J:'Coefficient de déplacement de base.',L:'Coefficient de déplacement ajusté par le type de mouvement.',M:'Valeur brute : attaque, PV, armure × déplacement.',Q:'Ajoute les bonus communs et d\'armée (T, C, U, tir…).',R:'Applique les multiplicateurs d\'armée (portée, PV, déplacement, typ).',W:'Valeur finale d\'une figurine (× 1,2 si colonne I).',X:'Valeur totale de la ligne = fig × nombre.',val:'Points d\'une ligne dans une légion (selon quantité, c et E).'};
 let FAM={},ARMIES=[];
 const HOSTED=(typeof DATA==='undefined');
-const S={restricted:false,admin:false,access:true,picks:{},myPick:null,catalog:null,loaded:!HOSTED,tab:'army',army:null,sel:null,view:'full',cols:new Set(DEFCOLS),pseudo:'',canWrite:null,dbOn:false,showCols:false,frozen:false,ft:null,pendingOpen:null,teams:null,mercs:{},roster:[],online:[]};
+const S={hq:new Set(),restricted:false,admin:false,access:true,picks:{},myPick:null,catalog:null,loaded:!HOSTED,tab:'army',army:null,sel:null,view:'full',cols:new Set(DEFCOLS),pseudo:'',canWrite:null,dbOn:false,showCols:false,frozen:false,ft:null,pendingOpen:null,teams:null,mercs:{},roster:[],online:[]};
 const isMJ=()=>HOSTED?S.admin:S.pseudo.trim().toLowerCase()==='mj';
 // Les modifications ne sont possibles que sur la fiche armée complète (jamais sur une fiche légion).
 const ED=()=>isMJ()&&S.tab==='army'&&S.view==='full';
@@ -308,6 +308,12 @@ const getArmy=id=>ARMIES.find(a=>a.id===id);
 const curArmy=()=>getArmy(S.army);
 /* Impression : on choisit paysage ou portrait selon la forme du tableau, et on réduit l'ensemble pour tout voir (colonnes et lignes). */
 function printFit(){
+  // L'impression montre toujours la valeur d'une figurine (fig), la valeur de la ligne (ligne) et les points par légion, même si ces colonnes sont masquées à l'écran.
+  const keepCols=new Set(S.cols);let forced=false;
+  ['W','X','$pts'].forEach(c=>{if(!S.cols.has(c)){S.cols.add(c);forced=true;}});
+  const keepHq=new Set(S.hq);if(S.hq.size){S.hq.clear();forced=true;}
+  if(forced)render();
+  const restoreCols=()=>{if(forced){forced=false;S.cols=keepCols;S.hq=keepHq;render();}};
   const view=document.getElementById('view');const tb=view&&view.querySelector('.scroll table');
   document.querySelectorAll('#printfit').forEach(x=>x.remove());const st=document.createElement('style');st.id='printfit';let sc=null,undo=()=>{};
   try{
@@ -322,11 +328,11 @@ function printFit(){
       const land=fit('L')>fit('P');const s=Math.min(1.25,(land?fit('L'):fit('P'))*0.96); // toujours une seule page : pas de taille minimale
       st.textContent=`@page{size:A4 ${land?'landscape':'portrait'};margin:${m}mm}@media print{#view{zoom:${s.toFixed(3)}}html,body{height:auto;overflow:hidden}}`;
       document.head.appendChild(st);
-      undo=()=>{tb.style.width=old.w;sc.style.overflow=old.o;st.remove();};
+      undo=()=>{tb.style.width=old.w;sc.style.overflow=old.o;st.remove();restoreCols();};
     }
-    window.addEventListener('afterprint',function f(){window.removeEventListener('afterprint',f);undo();});
+    window.addEventListener('afterprint',function f(){window.removeEventListener('afterprint',f);undo();restoreCols();});
     window.print();
-  }catch(x){undo();toast('Impression indisponible ici');}
+  }catch(x){undo();restoreCols();toast('Impression indisponible ici');}
 }
 function colLabel(a,c){if(c==='V'&&a.hdr&&a.hdr.V)return String(a.hdr.V);return SHORT[c];}
 
@@ -391,7 +397,7 @@ function cellTd(a,u,which,c,extra){
 
 /* ---- page formules ---- */
 
-function saveView(){try{localStorage.setItem('fa2:view',JSON.stringify({army:S.army,sel:S.sel,cols:[...S.cols],pseudo:S.pseudo}));}catch(e){}}
+function saveView(){try{localStorage.setItem('fa2:view',JSON.stringify({army:S.army,sel:S.sel,cols:[...S.cols],hq:[...S.hq],pseudo:S.pseudo}));}catch(e){}}
 function loadView(){try{return JSON.parse(localStorage.getItem('fa2:view')||'null');}catch(e){return null;}}
 
 /* ===================== DIALOGUES ===================== */
@@ -504,9 +510,10 @@ function onClick(e){
     case 'prev':stepLeg(-1);break;case 'next':stepLeg(1);break;
     case 'colstoggle':S.showCols=!S.showCols;render();break;
     case 'col':{const c=el.dataset.col;S.cols.has(c)?S.cols.delete(c):S.cols.add(c);render();break;}
-    case 'cols-all':COLS.forEach(c=>S.cols.add(c));render();break;
-    case 'cols-def':S.cols=new Set(DEFCOLS);render();break;
-    case 'cols-none':S.cols=new Set();render();break;
+    case 'qcol':{const k=el.dataset.q;S.hq.has(k)?S.hq.delete(k):S.hq.add(k);saveView();render();break;}
+    case 'cols-all':COLS.forEach(c=>S.cols.add(c));S.hq.clear();render();break;
+    case 'cols-def':S.cols=new Set(DEFCOLS);S.hq.clear();render();break;
+    case 'cols-none':S.cols=new Set();if(S.view==='legion')['nb','u','e','pts'].forEach(k=>S.hq.add(k));render();break;
     case 'print':printFit();break;
     case 'copy':{const l=cur.legions.find(x=>x.id===S.sel);const txt=toText(cur,l);
       (async()=>{try{await navigator.clipboard.writeText(txt);toast('Fiche copiée');}catch(x){try{const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();toast('Fiche copiée');}catch(y){toast('Copie indisponible ici');}}})();break;}
@@ -607,12 +614,13 @@ function renderCatalog(){
 /* ---- boutons d'unité / de section ---- */
 /* codes couleurs des fiches Excel : colonnes principales (att, dis, PV, A, dep, typ dép) et colonnes calculées en gris */
 const XC={C:'#ffcc00',E:'#ffcc00',F:'#969696',G:'#ff9900',H:'#ff0000',I:'#ffff99',J:'#969696',K:'#ffff99',L:'#969696',M:'#969696',Q:'#969696',R:'#969696'};
-const xcol=(a,c)=>(c==='H'&&a&&a.id==='bretonnie')?'#ff6600':XC[c];
+const xcol=(a,c)=>XC[c];
 const hdrStyle=(a,c)=>`background:${xcol(a,c)||'#c0c0c0'};color:#000`;
 function headTh(a,c,rs){return `<th class="${c==='B'?'name':'wrapth'}" style="${hdrStyle(a,c)}" ${rs?`rowspan="${rs}"`:''} title="${esc(LONG[c])}">${esc(c==='B'?'Unité':colLabel(a,c))}</th>`;}
 function colsPanel(a){
   let h='<div class="card noprint"><div class="chips">';
   COLS.forEach(c=>{if(c==='B')return;const on=S.cols.has(c);h+=`<button class="chip sm ${on?'on':''}" data-a="col" data-col="${c}" title="${esc(LONG[c])}">${esc(colLabel(a,c))}<small>${c}</small></button>`;});
+  if(S.view==='legion')[['nb','nb','figurines de la ligne'],['u','U','unités et leur type'],['e','E','étendards'],['pts','pts','valeur de la ligne']].forEach(([k,lab,t])=>{h+=`<button class="chip sm ${S.hq.has(k)?'':'on'}" data-a="qcol" data-q="${k}" title="${t}">${lab}<small>${t}</small></button>`;});
   h+=`<button class="chip sm ${S.cols.has('$pts')?'on':''}" data-a="col" data-col="$pts" title="Valeur en points de chaque ligne dans chaque légion">pts lég.<small>val ligne</small></button>`;
   h+='</div><div class="row" style="margin:8px 0 0"><button class="btn" data-a="cols-all">Tout afficher</button><button class="btn" data-a="cols-def">Par défaut</button><button class="btn" data-a="cols-none">Masquer tout</button></div></div>';
   return h;
@@ -668,6 +676,7 @@ function renderLegion(a){
   const l=a.legions.find(x=>x.id===S.sel);if(!l){S.view='full';return renderFull(a);}
   const mj=false;const cs=visCols();const rows=a.units.filter(u=>u.q[l.id]);
   const t=legTot(a,l);let h=picksBar();
+  const qc={nb:!S.hq.has('nb'),u:!S.hq.has('u'),e:!S.hq.has('e'),pts:!S.hq.has('pts')};const nq=Object.values(qc).filter(Boolean).length;
   const compBase={},compEx={};(a.composites||[]).filter(c=>c.legion===l.id).forEach(c=>{const o=compOk(a,c);if(o&&!compBase[c.base]&&!compEx[c.extra]){compBase[c.base]={c,o};compEx[c.extra]=1;}});
   const vis=visLegions(a);const vi=vis.indexOf(l);const rs=HOSTED&&S.restricted;
   const nav=rs?'':`<button class="btn" data-a="back">← Armée complète</button><button class="btn" data-a="prev" ${vi<=0?'disabled':''}>◀</button><button class="btn" data-a="next" ${vi>=vis.length-1?'disabled':''}>▶</button>`;
@@ -683,9 +692,9 @@ function renderLegion(a){
   h+='</div>';
   if(!rows.length)h+='<div class="hint">Aucune unité dans cette légion.</div>';
   else{
-    h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c)).join('')+'<th>nb</th><th title="U : nombre d\'unités et leur type">U</th><th title="E de la légion">E</th><th title="Valeur de la ligne dans cette légion">pts</th>'+(mj?'<th class="noprint"></th>':'')+'</tr></thead><tbody>';
+    h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c)).join('')+''+(qc.nb?'<th>nb</th>':'')+(qc.u?'<th title="U : nombre d\'unités et leur type">U</th>':'')+(qc.e?'<th title="E de la légion">E</th>':'')+(qc.pts?'<th title="Valeur de la ligne dans cette légion">pts</th>':'')+''+(mj?'<th class="noprint"></th>':'')+'</tr></thead><tbody>';
     groupUnits(a,u=>u.q[l.id],false).forEach(g=>{
-      h+=secRow(a,g,cs.length+4+(mj?1:0),false);
+      h+=secRow(a,g,cs.length+nq+(mj?1:0),false);
       g.units.forEach(u=>{const q=u.q[l.id];
         if(compEx[u.uid])return; // la figurine seule est affichée avec sa ligne de base, dans l'unité composée
         const cb=compBase[u.uid];
@@ -693,12 +702,12 @@ function renderLegion(a){
           h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c)).join('');
           if(wh==='u'){const at=i=>mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${i}"`:'';
             const nbS=cb?cb.o.full*cb.c.size:q[0];const okv=q[3]!=null&&q[3]===q[3];
-            h+=`<td class="qty"${at(0)}>${nbS}</td><td${at(1)}>${cb?cb.o.full+(q[7]||''):uTxt(q)}</td><td${at(2)}>${q[2]||''}</td><td>${okv?Math.round(q[3]*nbS/(q[0]||1)):''}</td>`;}
-          else h+='<td></td><td></td><td></td><td></td>';
+            h+=(qc.nb?`<td class="qty"${at(0)}>${nbS}</td>`:'')+(qc.u?`<td${at(1)}>${cb?cb.o.full+(q[7]||''):uTxt(q)}</td>`:'')+(qc.e?`<td${at(2)}>${q[2]||''}</td>`:'')+(qc.pts?`<td>${okv?Math.round(q[3]*nbS/(q[0]||1)):''}</td>`:'');}
+          else h+='<td></td>'.repeat(nq);
           h+=actTd(a,u,wh)+'</tr>';});
-        if(cb)h+=compRows(a,l,cb,cs);});
+        if(cb)h+=compRows(a,l,cb,cs,qc);});
     });
-    h+=`<tr class="total"><td class="name">Total</td>${cs.slice(1).map(()=>'<td></td>').join('')}<td>${t.n}</td><td>${t.c||''}</td><td>${t.e||''}</td><td>${pts(t.v)}</td>${mj?'<td class="noprint"></td>':''}</tr></tbody></table></div>`;
+    h+=`<tr class="total"><td class="name">Total</td>${cs.slice(1).map(()=>'<td></td>').join('')}${qc.nb?`<td>${t.n}</td>`:''}${qc.u?`<td>${t.c||''}</td>`:''}${qc.e?`<td>${t.e||''}</td>`:''}${qc.pts?`<td>${pts(t.v)}</td>`:''}${mj?'<td class="noprint"></td>':''}</tr></tbody></table></div>`;
   }
   if(mj){const others=a.units.filter(u=>!u.q[l.id]);
     h+=`<div class="card noprint"><div class="lbl2">Ajouter une unité à cette légion</div><div class="row" style="margin:6px 0 0"><select id="addUnit" style="flex:1;min-width:160px">${others.map(u=>`<option value="${esc(u.uid)}">${esc(u.in_.B||'')}</option>`).join('')}</select><input id="addQty" type="number" min="1" value="1" style="width:84px"><button class="btn" data-a="addtoleg" ${others.length?'':'disabled'}>Ajouter</button></div></div>`;}
@@ -1507,11 +1516,11 @@ function compAction(act,id){
   else if(act==='copy')compPickLegion(c,'Copier',t=>{if(a.composites.some(x=>x.legion===t&&(x.base===c.base||x.extra===c.extra))){toast('Déjà utilisée dans cette légion.');return;}a.composites.push({...c,id:'c'+Math.random().toString(36).slice(2,8),legion:t});});
 }
 /* unité composée dans la fiche de légion : les deux types de figurines l'un sous l'autre, dans un même cadre */
-function compRows(a,l,cb,cs){
+function compRows(a,l,cb,cs,qc){
   const {c,o}=cb;const qb=o.b.q[l.id],qe=o.e.q[l.id];
   const val=(q,n)=>(q[3]!=null&&q[3]===q[3]&&q[0])?Math.round(q[3]*n/q[0]):'';
   const row=(u,n,q,k)=>'<tr class="compr compr'+k+'">'+cs.map(col=>col==='B'?`<td class="name">🧩 ${esc(u.in_.B||'')}</td>`:cellTd(a,u,'u',col)).join('')
-    +`<td class="qty">${n}</td>`+(k===1?`<td class="compu" rowspan="2">🧩 1${esc(qb[7]||'')}<br><small>unité composée</small></td><td class="compu" rowspan="2"></td>`:'')+`<td>${val(q,n)}</td></tr>`;
+    +(qc.nb?`<td class="qty">${n}</td>`:'')+(k===1?(qc.u?`<td class="compu" rowspan="2">🧩 1${esc(qb[7]||'')}<br><small>unité composée</small></td>`:'')+(qc.e?'<td class="compu" rowspan="2"></td>':''):'')+(qc.pts?`<td>${val(q,n)}</td>`:'')+'</tr>';
   return row(o.b,o.rest,qb,1)+row(o.e,qe[0],qe,2);
 }
 function showCompCard(t,a,l){
@@ -1578,7 +1587,7 @@ function stdBoxHtml(){
   if(HOSTED){
     document.addEventListener('click',()=>{});
     window.addEventListener('message',function boot(ev){if(ev.origin!==location.origin||ev.source!==parent)return;const d=ev.data;
-      if(d&&d.type==='fiches:init'){window.removeEventListener('message',boot);const v=loadView();if(v&&v.cols&&v.cols.length)S.cols=new Set(v.cols);startHosted(d);}});
+      if(d&&d.type==='fiches:init'){window.removeEventListener('message',boot);const v=loadView();if(v&&v.cols&&v.cols.length)S.cols=new Set(v.cols);if(v&&Array.isArray(v.hq))S.hq=new Set(v.hq);startHosted(d);}});
     render();parent.postMessage({type:'fiches:ready'},location.origin);return;
   }
   const v=loadView();let army=ARMIES[0].id;
