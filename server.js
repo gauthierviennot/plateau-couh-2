@@ -319,7 +319,7 @@ const DEFAULT_BONUS = 2; // tuiles de déplacement supplémentaires par défaut,
 const TEAM_IDS = ['t1', 't2'];
 
 function defaultLanding() {
-    return { phase: 'off', zones: [], groups: {}, bonus: {}, teamEntry: null, choices: {}, roster: {}, placed: {}, std: {}, gen: {}, chev: {} };
+    return { phase: 'off', zones: [], groups: {}, bonus: {}, teamEntry: null, choices: {}, roster: {}, placed: {}, std: {}, gen: {}, chev: {}, sim: {} };
 }
 
 // Reconstruit l'état depuis le disque en ne gardant que des valeurs bien formées.
@@ -360,6 +360,10 @@ function normalizeLanding(raw) {
     // Général : une unité par joueur le porte (gen) ; une unité proche (6 hexagones) peut recevoir le chevron actif (chev).
     for (const [n, id] of Object.entries(raw.gen || {}).slice(0, 200)) if (n.length <= LIMITS.maxName && typeof id === 'string' && id in out.placed) out.gen[n] = id;
     for (const [n, id] of Object.entries(raw.chev || {}).slice(0, 200)) if (n.length <= LIMITS.maxName && typeof id === 'string' && id in out.placed) out.chev[n] = id;
+    // Simulation : positions virtuelles { tile, from (tuile de dépôt au moment de la simulation), bonus (général ou chevron actif) }.
+    for (const [id, v] of Object.entries(raw.sim || {}).slice(0, 12000)) {
+        if (v && typeof v.tile === 'string' && /^\d{1,3},\d{1,3}$/.test(v.tile) && typeof v.from === 'string' && out.placed[id] === v.from) out.sim[id] = { tile: v.tile, from: v.from, bonus: v.bonus === true };
+    }
     return out;
 }
 
@@ -959,6 +963,7 @@ function checkFichesArmy(id, army) {
     if (army.composites != null && (!Array.isArray(army.composites) || army.composites.length > 60
         || army.composites.some((c) => !c || typeof c.id !== 'string' || !/^[\w-]{1,16}$/.test(c.id) || !ids.has(c.legion)
             || typeof c.base !== 'string' || typeof c.extra !== 'string' || c.base.length > 100 || c.extra.length > 100 || c.base === c.extra
+            || (c.std != null && !(Number.isInteger(c.std) && c.std >= 0 && c.std <= 20))
             || (c.per != null ? !(Number.isInteger(c.per) && c.per >= 1 && c.per <= 20) : !(Number.isInteger(c.size) && c.size >= 2 && c.size <= 40))))) return 'unités composées invalides';
     if (army.sections != null && (!Array.isArray(army.sections) || army.sections.length > 60
         || army.sections.some((x) => typeof x !== 'string' || x.length > 80))) return 'sections invalides';
@@ -1210,6 +1215,7 @@ function applyComposites(army, lid, lines) {
             const left = b.figs - k;
             // Étendards de la ligne de base : d'abord aux unités restées simples, le reste aux unités composées.
             comp.stdMax = Math.min(k, Math.max(0, b.stdMax - left));
+            if (c.std != null) comp.stdMax = Math.min(k, c.std); // réglé par le MJ
             const out = [];
             lines.forEach((l, i) => {
                 if (i === bi) { out.push(comp); if (left > 0) out.push({ ...b, qty: left, figs: left, stdMax: Math.min(b.stdMax, left) }); }
@@ -1229,6 +1235,7 @@ function applyComposites(army, lid, lines) {
         };
         // Étendards de la ligne de base : d'abord aux unités restées simples, le reste (s'il y en a) à l'unité composée.
         comp.stdMax = (e.stdMax > 0 || b.stdMax - full > 0) ? 1 : 0; // la figurine seule portait déjà un étendard : l'unité composée le garde
+        if (c.std != null) comp.stdMax = Math.min(1, c.std); // réglé par le MJ
         const out = lines.filter((_, i) => i !== bi && i !== ei);
         const at = Math.min(bi, ei);
         const repl = [];
@@ -1332,10 +1339,13 @@ function landingViewFor(socket) {
         view.std = [];
         view.gen = {};
         view.chev = {};
+        view.sim = {};
+        const simSees = (n) => (admin && !myTeam) || (myTeam && teamOf(n) === myTeam); // chacun ne voit que les simulations de son équipe
         for (const [owner, list] of Object.entries(L.roster)) {
             if (!sees(owner)) continue;
             if (L.gen?.[owner]) view.gen[owner] = L.gen[owner];
             if (L.chev?.[owner]) view.chev[owner] = L.chev[owner];
+            if (simSees(owner)) for (const l of list) for (let i = 1; i <= l.qty; i++) { const sid = unitIdOf(owner, l.uid, i); if (L.sim?.[sid]) view.sim[sid] = L.sim[sid].tile; }
             for (const l of list) {
                 view.lines.push({ ...l, owner, team: teamOf(owner) });
                 for (let i = 1; i <= l.qty; i++) {
@@ -1404,8 +1414,19 @@ function pruneGeneral() {
     }
 }
 
+// Simulation : elle ne vaut que tant que l'unité reste sur sa tuile de dépôt (sinon elle revient à sa position de départ) et, pour une unité qui avait un bonus de général, tant que ce bonus existe.
+function pruneSim() {
+    const L = state.landing;
+    L.sim = L.sim || {};
+    for (const [id, v] of Object.entries(L.sim)) {
+        const owner = id.slice(0, Math.max(0, id.indexOf('|')));
+        if (!L.placed[id] || L.placed[id] !== v.from || !findLine(owner, id) || (v.bonus && L.gen[owner] !== id && L.chev[owner] !== id)) delete L.sim[id];
+    }
+}
+
 function emitLanding() {
     pruneGeneral();
+    pruneSim();
     for (const s of io.sockets.sockets.values()) {
         if (s.data?.name) s.emit('landing', landingViewFor(s));
     }
@@ -2293,7 +2314,7 @@ io.on('connection', (socket) => {
     /* ---------- Débarquement ---------- */
 
     const landingFail = (ack, message) => reply(ack, { success: false, message });
-    const landingOk = (ack, extra = {}) => { pruneGeneral(); scheduleSave(); emitLanding(); reply(ack, { success: true, ...extra }); };
+    const landingOk = (ack, extra = {}) => { pruneGeneral(); pruneSim(); scheduleSave(); emitLanding(); reply(ack, { success: true, ...extra }); };
 
     // Le MJ lance le débarquement : les zones sont détectées à partir des losanges et triangles.
     socket.on('landing-start', (payload, ack) => {
@@ -2477,6 +2498,39 @@ io.on('connection', (socket) => {
         landingOk(ack);
     });
 
+
+    // Simulation (carte virtuelle) : un joueur place la position virtuelle de l'une de ses unités posées, dans la portée qu'elle a depuis sa tuile de dépôt
+    // (la portée exacte est vérifiée sur la carte ; le serveur contrôle les règles communes). Une seule unité par tuile hors tuiles de dépôt.
+    socket.on('landing-sim', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'place') return landingFail(ack, 'La simulation se modifie pendant le dépôt des unités.');
+        const rk = keyOf(L.roster, name);
+        if (!rk) return landingFail(ack, 'Vous n’avez pas d’unités.');
+        const f = findLine(name, payload?.unit);
+        if (!f) return landingFail(ack, 'Unité inconnue.');
+        const home = L.placed[f.id];
+        if (!home) return landingFail(ack, 'Posez d’abord cette unité sur la carte.');
+        if (payload?.tile == null || payload.tile === home) { delete L.sim[f.id]; return landingOk(ack); }
+        const tile = String(payload.tile);
+        if (!/^\d{1,3},\d{1,3}$/.test(tile)) return landingFail(ack, 'Tuile invalide.');
+        const [tc, tr] = tile.split(',').map(Number);
+        if (!mapHas(tc, tr)) return landingFail(ack, 'Cette tuile n’est pas sur la carte.');
+        if (hexDistance(home, tile) > Math.max(1, f.line.dep) + 10) return landingFail(ack, 'Cette tuile est hors de portée.');
+        const inZone = state.landing.zones.some((z) => z.tiles.includes(tile));
+        if (!inZone) {
+            const team = teamOfName(name);
+            for (const [oid, v] of Object.entries(L.sim)) {
+                if (oid === f.id || v.tile !== tile) continue;
+                const oo = oid.slice(0, oid.indexOf('|'));
+                if (!team || teamOfName(oo) === team) return landingFail(ack, 'Cette tuile est déjà occupée dans la simulation.');
+            }
+        }
+        L.sim[f.id] = { tile, from: home, bonus: L.gen[rk] === f.id || L.chev[rk] === f.id };
+        landingOk(ack);
+    });
+
     // Étendards : le nombre d'unités d'une ligne qui en portent un est limité par la colonne E de la légion.
     socket.on('landing-standard', (payload, ack) => {
         const name = socket.data.name;
@@ -2521,7 +2575,7 @@ io.on('connection', (socket) => {
         if (target === 'off') { state.landing = defaultLanding(); return landingOk(ack); }
         const order = ['zones', 'choose', 'place', 'locked'];
         if (!order.includes(target) || order.indexOf(target) > order.indexOf(L.phase)) return landingFail(ack, 'Étape invalide.');
-        if (target === 'zones') { L.teamEntry = null; L.choices = {}; L.roster = {}; L.placed = {}; L.std = {}; L.gen = {}; L.chev = {}; }
+        if (target === 'zones') { L.teamEntry = null; L.choices = {}; L.roster = {}; L.placed = {}; L.std = {}; L.gen = {}; L.chev = {}; L.sim = {}; }
         // Retour au choix des zones : les joueurs déjà figés gardent leur zone et leurs unités posées.
         if (target === 'place') { /* les unités restent placées */ }
         L.phase = target;
