@@ -2518,6 +2518,11 @@ io.on('connection', (socket) => {
         const [tc, tr] = tile.split(',').map(Number);
         if (!mapHas(tc, tr)) return landingFail(ack, 'Cette tuile n’est pas sur la carte.');
         if (hexDistance(home, tile) > Math.max(1, f.line.dep) + 10) return landingFail(ack, 'Cette tuile est hors de portée.');
+        // Montagnes et eau (hors pont) : interdites, sauf pour les Saurus qui traversent l'eau.
+        const gt = state.gridData[tile];
+        if (gt?.removed) return landingFail(ack, 'Cette tuile n’existe plus sur la carte.');
+        if ((gt?.terrain ?? 'plain') === 'mountain') return landingFail(ack, 'Les montagnes sont infranchissables.');
+        if ((gt?.terrain ?? 'plain') === 'water' && gt?.object !== 'bridge' && f.line.army !== 'saurus') return landingFail(ack, 'Seuls les Saurus peuvent se tenir sur l’eau.');
         const inZone = state.landing.zones.some((z) => z.tiles.includes(tile));
         if (!inZone) {
             const team = teamOfName(name);
