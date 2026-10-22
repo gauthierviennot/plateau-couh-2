@@ -248,7 +248,7 @@ function sanitizeProtection(raw) {
 
 // Équipes gérées par le MJ : noms, appartenance de chaque pseudo, liste des pseudos connus.
 function sanitizeTeams(raw) {
-    const out = { names: { t1: 'Équipe 1', t2: 'Équipe 2' }, members: Object.create(null), roster: [] };
+    const out = { names: { t1: 'Équipe 1', t2: 'Équipe 2' }, members: Object.create(null), roster: [], mercs: Object.create(null) };
     if (!raw || typeof raw !== 'object') return out;
     for (const key of ['t1', 't2']) {
         const label = raw.names?.[key];
@@ -264,7 +264,36 @@ function sanitizeTeams(raw) {
             if (typeof name === 'string' && name && name.length <= LIMITS.maxName && !out.roster.includes(name)) out.roster.push(name);
         }
     }
+    // Mercenaires (infanterie légère ajoutée par le MJ à un joueur) : pseudo -> liste de lignes, sans bonus d'armée.
+    if (raw.mercs && typeof raw.mercs === 'object') {
+        for (const [name, list] of Object.entries(raw.mercs).slice(0, 500)) {
+            if (name.length > LIMITS.maxName || !Array.isArray(list)) continue;
+            const clean = list.slice(0, 30).map(sanitizeMerc).filter(Boolean);
+            if (clean.length) out.mercs[name] = clean;
+        }
+    }
     return out;
+}
+
+const MERC_ROW_KEYS = ['C', 'D', 'E', 'G', 'H', 'I', 'K', 'P', 'S', 'V', 'W'];
+function sanitizeMerc(m) {
+    if (!m || typeof m !== 'object' || typeof m.id !== 'string' || !/^[\w-]{1,24}$/.test(m.id)) return null;
+    const num = (v, min, max) => { const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : null; };
+    const units = num(m.units, 1, 400);
+    const figsPerUnit = num(m.figsPerUnit, 1, 5000);
+    const ptsUnit = num(m.ptsUnit, 0, 1e6);
+    if (units === null || figsPerUnit === null || ptsUnit === null) return null;
+    const row = {};
+    for (const k of MERC_ROW_KEYS) {
+        const v = m.row?.[k];
+        if (typeof v === 'number' && Number.isFinite(v)) row[k] = Math.round(v * 1000) / 1000;
+        else if (typeof v === 'string' && v.length <= 20) row[k] = v;
+    }
+    return {
+        id: m.id, army: String(m.army || '').slice(0, 40), legion: String(m.legion || '').slice(0, 12), uid: String(m.uid || '').slice(0, 100),
+        name: String(m.name || 'inf legere').slice(0, 60), units: Math.floor(units), figsPerUnit: Math.floor(figsPerUnit), ptsUnit,
+        type: String(m.type || '').slice(0, 12), dep: Math.max(0, Math.min(30, Math.floor(Number(m.dep) || 0))), row
+    };
 }
 
 // Légion choisie par chaque joueur : pseudo -> { army, legion }.
@@ -322,7 +351,7 @@ function normalizeLanding(raw) {
             uid: u.uid, name: String(u.name || '').slice(0, 60), qty: Math.max(1, Math.min(400, Math.floor(Number(u.qty) || 1))),
             figs: Math.max(0, Math.min(5000, Math.floor(Number(u.figs) || 0))), type: String(u.type || '').slice(0, 12),
             dep: Number.isFinite(u.dep) ? u.dep : 0, army: String(u.army || '').slice(0, 40), legion: String(u.legion || '').slice(0, 12),
-            stdMax: Math.max(0, Math.min(400, Math.floor(Number(u.stdMax) || 0)))
+            stdMax: Math.max(0, Math.min(400, Math.floor(Number(u.stdMax) || 0))), ...(u.merc === true ? { merc: true } : {})
         }));
     }
     for (const [id, tile] of Object.entries(raw.placed || {}).slice(0, 12000)) if (typeof tile === 'string' && /^\d{1,3},\d{1,3}$/.test(tile)) out.placed[id] = tile;
@@ -843,6 +872,7 @@ function renamePseudo(from, to) {
     if (!t.roster.includes(to)) t.roster.push(to);
     if (t.members[from]) { t.members[to] = t.members[from]; delete t.members[from]; }
     if (state.fichesPicks[from]) { state.fichesPicks[to] = state.fichesPicks[from]; delete state.fichesPicks[from]; }
+    if (t.mercs[from]) { t.mercs[to] = t.mercs[from]; delete t.mercs[from]; }
 }
 
 // Nom de la légion choisie par chaque joueur : public, c'est ce que voient les joueurs en survolant un pseudo.
@@ -1148,6 +1178,10 @@ function rosterFor(name) {
     const partner = army.legions?.find((l) => l.id === pick.legion)?.partner;
     const partnerArmy = partner ? fichesArmy(partner.army) : null;
     if (partnerArmy) lines.push(...legionLines(partnerArmy, partner.legion));
+    // Mercenaires : lignes d'infanterie légère ajoutées par le MJ, sans étendard.
+    for (const m of state.fichesTeams.mercs[keyOf(state.fichesTeams.mercs, name) ?? ''] || []) {
+        lines.push({ uid: `merc-${m.id}`, name: `${m.name} (merc.)`.slice(0, 60), qty: m.units, figs: m.figsPerUnit * m.units, type: m.type, stdMax: 0, dep: m.dep, army: m.army, legion: m.legion, merc: true });
+    }
     return lines.slice(0, 120);
 }
 
@@ -1790,7 +1824,9 @@ io.on('connection', (socket) => {
             families: fichesFamilies(),
             famTexts: fiches.famTexts,
             picks: { ...state.fichesPicks },
-            teams: { names: { ...state.fichesTeams.names }, members: { ...state.fichesTeams.members } }
+            teams: { names: { ...state.fichesTeams.names }, members: { ...state.fichesTeams.members } },
+            // Tout le monde peut voir, à tout moment, les légions prises par les autres joueurs, leur valeur et leurs mercenaires (jamais où ils débarquent).
+            mercs: { ...state.fichesTeams.mercs }
         };
         if (socket.data.isAdmin) { base.roster = [...state.fichesTeams.roster]; base.online = onlineNames(); }
         if (socket.data.isAdmin || state.fichesAccess) {
@@ -1848,6 +1884,7 @@ io.on('connection', (socket) => {
             const name = findName(clean(payload.name));
             if (!name) return reply(ack, { success: false, message: 'Pseudo inconnu.' });
             t.roster = t.roster.filter((n) => n !== name);
+            delete t.mercs[name];
             delete t.members[name];
             delete state.fichesPicks[name];
         } else if (op === 'rename') {
@@ -1876,6 +1913,47 @@ io.on('connection', (socket) => {
     });
 
     // Le MJ autorise ou refuse l'accès à toutes les fiches (les légions choisies restent consultables).
+    // Mercenaires : le MJ ajoute à un joueur des unités d'infanterie légère prises dans une légion qu'aucun joueur n'a choisie.
+    // Elles n'ont pas droit aux bonus d'armée (leur valeur est calculée sans bonus par le MJ).
+    socket.on('fiches-merc', (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const t = state.fichesTeams;
+        const name = findName(cleanText(payload?.name, LIMITS.maxName));
+        if (!name) return reply(ack, { success: false, message: 'Pseudo inconnu.' });
+        if (payload?.op === 'remove') {
+            const list = t.mercs[name] || [];
+            const next = list.filter((m) => m.id !== String(payload.id));
+            if (next.length === list.length) return reply(ack, { success: false, message: 'Mercenaires introuvables.' });
+            if (next.length) t.mercs[name] = next; else delete t.mercs[name];
+        } else if (payload?.op === 'add') {
+            const armyId = String(payload.army || '');
+            const lid = String(payload.legion || '');
+            if (!validPick(armyId, lid)) return reply(ack, { success: false, message: 'Légion invalide.' });
+            const owner = pickTakenBy(armyId, lid, '');
+            if (owner) return reply(ack, { success: false, message: `Cette légion est déjà choisie par ${owner} : choisissez une légion libre.` });
+            const army = fichesArmy(armyId);
+            const unit = (army.units || []).find((u) => unitKey(army.id, u) === String(payload.uid) && Array.isArray(u.q?.[lid]) && u.q[lid][0] > 0);
+            const plain = String(unit?.in_?.B || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            if (!unit || !/\binf\w*\.?\s*leg/i.test(plain)) return reply(ack, { success: false, message: 'Seule l’infanterie légère peut devenir mercenaire.' });
+            const q = unit.q[lid];
+            const total = Math.max(1, Math.min(400, Math.floor(Number(q[6]) || 1)));
+            const units = Math.max(1, Math.min(total, Math.floor(Number(payload.units) || 1)));
+            if ((t.mercs[name] || []).length >= 20) return reply(ack, { success: false, message: 'Trop de lignes de mercenaires pour ce joueur.' });
+            const merc = sanitizeMerc({
+                id: crypto.randomUUID().slice(0, 8), army: armyId, legion: lid, uid: String(payload.uid), name: String(unit.in_.B || 'inf legere'),
+                units, figsPerUnit: Math.max(1, Math.round((Number(q[0]) || 1) / total)), ptsUnit: payload.ptsUnit, type: q[7],
+                dep: Number.isFinite(Number(unit.in_?.I)) ? Number(unit.in_.I) : 0, row: payload.row
+            });
+            if (!merc) return reply(ack, { success: false, message: 'Valeur de l’unité invalide.' });
+            (t.mercs[name] = t.mercs[name] || []).push(merc);
+        } else {
+            return reply(ack, { success: false, message: 'Action inconnue.' });
+        }
+        scheduleSave();
+        broadcastPicks();
+        return reply(ack, { success: true });
+    });
+
     socket.on('fiches-access', (payload, ack) => {
         if (!requireAdmin(socket, ack)) return;
         state.fichesAccess = Boolean(payload?.allow);
