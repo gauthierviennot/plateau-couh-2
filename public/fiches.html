@@ -942,7 +942,7 @@ function onClick2(e){
     case 'tab-players':S.tab='players';render();break;
     case 'tab-saves':S.tab='saves';S.snaps=null;render();break;
     case 'tab-help':if(isMJ())mjHelp(true);break;
-    case 'pl-add':case 'pl-lock':case 'pl-del':case 'pl-ren':if(isMJ())playersAction(el);break;
+    case 'pl-add':case 'pl-lock':case 'pl-del':case 'pl-ren':case 'merc-add':case 'merc-del':if(isMJ())playersAction(el);break;
     case 'fam-scan':if(isMJ())scanDuplicates();break;
     case 'newsec':if(ED())addSection();break;
     case 'diag':if(isMJ())runDiag();break;
