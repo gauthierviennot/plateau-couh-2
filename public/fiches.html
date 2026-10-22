@@ -79,6 +79,7 @@ tr.total td{font-weight:700;background:var(--head);border-bottom:none}tr.total t
 @media print{:root,:root[data-theme="dark"]{--bg:#fff;--card:#fff;--fg:#000;--muted:#444;--border:#bbb;--head:#eee;--cat:#e6e6e6;--stick:#fff;--hl:#eee;--accent:#000}
  body{background:#fff;font-size:12px}.noprint,.top,.act,#modal,.toast{display:none!important}.scroll{overflow:visible;border:none}td.name,th.name{position:static}.wrap{padding:0;max-width:none}table{width:max-content}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{break-inside:avoid}thead{display:table-header-group}}
 
+td.name.compn{border-left:4px solid #7b3fe4;background:#efe7ff!important;color:#000}.compwith{display:block;font:11px system-ui,sans-serif;color:#5b2fb0;margin-top:1px}
 tr.compr td.name{border-left:4px solid #7b3fe4}tr.compr1 td{border-top:2px solid #7b3fe4}tr.compr2 td{border-bottom:2px solid #7b3fe4}
 tr.compr td.name{background:#efe7ff;color:#000}td.compu{background:#efe7ff;color:#000;font-weight:700;vertical-align:middle}
 .chip.me{border-color:var(--accent)}
@@ -558,6 +559,14 @@ function startHosted(init){
 function legName(l){if(!l)return '';if(l.id==='ni')return 'Non intégré';if(l.name)return l.name;if(l.id==='renfort')return 'Renfort';return 'Légion '+l.id;}
 function legShort(l){return l.id==='ni'?'non int.':(l.name?l.name:l.id);}
 
+/* les figurines d'une ligne qui ne sont dans aucune légion vont dans « Non intégré » (une seule fois par armée, puis le MJ garde la main) */
+function fillNonIntegre(a){
+  if(a.niInit||S.restricted)return;
+  a.units.forEach(u=>{const A=u.in_.A;if(typeof A!=='number'||u.q.ni)return;
+    let sum=0;for(const l in u.q)sum+=u.q[l][0]||0;
+    if(A>sum)u.q.ni=[A-sum,0,0,null,a.defVal||null,a.defVal||null,0,u.q[Object.keys(u.q)[0]]?(u.q[Object.keys(u.q)[0]][7]||''):''];});
+  a.niInit=true;
+}
 function prepArmy(a){
   let n=0;
   a.units.forEach(u=>{u.uid=u.uid||(u.row!=null?`${a.id}-r${u.row}`:(a.id+'-'+(++n)+'-'+Math.random().toString(36).slice(2,6)));u.fo=u.fo||{};u.fm=u.fm||{};u.v={};delete u.calc;u.err=null;
@@ -567,6 +576,7 @@ function prepArmy(a){
   const cnt={};a.units.forEach(u=>Object.values(u.q).forEach(q=>{if(q[4]&&q[4]!=='none')cnt[q[4]]=(cnt[q[4]]||0)+1;}));
   const best=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0];
   if(best)a.defVal=best;
+  fillNonIntegre(a);
   if(!Array.isArray(a.sections))a.sections=[];
   initComposites(a);
   a.units.forEach(u=>{if(!a.sections.includes(u.cat))a.sections.push(u.cat);});
@@ -677,7 +687,8 @@ function renderLegion(a){
   const mj=false;const cs=visCols();const rows=a.units.filter(u=>u.q[l.id]);
   const t=legTot(a,l);let h=picksBar();
   const qc={nb:!S.hq.has('nb'),u:!S.hq.has('u'),e:!S.hq.has('e'),pts:!S.hq.has('pts')};const nq=Object.values(qc).filter(Boolean).length;
-  const compBase={},compEx={};(a.composites||[]).filter(c=>c.legion===l.id).forEach(c=>{const o=compOk(a,c);if(o&&!compBase[c.base]&&!compEx[c.extra]){compBase[c.base]={c,o};compEx[c.extra]=1;}});
+  const plan=compPlan(a,l.id),planBase={},hideEx={},usedEx={};
+  plan.forEach(o=>{(planBase[o.c.base]=planBase[o.c.base]||[]).push(o);if(o.per)usedEx[o.c.extra]=(usedEx[o.c.extra]||0)+o.used;else hideEx[o.c.extra]=1;});
   const vis=visLegions(a);const vi=vis.indexOf(l);const rs=HOSTED&&S.restricted;
   const nav=rs?'':`<button class="btn" data-a="back">← Armée complète</button><button class="btn" data-a="prev" ${vi<=0?'disabled':''}>◀</button><button class="btn" data-a="next" ${vi>=vis.length-1?'disabled':''}>▶</button>`;
   h+=`<div class="row noprint">${nav}<button class="btn" data-a="colstoggle">Colonnes ${S.showCols?'▲':'▼'}</button><button class="btn" data-a="print">Imprimer</button><button class="btn" data-a="copy">Copier</button>${pickBtn(a)}</div>`;
@@ -696,16 +707,21 @@ function renderLegion(a){
     groupUnits(a,u=>u.q[l.id],false).forEach(g=>{
       h+=secRow(a,g,cs.length+nq+(mj?1:0),false);
       g.units.forEach(u=>{const q=u.q[l.id];
-        if(compEx[u.uid])return; // la figurine seule est affichée avec sa ligne de base, dans l'unité composée
-        const cb=compBase[u.uid];
-        ['u','l2'].forEach(wh=>{if(wh==='l2'&&!u.l2)return;if(cb&&cb.o.full===0)return;
+        if(hideEx[u.uid])return; // la figurine seule est affichée avec sa ligne de base, dans l'unité composée
+        const ops=planBase[u.uid]||[];
+        let nbS=q[0],uS=uTxt(q);
+        const o1=ops.find(o=>!o.per);
+        if(o1){nbS=o1.full*o1.size;uS=o1.full+(q[7]||'');}
+        else if(ops.length){nbS=ops[0].left;uS=ops[0].left+(q[7]||'');}
+        if(usedEx[u.uid]){nbS=q[0]-usedEx[u.uid];}
+        ['u','l2'].forEach(wh=>{if(wh==='l2'&&!u.l2)return;if(nbS<=0)return;
           h+='<tr'+(wh==='l2'?' class="l2"':'')+'>'+cs.map(c=>c==='B'?nameTd(a,u,wh):cellTd(a,u,wh,c)).join('');
           if(wh==='u'){const at=i=>mj?` data-lq="1" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" data-leg="${esc(l.id)}" data-i="${i}"`:'';
-            const nbS=cb?cb.o.full*cb.c.size:q[0];const okv=q[3]!=null&&q[3]===q[3];
-            h+=(qc.nb?`<td class="qty"${at(0)}>${nbS}</td>`:'')+(qc.u?`<td${at(1)}>${cb?cb.o.full+(q[7]||''):uTxt(q)}</td>`:'')+(qc.e?`<td${at(2)}>${q[2]||''}</td>`:'')+(qc.pts?`<td>${okv?Math.round(q[3]*nbS/(q[0]||1)):''}</td>`:'');}
+            const okv=q[3]!=null&&q[3]===q[3];
+            h+=(qc.nb?`<td class="qty"${at(0)}>${nbS}</td>`:'')+(qc.u?`<td${at(1)}>${uS}</td>`:'')+(qc.e?`<td${at(2)}>${q[2]||''}</td>`:'')+(qc.pts?`<td>${okv?Math.round(q[3]*nbS/(q[0]||1)):''}</td>`:'');}
           else h+='<td></td>'.repeat(nq);
           h+=actTd(a,u,wh)+'</tr>';});
-        if(cb)h+=compRows(a,l,cb,cs,qc);});
+        ops.forEach(o=>{h+=compRows(a,l,o,cs,qc);});});
     });
     h+=`<tr class="total"><td class="name">Total</td>${cs.slice(1).map(()=>'<td></td>').join('')}${qc.nb?`<td>${t.n}</td>`:''}${qc.u?`<td>${t.c||''}</td>`:''}${qc.e?`<td>${t.e||''}</td>`:''}${qc.pts?`<td>${pts(t.v)}</td>`:''}${mj?'<td class="noprint"></td>':''}</tr></tbody></table></div>`;
   }
@@ -1044,6 +1060,9 @@ function actTd(){return '';}
 function nameTd(a,u,which){
   if(which==='l2')return `<td class="name l2n">↳ 2ᵉ attaque</td>`;
   const attr=ED()?` data-ondbl="unit" data-army="${esc(a.id)}" data-uid="${esc(u.uid)}" title="Double-cliquez pour modifier l'unité"`:'';
+  const pa=(a.composites||[]).filter(c=>c.base===u.uid||c.extra===u.uid);
+  if(pa.length){const names=[...new Set(pa.map(c=>{const o=a.units.find(x=>x.uid===(c.base===u.uid?c.extra:c.base));return o?o.in_.B:'';}).filter(Boolean))];
+    return `<td class="name compn"${attr}>🧩 ${esc(u.in_.B||'')}<small class="compwith">unité composée avec ${esc(names.join(', '))}</small></td>`;}
   return `<td class="name"${attr}>${esc(u.in_.B||'')}</td>`;
 }
 function secRow(a,g,span,mj){
@@ -1446,23 +1465,52 @@ const DEFAULT_COMPOSITES=[
   {army:'nains',legion:'1',base:'inf lourde',extra:'champion sur bouclier',size:8},
   {army:'orcs',legion:'1',base:'caval lourde (C)',extra:'champion sur sanglier (C)',size:4},
   {army:'hauts_elfes',legion:'1',base:'caval lourde (C)',extra:'commandeur à cheval (C)',size:4},
-  {army:'thyranides',legion:'1',base:'fusiller leger',extra:'chef',size:8}
+  {army:'thyranides',legion:'1',base:'fusiller leger',extra:'chef',size:8},
+  {army:'elfes_noirs',legion:'1',base:'mage (mag,spe)',extra:'médusa (mag,spe)',size:8},
+  ...[
+    ['alliance','1',['mitrailleuse (aL)']],['bretonnie','1',['catapulte (art)']],
+    ['chaos','1',['canon (art)']],['chaos','3',['canon (art)']],['chaos','4',['canon (art)']],
+    ['empire','1',['canon (art)']],['empire','3',['autel de guerre (aL,mag)','canon (art)']],['empire','4',['canon (art)']],
+    ['federation','4',['arme lourde (aL)']],['federation','5',['arme lourde (aL)']],
+    ['gobelins','1',['autel de guerre (aL,mag)','catapulte (art)']],['hauts_elfes','2',['baliste (aL)']],
+    ['ispanie','1',['catapulte (art)']],['morts_vivants','1',['autel de guerre (aL,BA,mag)']],
+    ['nains','2',['canon (art,spe)','arme lourde  (aL)']],
+    ['orcs','1',['catapulte / baliste geante (art)']],['orcs','2',['catapulte / baliste geante (art)','baliste (aL)']],['orcs','3',['catapulte / baliste geante (art)']],
+    ['saurus','1',['baliste (aL,BA)']]
+  ].flatMap(([army,legion,ms])=>ms.map(base=>({army,legion,base,extra:'@srv',per:2})))
 ];
 function initComposites(a){
   if(Array.isArray(a.composites))return;
   a.composites=[];
   DEFAULT_COMPOSITES.forEach((c,i)=>{if(c.army!==a.id)return;
-    const b=a.units.find(u=>u.in_.B===c.base&&u.q[c.legion]),e=a.units.find(u=>u.in_.B===c.extra&&u.q[c.legion]);
-    if(b&&e)a.composites.push({id:'d'+i,legion:c.legion,base:b.uid,extra:e.uid,size:c.size});});
+    const b=a.units.find(u=>u.in_.B===c.base&&u.q[c.legion]);
+    const e=a.units.find(u=>u.q[c.legion]&&(c.extra==='@srv'?u.q[c.legion][7]==='srv':u.in_.B===c.extra));
+    if(b&&e)a.composites.push(Object.assign({id:'d'+i,legion:c.legion,base:b.uid,extra:e.uid},c.per?{per:c.per}:{size:c.size}));});
 }
-function compOk(a,c){const b=a.units.find(u=>u.uid===c.base),e=a.units.find(u=>u.uid===c.extra);
+/* calcul d'une unité composée (mêmes règles que le serveur) : avail = figurines de l'autre ligne encore disponibles */
+function compCalc(a,c,avail){
+  const b=a.units.find(u=>u.uid===c.base),e=a.units.find(u=>u.uid===c.extra);
   if(!b||!e||!b.q[c.legion]||!e.q[c.legion])return null;
-  const nb=b.q[c.legion][0],full=Math.floor(nb/c.size),rest=nb-full*c.size;return rest>0?{b,e,full,rest}:null;}
+  const bq=b.q[c.legion],eq=e.q[c.legion];
+  const have=avail&&avail[c.extra]!=null?avail[c.extra]:eq[0];
+  if(c.per){const k=Math.min(bq[0],Math.floor(have/c.per));return k>0?{c,b,e,per:c.per,k,left:bq[0]-k,used:k*c.per}:null;}
+  const size=c.size||8,full=Math.floor(bq[0]/size),rest=bq[0]-full*size;
+  return rest>0?{c,b,e,size,full,rest,k:1,used:eq[0]}:null;
+}
+function compPlan(a,lid){
+  const avail={},out=[];
+  (a.composites||[]).filter(c=>c.legion===lid).forEach(c=>{
+    const o=compCalc(a,c,avail);if(!o)return;
+    avail[c.extra]=(avail[c.extra]!=null?avail[c.extra]:o.e.q[lid][0])-o.used;out.push(o);});
+  return out;
+}
+const compOk=(a,c)=>compCalc(a,c,null);
 function compText(a,c){const o=compOk(a,c);if(!o)return null;
-  return `${o.full>0?o.full+' × '+c.size+' ':''}${esc(o.b.in_.B)}${o.full>0?' puis ':' : '}<b>1 unité composée</b> : ${o.rest} ${esc(o.b.in_.B)} + ${esc(o.e.in_.B)}`;}
+  if(o.per)return `${o.k} ${esc(o.b.in_.B)} + ${o.per} ${esc(o.e.in_.B)} chacun : <b>${o.k} unité${o.k>1?'s':''} composée${o.k>1?'s':''}</b>${o.left>0?' (+ '+o.left+' sans '+esc(o.e.in_.B)+')':''}`;
+  return `${o.full>0?o.full+' × '+o.size+' ':''}${esc(o.b.in_.B)}${o.full>0?' puis ':' : '}<b>1 unité composée</b> : ${o.rest} ${esc(o.b.in_.B)} + ${esc(o.e.in_.B)}`;}
 function compNote(a,l){
-  const out=(a.composites||[]).filter(c=>c.legion===l.id).map(c=>compText(a,c)).filter(Boolean);
-  return out.length?`<div class="hint">🧩 Unité composée — ${out.join('<br>')}</div>`:'';
+  const out=compPlan(a,l.id).map(o=>compText(a,o.c)).filter(Boolean);
+  return out.length?`<div class="hint">🧩 <b>Unités composées</b> de cette légion :<br>${out.join('<br>')}</div>`:'';
 }
 function compPanel(a){
   const list=a.composites||[];
@@ -1477,27 +1525,29 @@ function compForm(c,isNew){
   const a=curArmy();const legs=a.legions.filter(l=>l.id!=='ni'&&a.units.some(u=>u.q[l.id]));
   if(!legs.length){toast('Aucune légion avec des unités.');return;}
   const unitsOf=lid=>a.units.filter(u=>u.q[lid]&&u.q[lid][0]>0);
-  openModal(isNew?'Nouvelle unité composée':'Modifier l\'unité composée',`<div class="small" style="margin-bottom:6px">Légion, puis la ligne de base (dont le reste est complété), la figurine qui la complète et la taille habituelle d'une unité.</div>
+  openModal(isNew?'Nouvelle unité composée':'Modifier l\'unité composée',`<div class="small" style="margin-bottom:6px">Légion, ligne de base, autre ligne, puis le mode de composition.</div>
    <select id="cpL" class="ft">${legs.map(l=>`<option value="${esc(l.id)}" ${l.id===c.legion?'selected':''}>${esc(legName(l))}</option>`).join('')}</select>
    <label class="small">Ligne de base</label><select id="cpB" class="ft"></select>
-   <label class="small">Figurine qui complète</label><select id="cpE" class="ft"></select>
-   <div class="row" style="margin-top:6px"><label class="small">Taille habituelle d'une unité</label><input id="cpS" class="ft" type="number" min="2" max="40" value="${c.size||8}" style="width:90px"></div><div id="cpP" class="small" style="margin-top:6px"></div>`,
+   <label class="small">Autre ligne (figurine seule, servants…)</label><select id="cpE" class="ft"></select>
+   <label class="small">Mode</label><select id="cpM" class="ft"><option value="rest" ${c.per?'':'selected'}>Le reste de la ligne de base est complété par l'autre ligne (1 unité)</option><option value="per" ${c.per?'selected':''}>Chaque figurine de la ligne de base reçoit N figurines de l'autre ligne (ex. machine + servants)</option></select>
+   <div class="row" style="margin-top:6px"><label class="small" id="cpNl"></label><input id="cpS" class="ft" type="number" min="1" max="40" value="${c.per||c.size||8}" style="width:90px"></div><div id="cpP" class="small" style="margin-top:6px"></div>`,
    [{label:'Annuler',fn:closeModal},{label:isNew?'Ajouter':'Enregistrer',cls:'pri',fn:()=>{
-     const n={id:c.id,legion:mval('cpL'),base:mval('cpB'),extra:mval('cpE'),size:Math.max(2,Math.min(40,parseInt(mval('cpS'))||8))};
+     const per=mval('cpM')==='per',v=Math.max(per?1:2,Math.min(40,parseInt(mval('cpS'))||(per?2:8)));
+     const n=Object.assign({id:c.id,legion:mval('cpL'),base:mval('cpB'),extra:mval('cpE')},per?{per:v}:{size:v});
      if(!n.base||!n.extra||n.base===n.extra){toast('Choisissez deux lignes différentes.');return;}
-     if((a.composites||[]).some(x=>x.id!==n.id&&x.legion===n.legion&&(x.base===n.base||x.extra===n.extra||x.extra===n.base||x.base===n.extra))){toast('Une de ces lignes est déjà utilisée par une autre unité composée de cette légion.');return;}
-     if(!compOk(a,n)&&!confirm('Cette association ne produit aucune unité composée (pas de reste). L\'enregistrer quand même ?'))return;
+     if((a.composites||[]).some(x=>x.id!==n.id&&x.legion===n.legion&&(x.base===n.base||x.extra===n.base||(!per&&!x.per&&x.extra===n.extra)||(per!==!!x.per&&x.extra===n.extra)))){toast('Une de ces lignes est déjà utilisée par une autre unité composée de cette légion.');return;}
+     if(!compOk(a,n)&&!confirm('Cette association ne produit aucune unité composée. L\'enregistrer quand même ?'))return;
      a.composites=a.composites||[];const i=a.composites.findIndex(x=>x.id===n.id);if(i>=0)a.composites[i]=n;else a.composites.push(n);
      closeModal();afterChange([a.id]);toast('Unité composée enregistrée.');}}]);
   let last=null;
   const fill=()=>{const lid=mval('cpL');const us=unitsOf(lid);
     if(last!==lid){last=lid;
-      const pick=(id,sel)=>`<option value="${esc(id)}" ${id===sel?'selected':''}>`;
-      const opt=(sel)=>us.map(u=>`${pick(u.uid,sel)}${esc(u.in_.B)} (${u.q[lid][0]} fig)</option>`).join('');
+      const opt=sel=>us.map(u=>`<option value="${esc(u.uid)}" ${u.uid===sel?'selected':''}>${esc(u.in_.B)} (${u.q[lid][0]} fig)</option>`).join('');
       document.getElementById('cpB').innerHTML=opt(c.legion===lid?c.base:null);document.getElementById('cpE').innerHTML=opt(c.legion===lid?c.extra:null);}
-    const n={legion:lid,base:mval('cpB'),extra:mval('cpE'),size:Math.max(2,parseInt(mval('cpS'))||8)};const t=compText(a,n);
-    document.getElementById('cpP').innerHTML=t?('Résultat : '+t):'Aucun reste : cette association ne crée pas d\'unité composée.';};
-  ['cpL','cpB','cpE','cpS'].forEach(id=>{const e=document.getElementById(id);e.addEventListener('input',fill);e.addEventListener('change',fill);});fill();
+    const per=mval('cpM')==='per';document.getElementById('cpNl').textContent=per?'Figurines de l\'autre ligne par figurine de base':'Taille habituelle d\'une unité';
+    const v=parseInt(mval('cpS'))||(per?2:8);const n=Object.assign({legion:lid,base:mval('cpB'),extra:mval('cpE')},per?{per:v}:{size:Math.max(2,v)});const t=compText(a,n);
+    document.getElementById('cpP').innerHTML=t?('Résultat : '+t):'Aucune unité composée avec ces valeurs.';};
+  ['cpL','cpB','cpE','cpM','cpS'].forEach(id=>{const e=document.getElementById(id);e.addEventListener('input',fill);e.addEventListener('change',fill);});fill();
 }
 function compPickLegion(c,verb,fn){
   const a=curArmy();
@@ -1516,12 +1566,13 @@ function compAction(act,id){
   else if(act==='copy')compPickLegion(c,'Copier',t=>{if(a.composites.some(x=>x.legion===t&&(x.base===c.base||x.extra===c.extra))){toast('Déjà utilisée dans cette légion.');return;}a.composites.push({...c,id:'c'+Math.random().toString(36).slice(2,8),legion:t});});
 }
 /* unité composée dans la fiche de légion : les deux types de figurines l'un sous l'autre, dans un même cadre */
-function compRows(a,l,cb,cs,qc){
-  const {c,o}=cb;const qb=o.b.q[l.id],qe=o.e.q[l.id];
+function compRows(a,l,o,cs,qc){
+  const qb=o.b.q[l.id],qe=o.e.q[l.id];
   const val=(q,n)=>(q[3]!=null&&q[3]===q[3]&&q[0])?Math.round(q[3]*n/q[0]):'';
+  const nb=o.per?o.k:o.rest,ne=o.per?o.k*o.per:qe[0];
   const row=(u,n,q,k)=>'<tr class="compr compr'+k+'">'+cs.map(col=>col==='B'?`<td class="name">🧩 ${esc(u.in_.B||'')}</td>`:cellTd(a,u,'u',col)).join('')
-    +(qc.nb?`<td class="qty">${n}</td>`:'')+(k===1?(qc.u?`<td class="compu" rowspan="2">🧩 1${esc(qb[7]||'')}<br><small>unité composée</small></td>`:'')+(qc.e?'<td class="compu" rowspan="2"></td>':''):'')+(qc.pts?`<td>${val(q,n)}</td>`:'')+'</tr>';
-  return row(o.b,o.rest,qb,1)+row(o.e,qe[0],qe,2);
+    +(qc.nb?`<td class="qty">${n}</td>`:'')+(k===1?(qc.u?`<td class="compu" rowspan="2">🧩 ${o.k}${esc(qb[7]||'')}<br><small>unité${o.k>1?'s':''} composée${o.k>1?'s':''}</small></td>`:'')+(qc.e?'<td class="compu" rowspan="2"></td>':''):'')+(qc.pts?`<td>${val(q,n)}</td>`:'')+'</tr>';
+  return row(o.b,nb,qb,1)+row(o.e,ne,qe,2);
 }
 function showCompCard(t,a,l){
   const parts=(t.comp||[]).map(c=>({c,u:a.units.find(x=>x.uid===c.uid)})).filter(x=>x.u);
@@ -1530,7 +1581,7 @@ function showCompCard(t,a,l){
   const body=parts.map(({c,u})=>{const q=u.q[t.legion];const v=q&&q[3]===q[3]&&q[3]!=null&&q[0]?q[3]/q[0]*c.figs:null;if(v==null)ok=false;else total+=v;
     const cols=COLS.filter(k=>k!=='B'&&k!=='A'&&!CARD_HIDE.has(k)&&cellRaw(u,k)!=null&&cellRaw(u,k)!=='');
     return `<div class="lbl2" style="margin-top:8px">${c.figs} × ${esc(u.in_.B)}${v!=null?' · '+Math.round(v)+' pts':''}</div><table style="width:100%">${cols.map(k=>row(k==='W'?'Valeur de la figurine (avec tous les bonus)':(LONG[k]||k),fnum(cellRaw(u,k)))).join('')}</table>`;}).join('');
-  const figs=t.figs??parts.reduce((s,x)=>s+x.c.figs,0);
+  const figs=parts.reduce((s,x)=>s+x.c.figs,0);
   const h=`<div class="small" style="margin-bottom:6px">${esc(a.name)} · ${esc(legName(l))}${t.owner?' · '+esc(t.owner):''} · <b>unité composée</b></div><div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${figs}</b><span>figurines dans l'unité</span></div>${ok?`<div class="kpi"><b>${Math.round(total)}</b><span>valeur de l'unité</span></div>`:''}<div class="kpi"><b>${t.std?'oui':'non'}</b><span>étendard</span></div></div><div class="scroll" style="max-height:44vh">${body}</div>`;
   openModal((t.comp||[]).map(c=>c.name).join(' + '),h,[{label:'Fermer',cls:'pri',fn:closeModal}]);
 }
@@ -1547,7 +1598,9 @@ function showUnitCard(t){
   if(String(t.uid||'').startsWith('merc-')){showMercCard(t);return;}
   if(!(t.comp&&t.comp.length)&&String(t.uid||'').includes('+')){ // l'unité vient d'un ancien affichage sans sa composition : on la reconstruit depuis l'uid
     const ca0=getArmy(t.army);const [bu,eu]=String(t.uid).split('+');const bb=ca0&&ca0.units.find(u=>u.uid===bu),ee=ca0&&ca0.units.find(u=>u.uid===eu);
-    if(bb&&ee){const ef=(ee.q[t.legion]||[1])[0];const tf=t.figs!=null?t.figs:ef+1;t={...t,comp:[{name:bb.in_.B,figs:Math.max(1,tf-ef),uid:bu},{name:ee.in_.B,figs:ef,uid:eu}]};}}
+    const cc=ca0&&(ca0.composites||[]).find(c=>c.base===bu&&c.extra===eu&&c.per);
+    if(bb&&ee&&cc){t={...t,comp:[{name:bb.in_.B,figs:1,uid:bu},{name:ee.in_.B,figs:cc.per,uid:eu}]};}
+    else if(bb&&ee){const ef=(ee.q[t.legion]||[1])[0];const tf=t.figs!=null?t.figs:ef+1;t={...t,comp:[{name:bb.in_.B,figs:Math.max(1,tf-ef),uid:bu},{name:ee.in_.B,figs:ef,uid:eu}]};}}
   if(t.comp&&t.comp.length){const ca=getArmy(t.army);const cl=ca&&ca.legions.find(l=>l.id===t.legion);if(ca&&cl){ensureBonuses(ca);S.uc=Object.assign({},t);showCompCard(t,ca,cl);return;}}
   const a=getArmy(t.army);const u=a&&a.units.find(x=>x.uid===t.uid);
   if(!u){openModal('Unité introuvable',`<div class="small">Cette unité n'est plus disponible dans les fiches.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
