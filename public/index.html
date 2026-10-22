@@ -4266,7 +4266,7 @@
         /* ============================================================ */
 
         // Le serveur reste seul juge de ce que chacun peut voir ; cette page ne fait que relayer les messages.
-        const FICHES_EVENTS = new Set(['fiches-load', 'fiches-pick', 'fiches-save', 'fiches-diag', 'fiches-team', 'fiches-freeze', 'fiches-snaps', 'fiches-snap-save', 'fiches-snap-load', 'fiches-snap-rename', 'fiches-snap-delete', 'fiches-export', 'fiches-import', 'landing-standard']);
+        const FICHES_EVENTS = new Set(['fiches-load', 'fiches-pick', 'fiches-save', 'fiches-diag', 'fiches-team', 'fiches-merc', 'fiches-freeze', 'fiches-snaps', 'fiches-snap-save', 'fiches-snap-load', 'fiches-snap-rename', 'fiches-snap-delete', 'fiches-export', 'fiches-import', 'landing-standard']);
 
         function fichesPost(message) {
             try { $('fichesFrame').contentWindow?.postMessage(message, location.origin); } catch { /* fenêtre fermée */ }
