@@ -139,10 +139,10 @@ td.name{z-index:3}
       <button id="tabS" class="tab" data-a="tab-saves" style="display:none">Sauvegardes</button>
       <button id="tabH" class="tab" data-a="tab-help" style="display:none" title="Rappel des actions du MJ" aria-label="Aide MJ">ℹ️</button>
       <span id="mjBadge" class="badge mj">MJ</span>
-      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v26-oct-22h50</span>
+      <span id="dbBadge" class="badge">local</span><span class="badge" title="Version du fichier fiches.html">v28-oct-23h40</span>
     </div>
     <div class="pseudo" style="display:none"><label for="pseudo">Pseudo</label><input id="pseudo" type="text" autocomplete="off" placeholder="votre pseudo"><button id="pseudoOk" class="btn">OK</button></div>
-    <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select></div>
+    <div id="armyBar"><label class="lbl" for="armySel">Armée</label><select id="armySel"></select><span id="armyAdmin" class="noprint"></span></div>
   </div>
   <div id="view"></div>
 </div>
@@ -451,7 +451,8 @@ async function writeDoc(key,json){
 }
 function loadLocal(){try{
   const f=localStorage.getItem('fa2:fams');if(f)applyFams(f);
-  ARMIES.forEach((a,i)=>{const s=localStorage.getItem('fa2:'+akey(a.id));if(s)applyArmy(s,false);});}catch(e){}}
+  ARMIES.forEach((a,i)=>{const s=localStorage.getItem('fa2:'+akey(a.id));if(s)applyArmy(s,false);});
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!k||k.indexOf('fa2:a_')!==0)continue;try{const a=JSON.parse(localStorage.getItem(k));if(a&&a.custom===true&&!ARMIES.some(x=>x.id===a.id)){prepArmy(a);ARMIES.push(a);}}catch(e){}}}catch(e){}}
 function applyFams(json){try{const o=JSON.parse(json);for(const id in o){if(FAM[id])FAM[id].text=o[id].text;else if(o[id].custom&&o[id].col)FAM[id]={id,col:o[id].col,text:o[id].text,orig:null,custom:true};}}catch(e){}}
 function applyArmy(json){try{const a=JSON.parse(json);const i=ARMIES.findIndex(x=>x.id===a.id);if(i<0)return;prepArmy(a);ARMIES[i]=a;}catch(e){}}
 function onSnapshot(snap){
@@ -731,6 +732,7 @@ function legBar(a){
 /* ---- fiche armée : chaque légion a ses colonnes nb / c / E (+ pts) ---- */
 function renderFull(a){
   const cs=visCols();const mj=ED();const vl=visLegions(a);const w=lgW();let h=picksBar();
+  if(isMJ()&&HOSTED&&(S.stale||[]).length)h+=`<div class="hint noprint" style="border-color:#d32f2f">⚠️ <b>${S.stale.length} armée(s) créée(s) avec une ancienne version des fiches</b> : ${S.stale.map(x=>esc(x.name)+' ('+esc(x.version)+')').join(', ')}. Elles sont conservées et une sauvegarde automatique vient d'être faite (onglet Sauvegardes). Vérifiez leurs formules : la moindre modification les met à jour avec la version actuelle (${esc(S.version||'')}) et efface cet avertissement.</div>`;
   h+=legBar(a);
   const cur=a.legions.find(l=>l.id===S.sel);
   h+=`<div class="row noprint">${pickBtn(a)}`;
@@ -899,6 +901,7 @@ function render(){
   $('tabA').className='tab'+(S.tab==='army'?' on':'');
   $('tabF').className='tab'+(S.tab==='form'?' on':'');
   $('armyBar').style.display=(S.tab==='army'&&S.view==='full')?'block':'none';
+  { const ca=curArmy();$('armyAdmin').innerHTML=(isMJ()&&S.tab==='army'&&S.view==='full')?' <button class="btn" data-dbl="1" data-a="newarmy" title="Double-cliquez pour créer une armée">＋ Nouvelle armée</button>'+(ca&&ca.custom?' <button class="btn" data-dbl="1" data-a="delarmy" title="Double-cliquez pour supprimer cette armée">🗑 Supprimer cette armée</button>':''):''; }
   if(S.tab==='players'&&HOSTED){$('armyBar').style.display='none';root.innerHTML=renderPlayers();return;}
   if(S.tab==='saves'&&HOSTED&&isMJ()){$('armyBar').style.display='none';root.innerHTML=renderSaves();if(!S.snaps)loadSnaps();return;}
   if(S.tab==='players'||S.tab==='saves')S.tab='army';
@@ -965,6 +968,38 @@ function readLegForm(l){
   l.name=cleanName(mval('lg_n'),40)||undefined;if(!l.name)delete l.name;
   l.tag=cleanName(mval('lg_t'),30)||null;l.comp=cleanName(mval('lg_c'),200)||null;
   const s=Number(mval('lg_s'));l.sup=isFinite(s)?s:0;
+}
+/* ---- création / suppression d'une armée par le MJ ---- */
+function refreshArmySel(){const sel=document.getElementById('armySel');sel.innerHTML=ARMIES.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');if(S.army)sel.value=S.army;}
+function createArmy(){
+  const opts=ARMIES.map(a=>`<option value="${esc(a.id)}">Copie de ${esc(a.name)}</option>`).join('');
+  openModal('Nouvelle armée',`<div class="grid2"><label class="fl">Nom de l'armée<input id="na_n" class="ft" maxlength="40"></label><label class="fl">Partir de<select id="na_s" class="ft"><option value="">Une armée vide (une légion 1 sans unité)</option>${opts}</select></label></div><div class="small" style="margin-top:6px">Une armée vide se remplit ensuite avec « ＋ Unité » (les formules sont copiées d'une unité de même type). Une copie reprend toutes les unités, légions, sections et unités composées de l'armée choisie, que vous pouvez ensuite modifier.</div><div class="ftres err" id="naerr"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:'Créer',cls:'pri',fn:()=>{
+     const name=cleanName(mval('na_n'),40);const er=document.getElementById('naerr');if(!name){er.textContent='Nom requis.';return;}
+     if(ARMIES.some(x=>x.name.toLowerCase()===name.toLowerCase())){er.textContent='Une armée porte déjà ce nom.';return;}
+     const srcId=mval('na_s');const src=ARMIES.find(x=>x.id===srcId)||ARMIES[0];
+     if(!src){er.textContent='Aucune armée modèle.';return;}
+     let id=name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40)||'armee';
+     id+='_'+Math.random().toString(36).slice(2,6);
+     const a=JSON.parse(JSON.stringify(src,strip));
+     a.id=id;a.name=name;a.file='créée par le MJ';a.version='MJ';a.custom=true;a.notes=[];delete a.niInit;delete a.defVal;
+     if(!srcId){a.units=[];a.legions=[{id:'1',kind:'main',figs:0,val:0,sup:0,comp:null,tag:null}];a.composites=[];a.sections=[];a.params={};delete a.bonuses;}
+     else a.legions=a.legions.filter(l=>l.id!=='ni');
+     prepArmy(a);a.legions.forEach(l=>{delete l.val;});
+     ARMIES.push(a);ARMIES.sort((x,y)=>x.name.localeCompare(y.name,'fr'));
+     S.army=a.id;S.sel=null;S.view='full';S.tab='army';
+     closeModal();refreshArmySel();afterChange([a.id]);toast(`Armée « ${name} » créée`);}}]);
+}
+function deleteArmy(){
+  const a=curArmy();if(!a||!a.custom)return;
+  openModal('Supprimer cette armée',`<p>Supprimer définitivement l'armée <b>${esc(a.name)}</b> ? Les joueurs qui avaient choisi une de ses légions devront en choisir une autre. Cette action ne peut pas être annulée (pensez à une sauvegarde).</p>`,
+   [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:async()=>{
+     const id=a.id;closeModal();
+     if(HOSTED){const r=await hostReq('fiches-army-delete',{id});if(!r.success){toast(r.message||'Suppression impossible.');return;}}
+     else{try{localStorage.removeItem('fa2:'+akey(id));}catch(e){}}
+     const i=ARMIES.findIndex(x=>x.id===id);if(i>=0)ARMIES.splice(i,1);
+     S.army=ARMIES.length?ARMIES[0].id:null;S.sel=null;S.view='full';
+     refreshArmySel();render();toast('Armée supprimée');}}]);
 }
 function createLegion(){
   const a=curArmy();const l={id:nextLegId(a),kind:'main',figs:0,sup:0,comp:null,tag:null};
@@ -1133,6 +1168,8 @@ function onClick2(e){
   switch(a){
     case 'unpickme':hostReq('fiches-pick',{clear:true}).then(r=>{if(!r.success)return toast(r.message||'Action impossible.');toast('Légion libérée');loadHosted(false);});break;
     case 'newleg':if(ED())createLegion();break;
+    case 'newarmy':if(isMJ())createArmy();break;
+    case 'delarmy':if(isMJ())deleteArmy();break;
     case 'newbonus':if(ED())bonusEditor(null);break;
     case 'comp-add':case 'comp-edit':case 'comp-move':case 'comp-copy':case 'comp-del':if(a==='comp-add'?EDADD():ED())compAction(a.slice(5),el.dataset.id);break;
     case 'tab-players':S.tab='players';render();break;
@@ -1158,7 +1195,7 @@ function onClick2(e){
 /* ---- liaison serveur : chargement, sélection, choix ---- */
 function applyServer(res){
   S.restricted=res.mode==='own';S.access=!!res.access;S.frozen=!!res.frozen;S.picks=res.picks||{};S.catalog=res.catalog||null;
-  S.teams=res.teams||null;S.mercs=res.mercs||{};S.roster=res.roster||[];S.online=res.online||[];
+  S.stale=res.stale||[];S.version=res.version||'';S.teams=res.teams||null;S.mercs=res.mercs||{};S.roster=res.roster||[];S.online=res.online||[];
   const mine=Object.entries(S.picks).find(([n])=>isMe(n));S.myPick=mine?mine[1]:null;
   FAM={};(res.families||[]).forEach(f=>{const o=pretty(f.rel);FAM[f.id]={id:f.id,col:f.col,text:o,orig:f.custom?null:o,custom:!!f.custom};});
   for(const id in (res.famTexts||{}))if(FAM[id]&&!FAM[id].custom)FAM[id].text=res.famTexts[id];

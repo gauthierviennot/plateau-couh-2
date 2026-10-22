@@ -217,7 +217,6 @@
         .pal-units[data-edge="left"] .ub-chip, .pal-units[data-edge="right"] .ub-chip { touch-action: pan-y; }
         .pal-units[data-edge="top"] .ub-chip, .pal-units[data-edge="bottom"] .ub-chip { touch-action: pan-x; }
         .pal-stack .phase-btn { width: var(--btn); height: var(--btn); }
-        .phase-lbl { background: rgba(255,255,255,.95); border-radius: 8px; padding: 2px 5px; font-size: .6rem; text-align: center; max-width: 60px; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
         .lp-list { margin: 6px 0; padding-left: 18px; line-height: 1.45; font-size: .88rem; }
         .lp-chk { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-size: .85rem; }
         .lp-chk input { width: 18px; height: 18px; }
@@ -251,6 +250,11 @@
         #exportViewer { z-index: 120; }
         .export-viewer img { width: 100%; max-height: 52vh; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 6px; -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
 
+        .local-guide { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #f4f6fa; font-size: .82rem; line-height: 1.35; text-align: left; }
+        .local-guide ol { margin: 6px 0 8px; padding-left: 18px; }
+        .local-guide li { margin-bottom: 4px; }
+        .local-guide .btn { width: 100%; }
+
         .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; max-width: 90vw; padding: 10px 16px; border-radius: 8px; background: var(--dark); color: #fff; font-size: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,.3); pointer-events: none; text-align: center; }
         .toast.error { background: var(--red); }
     </style>
@@ -266,6 +270,16 @@
             <input type="password" id="passwordInput" placeholder="Code secret" autocomplete="current-password" hidden>
             <p id="loginError" class="error" role="alert" hidden></p>
             <button id="btnLogin" class="btn btn-primary">Rejoindre</button>
+            <div id="localGuide" class="local-guide" hidden>
+                <b>🏠 Jouer sans internet (Wi-Fi local)</b>
+                <ol>
+                    <li>Touchez le bouton ci-dessous : il vous connecte (mot de passe MJ ci-dessus) et télécharge le jeu complet (carte, fiches, équipes).</li>
+                    <li>Décompressez le fichier sur l'appareil qui servira de serveur (PC, Mac ou téléphone Android) et installez <b>Node.js</b> une seule fois (avec internet) : nodejs.org pour un PC, ou l'application <b>Termux</b> puis « pkg install nodejs » sur Android.</li>
+                    <li>Lancez <b>demarrer-windows.bat</b> (Windows) ou « sh demarrer-mac-linux.sh » (Mac, Linux, Termux) et choisissez un mot de passe MJ.</li>
+                    <li>Activez le Wi-Fi (ou le partage de connexion du téléphone) : les joueurs ouvrent l'adresse affichée par le serveur, par exemple http://192.168.1.20:3000.</li>
+                </ol>
+                <button id="btnLoginExport" class="btn btn-dark">📦 Me connecter et télécharger le jeu local</button>
+            </div>
             <button id="btnInstall" class="btn btn-dark" hidden>📲 Installer sur l'écran d'accueil</button>
             <p id="iosHint" class="install-hint" hidden>Sur iPhone : touchez « Partager » puis « Sur l'écran d'accueil » pour installer l'application en plein écran.</p>
             <div class="presence">
@@ -335,7 +349,6 @@
         </div>
 
         <div id="stackBr" class="pal pal-stack" role="toolbar" aria-label="Boussole, impression et navigation du débarquement">
-            <span id="landPhaseLbl" class="phase-lbl" hidden></span>
             <button class="btn-round phase-btn" data-land="prev" hidden aria-label="Phase précédente">◀</button>
             <button class="btn-round phase-btn" data-land="next" hidden aria-label="Phase suivante">▶</button>
             <button id="btnCompass" class="btn-compass" title="Boussole : toucher pour pivoter de 90°, maintenir pour remettre le nord en haut" aria-label="Boussole : pivoter la carte de 90 degrés">
@@ -865,7 +878,16 @@
 
         el.username.addEventListener('input', () => {
             el.password.hidden = el.username.value.trim().toLowerCase() !== ADMIN_NAME;
+            updateLocalGuide();
         });
+
+        // Guide « jeu local » : réservé au MJ, et inutile quand la page vient déjà d'un serveur local.
+        const onLocalServer = () => /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|.*\.local$)/.test(location.hostname);
+        function updateLocalGuide() {
+            const g = $('localGuide');
+            if (g) g.hidden = el.password.hidden || onLocalServer();
+        }
+        updateLocalGuide();
 
         function enterMap() {
             showPage('map');
@@ -890,6 +912,7 @@
                 state.username = '';
                 state.isAdmin = false;
                 applyRole();
+                state.autoExport = false;
                 showLoginError(res.message);
                 showPage('login');
                 return;
@@ -908,8 +931,15 @@
             if (!isReconnect) {
                 if (state.isAdmin) showPage('dashboard');
                 else enterMap();
+                if (state.isAdmin && state.autoExport) { state.autoExport = false; exportGameNow(); }
             }
         }
+
+        $('btnLoginExport').addEventListener('click', () => {
+            if (!el.password.value) return showLoginError('Entrez le mot de passe du MJ ci-dessus.');
+            state.autoExport = true;
+            handleLogin();
+        });
 
         function handleLogin() {
             const name = el.username.value.trim();
@@ -1401,11 +1431,15 @@
             land.dataset.land = 'toggle';
             land.textContent = '⚔️';
             list.push(land);
+            const simr = make('simreset', 'Réinitialiser ma simulation : toutes mes unités reviennent à leur position de dépôt');
+            simr.dataset.land = 'simreset';
+            simr.textContent = '↺';
+            simr.hidden = true;
             const sim = make('simb', 'Simulation : carte virtuelle des dépôts');
             sim.dataset.land = 'sim';
             sim.textContent = '🗺️';
             sim.hidden = true;
-            list.push(sim);
+            list.push(sim, simr);
             if (state.isAdmin) list.push(make('access', 'Accès des joueurs aux fiches'), make('freeze', 'Légions des joueurs'));
             queueMicrotask(updateFichesAccessUI);
             queueMicrotask(updateLandingUI);
@@ -1564,7 +1598,8 @@
         }
 
         $('btnExportMapNow').addEventListener('click', () => exportMapFile(null));
-        $('btnExportGame').addEventListener('click', async () => {
+        $('btnExportGame').addEventListener('click', () => exportGameNow());
+        async function exportGameNow() {
             toast('Préparation du jeu complet…');
             const res = await request('export-package', {}, 120000);
             if (!res.success) return toast(res.message || 'Export impossible.', true);
@@ -1583,7 +1618,7 @@
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 8000);
             toast(`Jeu exporté (${Math.round(res.size / 1024)} Ko). Lisez LISEZMOI.txt dans le dossier.`);
-        });
+        }
         $('btnImportMap').addEventListener('click', () => { $('importMapFile').value = ''; $('importMapFile').click(); });
         $('importMapFile').addEventListener('change', async () => {
             const f = $('importMapFile').files?.[0];
@@ -3353,9 +3388,10 @@
                     for (const key of LAND.areaSet) {
                         const [ac, ar] = keyToHex(key);
                         const { x, y } = hexCenter(ac, ar);
-                        hexPathAt(c, x, y, R * 0.92);
-                        c.fillStyle = 'rgba(0,170,200,0.32)';
-                        c.fill();
+                        hexPathAt(c, x, y, R * 0.86);
+                        c.lineWidth = R * 0.14;
+                        c.strokeStyle = 'rgba(0,170,200,0.95)';
+                        c.stroke();
                     }
                 }
             }
@@ -3381,51 +3417,33 @@
             if (LAND.hover) {
                 const [hc, hr] = keyToHex(LAND.hover.key);
                 const { x, y } = hexCenter(hc, hr);
-                hexPathAt(c, x, y, R * 0.94);
-                c.fillStyle = LAND.hover.ok ? 'rgba(46,160,67,0.45)' : 'rgba(224,27,27,0.35)';
-                c.fill();
+                hexPathAt(c, x, y, R * 0.9);
+                c.lineWidth = R * 0.18;
+                c.strokeStyle = LAND.hover.ok ? 'rgba(46,160,67,1)' : 'rgba(224,27,27,1)';
+                c.stroke();
             }
 
             // Prévisualisation de la portée de déplacement.
             if (LAND.preview) {
-                const p = LAND.preview;
-                for (const key of p.pass) {
-                    const [pc, pr] = keyToHex(key);
-                    const { x, y } = hexCenter(pc, pr);
-                    hexPathAt(c, x, y, R * 0.9);
-                    c.fillStyle = 'rgba(255,152,0,0.38)';
-                    c.fill();
-                }
-                for (const key of p.genEnd || []) {
-                    const [pc, pr] = keyToHex(key);
-                    const { x, y } = hexCenter(pc, pr);
-                    hexPathAt(c, x, y, R * 0.9);
-                    c.fillStyle = 'rgba(255,193,7,0.6)';
-                    c.fill();
-                    c.lineWidth = R * 0.05;
-                    c.strokeStyle = 'rgba(150,100,0,0.95)';
-                    c.stroke();
-                }
-                for (const key of p.bonusEnd) {
-                    const [pc, pr] = keyToHex(key);
-                    const { x, y } = hexCenter(pc, pr);
-                    hexPathAt(c, x, y, R * 0.9);
-                    c.fillStyle = 'rgba(31,120,255,0.5)';
-                    c.fill();
-                    c.lineWidth = R * 0.05;
-                    c.strokeStyle = 'rgba(15,70,170,0.9)';
-                    c.stroke();
-                }
-                for (const key of p.end) {
-                    const [pc, pr] = keyToHex(key);
-                    const { x, y } = hexCenter(pc, pr);
-                    hexPathAt(c, x, y, R * 0.9);
-                    c.fillStyle = 'rgba(46,160,67,0.5)';
-                    c.fill();
-                    c.lineWidth = R * 0.05;
-                    c.strokeStyle = 'rgba(20,110,40,0.9)';
-                    c.stroke();
-                }
+                const p = LAND.simOn ? simView(LAND.preview) : LAND.preview;
+                // Seuls les contours des hexagones sont colorés : le contenu des tuiles reste visible.
+                const ring = (keys, col, lw, dash) => {
+                    c.save();
+                    c.lineWidth = R * lw;
+                    c.strokeStyle = col;
+                    if (dash) c.setLineDash([R * 0.22, R * 0.16]);
+                    for (const key of keys) {
+                        const [pc, pr] = keyToHex(key);
+                        const { x, y } = hexCenter(pc, pr);
+                        hexPathAt(c, x, y, R * 0.86);
+                        c.stroke();
+                    }
+                    c.restore();
+                };
+                ring(p.pass, 'rgba(255,140,0,0.95)', 0.08, true);
+                ring(p.genEnd || [], 'rgba(255,193,7,1)', 0.14);
+                ring(p.bonusEnd, 'rgba(31,120,255,1)', 0.14);
+                ring(p.end, 'rgba(46,160,67,1)', 0.14);
                 const [sc, sr] = keyToHex(p.start);
                 const s = hexCenter(sc, sr);
                 hexPathAt(c, s.x, s.y, R * 0.98);
@@ -3461,10 +3479,7 @@
                 c.lineTo(fx - h * 0.3, fy - h * 0.45);
                 c.stroke();
                 c.beginPath();
-                c.moveTo(fx - h * 0.3, fy - h * 0.45);
-                c.lineTo(fx + h * 0.42, fy - h * 0.22);
-                c.lineTo(fx - h * 0.3, fy + h * 0.02);
-                c.closePath();
+                c.rect(fx - h * 0.3, fy - h * 0.45, h * 0.6, h * 0.4); // étendard rectangulaire (gain de place)
                 if (state === 'on') { c.fillStyle = '#d32f2f'; c.fill(); }
                 c.stroke();
                 c.restore();
@@ -3511,7 +3526,7 @@
                     const leftPad = hasCross ? chipH * 0.78 : chipH * 0.28;
                     const hasChev = u.near && (mine || u.chev);
                     // Tous les symboles (drapeau, chevron, général, puzzle) sont rangés à droite de l'étiquette ; le nom reste à gauche.
-                    const wFlag = hasFlag ? chipH * 0.74 : 0, wChev = hasChev ? chipH * 0.68 : 0, wGen = u.gen ? chipH * 0.92 : 0, wPuz = u.comp ? chipH * 0.58 : 0;
+                    const wFlag = hasFlag ? chipH * 0.62 : 0, wChev = hasChev ? chipH * 0.68 : 0, wGen = u.gen ? chipH * 0.92 : 0, wPuz = u.comp ? chipH * 0.58 : 0;
                     const rightW = wFlag + wChev + wGen + wPuz;
                     const textW = w - leftPad - rightW - chipH * 0.15;
                     let cross = null;
@@ -3562,9 +3577,9 @@
                     if (hasFlag) {
                         const used = stdUsed.get(u.line) || 0;
                         const state = u.std ? 'on' : (used >= u.stdMax ? 'full' : 'off');
-                        drawFlag(ox + w / 2 - chipH * 0.4, oy, chipH * 0.58, state);
+                        drawFlag(ox + w / 2 - chipH * 0.33, oy, chipH * 0.58, state);
                         if (mine && LAND.view.phase === 'place' && !LAND.simOn) {
-                            flag = { x: sp.x + (ox + w / 2 - chipH * 0.8) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 0.8 * VW.scale, h: chipH * VW.scale };
+                            flag = { x: sp.x + (ox + w / 2 - chipH * 0.68) * VW.scale, y: sp.y + (oy - chipH / 2) * VW.scale, w: chipH * 0.68 * VW.scale, h: chipH * VW.scale };
                         }
                     }
                     // Chevron de général : gris = disponible, or = actif (2 tuiles de placement supplémentaires).
@@ -3663,11 +3678,16 @@
         }
 
         // Carte virtuelle : une tuile est permise si elle est dans la portée de l'unité (depuis sa tuile de dépôt) et libre (hors tuiles de dépôt, une seule unité par tuile).
+        const simFree = (unit, key) => Boolean(zoneAtKey(key)) || !LAND.units.some((u) => u.id !== unit.id && u.tile === key);
         function simAllowed(unit, key) {
             const r = computeRange(unit);
             if (key !== r.start && ![...r.end, ...r.bonusEnd, ...(r.genEnd || [])].includes(key)) return false;
-            if (key === r.start || zoneAtKey(key)) return true;
-            return !LAND.units.some((u) => u.id !== unit.id && u.tile === key);
+            return key === r.start || simFree(unit, key);
+        }
+        // Simulation : seules les tuiles où l'unité peut réellement se poser sont mises en surbrillance (ni passage, ni tuile déjà occupée).
+        function simView(p) {
+            const f = (ks) => (ks || []).filter((k) => simFree(p.unit, k));
+            return { ...p, pass: [], end: f(p.end), bonusEnd: f(p.bonusEnd), genEnd: f(p.genEnd) };
         }
 
         function hoverFor(clientX, clientY, unit) {
@@ -3762,9 +3782,10 @@
             const info = $('rangeInfo');
             const kind = r.sectionKind === 'mid' ? 'centre' : 'extrémité';
             const where = r.zone ? `section ${r.section} (${kind}) · zone ${r.zone.toUpperCase()}` : 'hors zone de débarquement';
-            const n = r.end.length + r.bonusEnd.length + r.genEnd.length;
+            const rv = LAND.simOn ? simView({ ...r, unit }) : r;
+            const n = rv.end.length + rv.bonusEnd.length + rv.genEnd.length;
             info.innerHTML = `<b>${shortName(unit.name, 22)}</b> ${unit.idx} · dep ${r.dep}${r.landCost ? ` − ${r.landCost} (tuile de débarquement)` : ''}${r.bonus ? ` <b>+ ${r.bonus}</b> tuile${r.bonus > 1 ? 's' : ''} supplémentaire${r.bonus > 1 ? 's' : ''}` : ''} = <b>${r.total}</b> pas${r.genExtra ? ` · <b>+ ${r.genExtra}</b> tuiles (général)` : ''}`
-                + `<small>${r.genExtra ? 'cases dorées = tuiles du général, dans les frontières de placement · ' : ''}${where}${r.bonus ? ' · bonus seulement vers l’aire de cette section (cases bleues)' : ''} · ${n} case${n > 1 ? 's' : ''} d’arrivée</small>`;
+                + `<small>${r.genExtra ? 'contour doré = tuiles du général, dans les frontières de placement · ' : ''}${where}${r.bonus ? ' · bonus seulement vers l’aire de cette section (contour bleu)' : ''} · ${n} case${n > 1 ? 's' : ''} d’arrivée</small>`;
             info.hidden = false;
             requestDraw();
         }
@@ -4119,9 +4140,13 @@
                         for (const z of (v.zones || []).filter((x) => x.group === v.myGroup)) h += `<div class="lp-row"><button class="lp-zone" data-land="focus" data-zone="${z.id}" style="border-color:${GROUP_COL[z.group]}">${z.id.toUpperCase()}</button><span class="lp-grow">${zoneHolder(z.id) || 'libre'}</span>${zoneBtn(z)}</div>`;
                     } else h += `<p class="lp-hint">Glissez vos unités depuis le sélecteur d’unités vers une tuile de votre zone <b>${(v.myZone || '?').toUpperCase()}</b>, une par une. Vous pouvez les déplacer ensuite. Vos coéquipiers voient vos unités en direct. <b>${units.filter((u) => u.tile).length}/${units.length}</b> posées.</p>`;
                 } else if (v.phase === 'locked') {
-                    h += '<p class="lp-hint">Les placements sont verrouillés : vous voyez toutes les unités. Appui long sur une unité : portée de déplacement (cases bleues = bonus de sa section). Double toucher : la fiche de cette unité.</p>';
+                    h += '<p class="lp-hint">Les placements sont verrouillés : vous voyez toutes les unités. Appui long sur une unité : portée de déplacement (contour bleu = bonus de sa section). Double toucher : la fiche de cette unité.</p>';
                 }
             }
+            if (state.isAdmin && v.backupAt && (v.phase === 'place' || v.phase === 'locked')) {
+                h += `<div class="lp-actions"><button class="btn btn-dark" data-land="restore">⟲ Restaurer l’état d’avant verrouillage (${new Date(v.backupAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })})</button></div>`;
+            }
+            if (LAND.simOn && v.phase === 'place' && v.myTeam) h += '<div class="lp-actions"><button class="btn btn-dark" data-land="simreset">↺ Réinitialiser ma simulation</button></div>';
             if (simAvail()) {
                 h += `<div class="lp-actions"><button class="btn ${LAND.simOn ? 'btn-primary' : 'btn-dark'}" data-land="sim">${LAND.simOn ? '↩️ Retour à la carte de dépôt' : '🗺️ Simulation (carte virtuelle)'}</button></div>`;
             }
@@ -4211,14 +4236,17 @@
                     '<b>▶ Figer</b> les affectations quand tout le monde a choisi (un avertissement liste les absents). ◀ revient au regroupement.'] },
                 place: { title: 'Phase 3 · Dépôt des unités', items: [
                     'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur d’unités</b> (comme les sélecteurs de tuiles : appui long puis glisser pour le ranger sur un autre bord ; il se replie seul après 10 s, appui long sur la carte pour le rouvrir) vers une tuile de votre zone. Glissez un jeton pour le déplacer ; la <b>croix rouge</b> d’une étiquette le remet dans le sélecteur.',
-                    'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de sa section s’applique.',
-                    '<b>Général (trois chevrons dorés)</b> : touchez la puce « Général » du sélecteur puis l’une de vos unités posées (plusieurs figurines). Elle peut se poser jusqu’à <b>2 tuiles plus loin</b> (cases dorées à l’appui long), sans dépasser les frontières. Les unités à <b>6 hexagones ou moins</b> du général reçoivent un <b>chevron seul</b> (gris) : touchez-le pour l’activer (doré) sur <b>une seule</b> unité, qui reçoit le même bonus.',
+                    'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les tuiles au <b>contour bleu</b> sont celles où le bonus de sa section s’applique ; contour vert : portée normale.',
+                    '<b>Général (trois chevrons noirs dans un rond jaune)</b> : touchez la puce « Général » du sélecteur puis l’une de vos unités posées (plusieurs figurines). Elle peut se poser jusqu’à <b>2 tuiles plus loin</b> (tuiles au contour doré à l’appui long), sans dépasser les frontières. Les unités à <b>6 hexagones ou moins</b> du général reçoivent un <b>chevron seul</b> (gris) : touchez-le pour l’activer (doré) sur <b>une seule</b> unité, qui reçoit le même bonus.',
                     'Vous ne voyez pas les unités de l’équipe adverse avant le verrouillage.',
-                    '<b>▶ Verrouiller</b> quand tout est placé : tout le monde voit alors tous les débarquements. ◀ revient aux choix.'] },
+                    '<b>▶ Verrouiller</b> quand tout est placé : tout le monde voit alors tous les débarquements. ◀ revient aux choix.',
+                    '<b>🗺️ Simulation</b> (bouton du sélecteur, à côté de 📜 et ⚔️) : une carte virtuelle où chaque joueur essaie de déplacer ses unités déposées, dans leur portée (appui long pour la voir ; contour vert, bleu ou doré). Une seule unité par tuile en dehors des tuiles de dépôt ; les montagnes sont interdites et l’eau aussi, sauf pour les Saurus et sur un pont. Le bouton <b>↩️</b> ramène à la carte de dépôt ; <b>↺</b> remet toutes vos unités à leur position de dépôt. Si vous changez la tuile de dépôt d’une unité, sa simulation revient à sa position de départ. Vos coéquipiers voient votre simulation.',
+                    'Avant le verrouillage, le serveur garde une sauvegarde automatique de l’état du débarquement : le panneau ⚔️ propose « Restaurer l’état d’avant verrouillage ».'] },
                 locked: { title: 'Phase 4 · Placements verrouillés', items: [
                     'Tous les débarquements sont visibles par tous. Plus aucune unité ne bouge.',
-                    '<b>Double toucher</b> sur une unité : sa fiche. <b>Appui long</b> : portée de déplacement (dep + bonus de la section de débarquement, cases bleues).',
-                    '◀ revient au dépôt des unités (les placements sont conservés).'] }
+                    '<b>Double toucher</b> sur une unité : sa fiche. <b>Appui long</b> : portée de déplacement (dep + bonus de la section de débarquement, contour bleu).',
+                    '◀ revient au dépôt des unités (les placements sont conservés).',
+                    '<b>🗺️ Simulation</b> : les simulations de l’équipe restent consultables, en lecture seule (bouton 🗺️ du sélecteur, ↩️ pour revenir à la carte).'] }
             },
             joueur: {
                 zones: { title: 'Le MJ prépare le débarquement', items: [
@@ -4230,12 +4258,14 @@
                 place: { title: 'Déposez vos unités', items: [
                     'Faites glisser vos unités <b>une par une</b> depuis le <b>sélecteur d’unités</b> vers une tuile de votre zone.',
                     'Pour déplacer une unité déjà posée, glissez son jeton sur une autre tuile de votre zone. Plusieurs unités peuvent partager une tuile.',
-                    'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les cases <b>bleues</b> sont celles où le bonus de la section s’applique.',
-                    '<b>Général (trois chevrons dorés)</b> : touchez la puce « Général » du sélecteur puis l’une de vos unités posées (plusieurs figurines). Elle peut se poser jusqu’à <b>2 tuiles plus loin</b> (cases dorées à l’appui long), sans dépasser les frontières. Les unités à <b>6 hexagones ou moins</b> du général reçoivent un <b>chevron seul</b> (gris) : touchez-le pour l’activer (doré) sur <b>une seule</b> unité, qui reçoit le même bonus.',
-                    'Vos coéquipiers voient vos unités en direct ; l’autre équipe ne voit rien avant le verrouillage.'] },
+                    'Chaque unité a son étiquette. Touchez le petit <b>drapeau</b> d’une étiquette pour lui attribuer ou lui retirer un étendard (dans la limite de la colonne E de sa ligne). <b>Double toucher</b> : la fiche de cette unité. <b>Appui long</b> : portée de déplacement ; les tuiles au <b>contour bleu</b> sont celles où le bonus de la section s’applique ; contour vert : portée normale.',
+                    '<b>Général (trois chevrons noirs dans un rond jaune)</b> : touchez la puce « Général » du sélecteur puis l’une de vos unités posées (plusieurs figurines). Elle peut se poser jusqu’à <b>2 tuiles plus loin</b> (tuiles au contour doré à l’appui long), sans dépasser les frontières. Les unités à <b>6 hexagones ou moins</b> du général reçoivent un <b>chevron seul</b> (gris) : touchez-le pour l’activer (doré) sur <b>une seule</b> unité, qui reçoit le même bonus.',
+                    'Vos coéquipiers voient vos unités en direct ; l’autre équipe ne voit rien avant le verrouillage.',
+                    '<b>🗺️ Simulation</b> (bouton du sélecteur, à côté de 📜 et ⚔️) : une carte virtuelle où chaque joueur essaie de déplacer ses unités déposées, dans leur portée (appui long pour la voir ; contour vert, bleu ou doré). Une seule unité par tuile en dehors des tuiles de dépôt ; les montagnes sont interdites et l’eau aussi, sauf pour les Saurus et sur un pont. Le bouton <b>↩️</b> ramène à la carte de dépôt ; <b>↺</b> remet toutes vos unités à leur position de dépôt. Si vous changez la tuile de dépôt d’une unité, sa simulation revient à sa position de départ. Vos coéquipiers voient votre simulation.'] },
                 locked: { title: 'Placements verrouillés', items: [
                     'Tous les débarquements sont maintenant visibles.',
-                    '<b>Double toucher</b> sur une unité : sa fiche. <b>Appui long</b> : portée de déplacement, avec le bonus de la section de débarquement (cases bleues).'] }
+                    '<b>Double toucher</b> sur une unité : sa fiche. <b>Appui long</b> : portée de déplacement, avec le bonus de la section de débarquement (contour bleu).',
+                    '<b>🗺️ Simulation</b> : les simulations de l’équipe restent consultables, en lecture seule (bouton 🗺️ du sélecteur, ↩️ pour revenir à la carte).'] }
             }
         };
 
@@ -4305,15 +4335,14 @@
         })();
 
         function updateDock() {
-            document.querySelectorAll('#stackBr .phase-btn, #landPhaseLbl').forEach((b) => { b.hidden = !state.isAdmin; });
+            document.querySelectorAll('#stackBr .phase-btn').forEach((b) => { b.hidden = !state.isAdmin; });
             if (!state.isAdmin) return;
             const names = { off: 'Débarquement arrêté', zones: '1 · Zones', choose: '2 · Choix', place: '3 · Dépôt', locked: '4 · Verrouillé' };
             const nextT = { off: 'Lancer le débarquement', zones: 'Affecter les équipes', choose: 'Figer les affectations', place: 'Verrouiller les placements', locked: 'Dernière phase' }[LAND.view.phase];
             const prevT = { off: '—', zones: 'Aucune étape précédente', choose: 'Retour au regroupement', place: 'Retour aux choix (rien n’est effacé)', locked: 'Retour au dépôt' }[LAND.view.phase];
-            document.querySelector('#stackBr [data-land="next"]').title = `Suivant : ${nextT}`;
+            document.querySelector('#stackBr [data-land="next"]').title = `Étape actuelle : ${names[LAND.view.phase]} · Suivant : ${nextT}`;
             document.querySelector('#stackBr [data-land="prev"]').title = `Précédent : ${prevT}`;
             document.querySelector('#stackBr [data-land="prev"]').disabled = LAND.view.phase === 'zones' || LAND.view.phase === 'off';
-            $('landPhaseLbl').textContent = names[LAND.view.phase];
         }
 
         // Lecture seule : permet de contrôler l'affichage (tests, assistance).
@@ -4353,6 +4382,7 @@
                 b.setAttribute('aria-label', b.title);
             });
             const old = document.getElementById('simFab'); if (old) old.remove();
+            document.querySelectorAll('.fiche-btn[data-land="simreset"]').forEach((b) => { b.hidden = !(LAND.simOn && LAND.view.phase === 'place' && LAND.view.myTeam); });
         }
 
         // Un changement d'étape (surtout un retour en arrière du MJ) invalide tout geste, aperçu, aire ou tuile survolée en cours :
@@ -4397,6 +4427,17 @@
             else if (k === 'prev' && state.isAdmin) adminPrev();
             else if (k === 'help') phaseNotice(true);
             else if (k === 'sim') setSim(!LAND.simOn);
+            else if (k === 'simreset') {
+                landingDialog('Réinitialiser ma simulation ?', '<p>Toutes vos unités reviennent à leur position de dépôt dans la carte virtuelle.</p>', [
+                    { label: 'Annuler' },
+                    { label: 'Réinitialiser', cls: 'btn-primary', fn: () => landEmit('landing-sim-reset', {}).then((r) => { if (r?.success) toast('Simulation réinitialisée.'); }) }
+                ]);
+            } else if (k === 'restore' && state.isAdmin) {
+                landingDialog('Restaurer l’état d’avant verrouillage ?', '<p>Le débarquement revient à l’état sauvegardé juste avant le dernier verrouillage (placements, étendards, généraux, simulations), à l’étape de dépôt. Les modifications faites depuis seront perdues.</p>', [
+                    { label: 'Annuler' },
+                    { label: 'Restaurer', cls: 'btn-danger', fn: () => landEmit('landing-restore', {}).then((r) => { if (r?.success) toast('État restauré : retour à l’étape de dépôt.'); }) }
+                ]);
+            }
             else if (k === 'toggle') { if (landOn()) { LAND.open = !LAND.open; updateLandingUI(); } } else if (k === 'close') { LAND.open = false; updateLandingUI(); }
             else if (k === 'focus') focusZone(b.dataset.zone);
             else if (k === 'group' && state.isAdmin) landEmit('landing-group', { zone: b.dataset.zone, group: b.dataset.group || null });
