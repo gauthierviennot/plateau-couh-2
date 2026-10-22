@@ -760,6 +760,8 @@ const fiches = {
     families: [], // formules d'origine
     seedArmies: new Map(), // id -> armée d'origine
     armies: new Map(), // id -> armée modifiée par le MJ
+    customStale: [], // armées créées avec une ancienne version des fiches
+    custom: new Set(), // ids des armées créées par le MJ (absentes du fichier d'origine)
     famTexts: {}, // id d'une formule d'origine -> texte modifié par le MJ
     famCustom: {} // id -> { col, text } : formules créées par le MJ
 };
@@ -781,10 +783,19 @@ function loadFichesSeed() {
 
 // Les modifications du MJ ne s'appliquent que si elles correspondent à la version du fichier d'origine.
 async function loadFichesOverrides() {
+    try { landingBackupAt = (await storage.loadDoc('landing_backup'))?.at || 0; } catch { /* sans sauvegarde */ }
     if (!fiches.ready) return;
-    for (const id of fiches.seedArmies.keys()) {
+    const cdoc = await storage.loadDoc('fiches_custom');
+    for (const id of Array.isArray(cdoc?.ids) ? cdoc.ids.slice(0, MAX_CUSTOM_ARMIES) : []) {
+        if (typeof id === 'string' && DOC_ID.test(id) && !fiches.seedArmies.has(id)) fiches.custom.add(id);
+    }
+    for (const id of allArmyIds()) {
         const doc = await storage.loadDoc(`fiches_a_${id}`);
-        if (doc?.version === fiches.version && doc.army?.id === id && Array.isArray(doc.army.units)) fiches.armies.set(id, doc.army);
+        if (doc?.army?.id === id && Array.isArray(doc.army.units) && (doc.version === fiches.version || fiches.custom.has(id))) {
+            fiches.armies.set(id, doc.army);
+            // Armée créée avec une autre version des fiches : elle est conservée, mais ses formules sont à vérifier.
+            if (fiches.custom.has(id) && doc.version !== fiches.version) fiches.customStale.push({ id, name: String(doc.army.name || id).slice(0, 40), version: String(doc.version || '?').slice(0, 20) });
+        } else if (fiches.custom.has(id)) fiches.custom.delete(id); // armée créée dont le contenu est introuvable
     }
     const famDoc = await storage.loadDoc('fiches_fams');
     if (famDoc?.version === fiches.version) {
@@ -794,6 +805,10 @@ async function loadFichesOverrides() {
     console.log(`📜 ${fiches.armies.size} armée(s) modifiée(s) par le MJ, ${Object.keys(fiches.famCustom).length} formule(s) créée(s).`);
 }
 
+let landingBackupAt = 0; // dernier instantané du débarquement pris juste avant le verrouillage des placements
+const allArmyIds = () => [...fiches.seedArmies.keys(), ...fiches.custom];
+const MAX_CUSTOM_ARMIES = 20;
+async function saveCustomIds() { await storage.saveDoc('fiches_custom', { ids: [...fiches.custom] }); }
 const fichesArmy = (id) => fiches.armies.get(id) || fiches.seedArmies.get(id);
 
 // Formules envoyées au client : celles d'origine puis celles créées par le MJ.
@@ -904,7 +919,7 @@ function fichesPickLabels() {
 
 // Catalogue sommaire (sans unités) pour choisir une légion quand les fiches sont fermées.
 function fichesCatalog() {
-    return [...fiches.seedArmies.keys()].map((id) => {
+    return allArmyIds().map((id) => {
         const army = fichesArmy(id);
         const legions = (army.legions || [])
             .filter((l) => l.id !== 'ni')
@@ -939,7 +954,9 @@ function fichesPickedArmies() {
 
 // Vérifie une fiche envoyée par le MJ avant de l'enregistrer.
 function checkFichesArmy(id, army) {
-    if (!fiches.seedArmies.has(id) || !army || army.id !== id) return 'armée inconnue';
+    if (!army || army.id !== id || !(fiches.seedArmies.has(id) || fiches.custom.has(id) || (DOC_ID.test(id) && army.custom === true))) return 'armée inconnue';
+    if (army.custom != null && army.custom !== true) return 'armée invalide';
+    if (typeof army.name !== 'string' || !army.name.trim() || army.name.length > 40) return 'nom d’armée invalide';
     if (!Array.isArray(army.units) || army.units.length > FICHES_MAX_UNITS) return 'liste d’unités invalide';
     if (!Array.isArray(army.legions) || army.legions.length > 60) return 'liste de légions invalide';
     const ids = new Set();
@@ -1039,7 +1056,14 @@ async function putSnapshot(id, file, author, auto = false) {
 
 // Remplace l'état courant des fiches par celui d'un fichier déjà vérifié.
 async function applyFichesFile(file) {
-    for (const id of fiches.seedArmies.keys()) {
+    for (const id of [...fiches.custom]) {
+        if (!file.armies[id]) { await storage.saveDoc(`fiches_a_${id}`, { version: fiches.version, army: null }); fiches.armies.delete(id); fiches.custom.delete(id); }
+    }
+    for (const [id, army] of Object.entries(file.armies)) {
+        if (!fiches.seedArmies.has(id) && army?.custom === true && DOC_ID.test(id) && fiches.custom.size < MAX_CUSTOM_ARMIES) fiches.custom.add(id);
+    }
+    await saveCustomIds();
+    for (const id of allArmyIds()) {
         const army = file.armies[id];
         if (army) {
             await storage.saveDoc(`fiches_a_${id}`, { version: fiches.version, army });
@@ -1325,6 +1349,7 @@ function landingViewFor(socket) {
         if (admin) view.groupCount = { A: Object.values(L.groups).filter((g) => g === 'A').length, B: Object.values(L.groups).filter((g) => g === 'B').length };
         return view;
     }
+    if (admin) view.backupAt = landingBackupAt || null;
     view.choices = {};
     for (const [n, z] of Object.entries(L.choices)) if (sees(n)) view.choices[n] = z;
     view.bound = Boolean(name && keyOf(L.roster, name));
@@ -1562,8 +1587,8 @@ async function buildGamePackage() {
     const bg = await storage.loadBackground();
     if (bg) add('data/background.json', JSON.stringify({ version: bg.version, image: bg.buffer.toString('base64') }));
     const docIds = [];
-    for (const id of fiches.seedArmies.keys()) docIds.push(`fiches_a_${id}`);
-    docIds.push('fiches_fams', SNAPS_INDEX);
+    for (const id of allArmyIds()) docIds.push(`fiches_a_${id}`);
+    docIds.push('fiches_fams', 'fiches_custom', SNAPS_INDEX);
     for (const m of await loadSnapIndex()) docIds.push(`fiches_snap_${m.id}`);
     for (const id of docIds) {
         const doc = await storage.loadDoc(id);
@@ -1988,6 +2013,7 @@ io.on('connection', (socket) => {
             access: state.fichesAccess,
             frozen: state.fichesFrozen,
             version: fiches.version,
+            stale: socket.data.isAdmin ? fiches.customStale : [],
             families: fichesFamilies(),
             famTexts: fiches.famTexts,
             picks: { ...state.fichesPicks },
@@ -1997,7 +2023,7 @@ io.on('connection', (socket) => {
         };
         if (socket.data.isAdmin) { base.roster = [...state.fichesTeams.roster]; base.online = onlineNames(); }
         if (socket.data.isAdmin || state.fichesAccess) {
-            return reply(ack, { ...base, mode: 'full', armies: [...fiches.seedArmies.keys()].map(fichesArmy) });
+            return reply(ack, { ...base, mode: 'full', armies: allArmyIds().map(fichesArmy) });
         }
         // Accès refusé : les légions choisies par les joueurs (la sienne comprise) restent consultables, rien d'autre.
         return reply(ack, { ...base, mode: 'own', armies: fichesPickedArmies(), pick: state.fichesPicks[findName(name) || name] || null, catalog: fichesCatalog() });
@@ -2142,6 +2168,21 @@ io.on('connection', (socket) => {
     });
 
     // Le MJ modifie des armées (unités, légions, sections) et/ou des formules : enregistré pour tout le monde.
+    // Suppression d'une armée créée par le MJ (les armées d'origine ne se suppriment pas).
+    socket.on('fiches-army-delete', guarded(async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        const id = String(payload?.id ?? '');
+        if (!fiches.custom.has(id)) return reply(ack, { success: false, message: 'Seules les armées créées peuvent être supprimées.' });
+        fiches.custom.delete(id);
+        fiches.armies.delete(id);
+        await storage.saveDoc(`fiches_a_${id}`, { version: fiches.version, army: null });
+        await saveCustomIds();
+        const pruned = pruneFichesPicks();
+        if (pruned) { scheduleSave(); broadcastPicks(); }
+        io.emit('fiches-changed', { armies: [id], fams: false });
+        reply(ack, { success: true });
+    }));
+
     socket.on('fiches-save', guarded(async (payload, ack) => {
         if (!requireAdmin(socket, ack)) return;
         if (!fiches.ready) return reply(ack, { success: false, message: 'Fiches d’armée indisponibles.' });
@@ -2166,10 +2207,14 @@ io.on('connection', (socket) => {
             famDoc = { texts, custom };
         }
 
+        const newIds = armies.filter(([id]) => !fiches.seedArmies.has(id) && !fiches.custom.has(id)).map(([id]) => id);
+        if (fiches.custom.size + newIds.length > MAX_CUSTOM_ARMIES) return reply(ack, { success: false, message: `Pas plus de ${MAX_CUSTOM_ARMIES} armées créées.` });
         for (const [id, army] of armies) {
             await storage.saveDoc(`fiches_a_${id}`, { version: fiches.version, army });
             fiches.armies.set(id, army);
         }
+        if (newIds.length) { for (const id of newIds) fiches.custom.add(id); await saveCustomIds(); }
+        fiches.customStale = fiches.customStale.filter((x) => !armies.some(([id]) => id === x.id));
         if (famDoc) {
             await storage.saveDoc('fiches_fams', { version: fiches.version, ...famDoc });
             fiches.famTexts = famDoc.texts;
@@ -2198,7 +2243,7 @@ io.on('connection', (socket) => {
             detail = String(err?.message || err).slice(0, 200);
         }
         const saved = [];
-        for (const id of fiches.seedArmies.keys()) {
+        for (const id of allArmyIds()) {
             try {
                 const doc = await storage.loadDoc(`fiches_a_${id}`);
                 if (doc?.army) saved.push(id);
@@ -2256,7 +2301,7 @@ io.on('connection', (socket) => {
         if (problem) return reply(ack, { success: false, message: `Sauvegarde illisible : ${problem}.` });
         await putSnapshot(`s${crypto.randomBytes(8).toString('hex')}`, currentFichesFile(`Sauvegarde auto (avant chargement) ${new Date().toLocaleString('fr-FR')}`), socket.data.name, true);
         await applyFichesFile(file);
-        io.emit('fiches-changed', { armies: [...fiches.seedArmies.keys()], fams: true });
+        io.emit('fiches-changed', { armies: allArmyIds(), fams: true });
         broadcastPicks();
         reply(ack, { success: true, message: `Fiches « ${file.name} » chargées pour tous les joueurs.` });
     }));
@@ -2566,8 +2611,34 @@ io.on('connection', (socket) => {
         if (L.phase !== 'place') return landingFail(ack, 'Étape incorrecte.');
         const left = Object.entries(L.roster).reduce((t, [o, list]) => t + list.reduce((k, l) => { let n = 0; for (let i = 1; i <= l.qty; i++) if (!L.placed[unitIdOf(o, l.uid, i)]) n++; return k + n; }, 0), 0);
         if (left && !payload?.force) return reply(ack, { success: false, code: 'missing', left, message: `${left} unité(s) ne sont pas encore placées.` });
+        // Instantané automatique avant le verrouillage (c'est l'étape qui efface l'historique des déplacements).
+        landingBackupAt = Date.now();
+        storage.saveDoc('landing_backup', { at: landingBackupAt, by: socket.data.name, landing: JSON.parse(JSON.stringify(L)) }).catch((e) => console.warn('Sauvegarde du débarquement impossible :', e?.message || e));
         purgeLandingHistory();
         L.phase = 'locked';
+        landingOk(ack);
+    });
+
+    // Restaure l'instantané pris juste avant le dernier verrouillage (retour à l'étape de dépôt).
+    socket.on('landing-restore', async (payload, ack) => {
+        if (!requireAdmin(socket, ack)) return;
+        if (state.landing.phase !== 'place' && state.landing.phase !== 'locked') return landingFail(ack, 'Aucun dépôt en cours.');
+        const doc = await storage.loadDoc('landing_backup');
+        if (!doc?.landing) return landingFail(ack, 'Aucune sauvegarde disponible.');
+        state.landing = normalizeLanding(doc.landing);
+        state.landing.phase = 'place';
+        landingOk(ack);
+    });
+
+    // Un joueur remet toutes ses unités à leur position de dépôt dans la simulation.
+    socket.on('landing-sim-reset', (payload, ack) => {
+        const name = socket.data.name;
+        const L = state.landing;
+        if (!name) return landingFail(ack, 'Connectez-vous d’abord.');
+        if (L.phase !== 'place') return landingFail(ack, 'La simulation se modifie pendant le dépôt des unités.');
+        const rk = keyOf(L.roster, name);
+        if (!rk) return landingFail(ack, 'Vous n’avez pas d’unités.');
+        for (const id of Object.keys(L.sim)) if (id.startsWith(`${rk}|`)) delete L.sim[id];
         landingOk(ack);
     });
 
@@ -2815,6 +2886,12 @@ async function start() {
     try {
         loadFichesSeed();
         await loadFichesOverrides();
+        if (fiches.customStale.length) {
+            // Sauvegarde automatique (une seule par version) : les armées créées ne sont jamais perdues par un changement de fichier d'origine.
+            const sid = `sstale${String(fiches.version).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)}`;
+            try { await putSnapshot(sid, currentFichesFile(`Sauvegarde auto (version des fiches changée : ${fiches.version})`), 'serveur', true); } catch (e) { console.warn('Sauvegarde automatique impossible :', e?.message || e); }
+            console.warn(`⚠️ ${fiches.customStale.length} armée(s) créée(s) avec une ancienne version des fiches : formules à vérifier.`);
+        }
     } catch (err) {
         console.error('⚠️ Fiches d’armée : modifications du MJ illisibles, version d’origine utilisée :', err.message);
     }
