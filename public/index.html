@@ -2973,7 +2973,7 @@
             for (const l of v.lines || []) {
                 for (let i = 1; i <= l.qty; i++) {
                     const id = `${l.owner}|${l.uid}#${i}`;
-                    out.push({ id, owner: l.owner, team: l.team, name: l.name, line: `${l.owner}|${l.uid}`, uid: l.uid, army: l.army, legion: l.legion, dep: l.dep, stdMax: l.stdMax, figs: l.figs, type: l.type, idx: i, tile: placed[id] ?? null, std: std.has(id) });
+                    out.push({ id, owner: l.owner, team: l.team, name: l.name, line: `${l.owner}|${l.uid}`, uid: l.uid, army: l.army, legion: l.legion, dep: l.dep, stdMax: l.stdMax, figs: l.figs, type: l.type, idx: i, tile: placed[id] ?? null, std: std.has(id), comp: l.comp || null });
                 }
             }
             return out;
@@ -3633,7 +3633,7 @@
         // La fiche ne concerne que l'unité touchée (pas les autres unités du même type).
         function openUnitInfo(unit) {
             const line = LAND.units.filter((u) => u.line === unit.line);
-            openFiches({ unit: { army: unit.army, legion: unit.legion, uid: unit.uid, owner: unit.owner, id: unit.id, idx: unit.idx, figs: unit.figs, type: unit.type, units: line.length, std: unit.std } });
+            openFiches({ unit: { army: unit.army, legion: unit.legion, uid: unit.uid, owner: unit.owner, id: unit.id, idx: unit.idx, figs: unit.figs, type: unit.type, units: line.length, std: unit.std, comp: unit.comp || null } });
         }
 
         // Capture : les gestes sur une unité sont traités ici ; le reste de la carte (déplacement, zoom, peinture) garde son comportement.
@@ -4116,9 +4116,9 @@
         function updateLandingUI() {
             const btn = document.querySelector('[data-land="toggle"]');
             if (btn) {
-                btn.hidden = !landOn() && !state.isAdmin;
+                btn.hidden = !landOn(); // le débarquement se lance avec ▶ ; ce bouton ne sert qu'à rouvrir ou fermer le panneau
                 btn.classList.toggle('on', LAND.open);
-                btn.title = state.isAdmin ? 'Débarquement (MJ)' : 'Débarquement';
+                btn.title = LAND.open ? 'Fermer le panneau du débarquement' : 'Rouvrir le panneau du débarquement';
             }
             renderLandingPanel();
             renderUnitBar();
@@ -4165,12 +4165,7 @@
             if (k === 'next' && state.isAdmin) adminNext();
             else if (k === 'prev' && state.isAdmin) adminPrev();
             else if (k === 'help') phaseNotice(true);
-            else if (k === 'toggle') {
-                if (!landOn() && state.isAdmin) {
-                    const r = await landEmit('landing-start', {});
-                    if (r.success) { LAND.open = true; updateLandingUI(); }
-                } else { LAND.open = !LAND.open; updateLandingUI(); }
-            } else if (k === 'close') { LAND.open = false; updateLandingUI(); }
+            else if (k === 'toggle') { if (landOn()) { LAND.open = !LAND.open; updateLandingUI(); } } else if (k === 'close') { LAND.open = false; updateLandingUI(); }
             else if (k === 'focus') focusZone(b.dataset.zone);
             else if (k === 'group' && state.isAdmin) landEmit('landing-group', { zone: b.dataset.zone, group: b.dataset.group || null });
             else if (k === 'refresh' && state.isAdmin) landEmit('landing-refresh', {}).then((r) => { if (r.success) toast('Zones recalculées.'); });

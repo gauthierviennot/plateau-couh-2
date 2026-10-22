@@ -430,7 +430,7 @@ function moveUnit(armyId,uidv){
   openModal('Déplacer vers une autre armée',`<div class="small" style="margin-bottom:8px">${esc(u.in_.B||'')} (${esc(a.name)})</div><select id="mvd" class="ft">${opts}</select><div class="small" style="margin-top:6px">L'unité quittera ses légions actuelles et rejoindra la légion « Non intégré » de l'armée choisie. Les bonus d'armée de la destination s'appliquent.</div>`,
    [{label:'Annuler',fn:closeModal},{label:'Déplacer',cls:'pri',fn:()=>{
      const d=getArmy(mval('mvd'));if(!d)return;
-     a.units.splice(a.units.indexOf(u),1);
+     a.units.splice(a.units.indexOf(u),1);a.composites=(a.composites||[]).filter(x=>x.base!==uidv&&x.extra!==uidv);
      const n=u.in_.A||Object.values(u.q).reduce((s,q)=>s+q[0],0)||1;
      u.uid=uid(d);u.q={ni:[n,0,0,null,d.defVal]};u.in_.A=n;u.v={};if(u.l2)u.l2.v={};
      insertUnit(d,u);closeModal();S.army=d.id;S.sel='ni';S.view='full';
@@ -439,7 +439,7 @@ function moveUnit(armyId,uidv){
 function delUnit(armyId,uidv){
   const a=getArmy(armyId),u=a.units.find(x=>x.uid===uidv);if(!u)return;
   openModal('Supprimer cette unité ?',`<div>${esc(u.in_.B||'')} sera retirée de l'armée ${esc(a.name)} et de toutes ses légions.</div>`,
-   [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{a.units.splice(a.units.indexOf(u),1);closeModal();afterChange([armyId]);}}]);
+   [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{a.units.splice(a.units.indexOf(u),1);a.composites=(a.composites||[]).filter(x=>x.base!==u.uid&&x.extra!==u.uid);closeModal();afterChange([armyId]);}}]);
 }
 
 /* ===================== ACTIONS ===================== */
@@ -536,6 +536,7 @@ function prepArmy(a){
   const best=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0];
   if(best)a.defVal=best;
   if(!Array.isArray(a.sections))a.sections=[];
+  initComposites(a);
   a.units.forEach(u=>{if(!a.sections.includes(u.cat))a.sections.push(u.cat);});
   if(!S.restricted&&!a.legions.some(l=>l.id==='ni'))a.legions.push({id:'ni',kind:'ni',figs:0,val:0,sup:0,comp:null,tag:null});
   a.legions.sort((x,y)=>(x.id==='ni')-(y.id==='ni'));
@@ -604,6 +605,7 @@ function renderFull(a){
   if(mj)h+='<div class="hint noprint">Mode MJ : toute modification se fait par <b>double clic</b> (cellule, nom d\'unité, section, légion, bonus, boutons ＋). Les fiches légion ne sont pas modifiables.</div>';
   if(S.showCols)h+=colsPanel(a);
   h+=paramsPanel(a);
+  if(mj)h+=compPanel(a);
   h+='<div class="scroll"><table><thead><tr>'+cs.map(c=>headTh(a,c,2)).join('');
   vl.forEach(l=>{h+=`<th class="lg gs ${S.sel===l.id?'on':''}" colspan="${w}" data-a="leg" data-leg="${esc(l.id)}"${mj?' data-ondbl="legmenu"':''} title="${esc(legName(l))}">${esc(legShort(l))}</th>`;});
   h+='</tr><tr>';
@@ -647,6 +649,7 @@ function renderLegion(a){
   S.partner=l.partner||null;
   if(l.partner){const pa=getArmy(l.partner.army);h+=`<div class="hint">Cette légion est formée de <b>deux armées</b> : elle est complétée par la légion ${esc(l.partner.legion)} des <b>${esc(pa?pa.name:l.partner.army)}</b>. <button class="btn" data-a="openpartner">Voir l'autre moitié</button></div>`;}
   if(l.comp)h+=`<div class="comp">Composition : ${esc(l.comp)}</div>`;
+  h+=compNote(a,l);
   h+='</div>';
   if(!rows.length)h+='<div class="hint">Aucune unité dans cette légion.</div>';
   else{
@@ -787,13 +790,14 @@ function duplicateLegion(){
   const c=JSON.parse(JSON.stringify(l));c.id=nextLegId(a);c.name=cleanName((l.name||legName(l))+' (copie)',40);
   const i=a.legions.findIndex(x=>x.id==='ni');a.legions.splice(i<0?a.legions.length:i,0,c);
   a.units.forEach(u=>{if(u.q[l.id])u.q[c.id]=u.q[l.id].slice();});
+  (a.composites||[]).filter(x=>x.legion===l.id).forEach(x=>a.composites.push({...x,id:'c'+Math.random().toString(36).slice(2,8),legion:c.id}));
   S.sel=c.id;afterChange([a.id]);toast('Légion dupliquée');
 }
 function deleteLegion(){
   const a=curArmy();const l=a.legions.find(x=>x.id===S.sel);if(!l||l.id==='ni')return;
   const o=HOSTED?pickOwner(a.id,l.id):null;
   openModal('Supprimer la légion ?',`<div>${esc(legName(l))} sera supprimée de ${esc(a.name)}, avec ses quantités. Les unités restent dans l'armée.${o?`<br><br><b>${esc(o)}</b> l'a choisie : son choix sera retiré.`:''}</div>`,
-   [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{a.legions=a.legions.filter(x=>x.id!==l.id);a.units.forEach(u=>{delete u.q[l.id];});
+   [{label:'Annuler',fn:closeModal},{label:'Supprimer',cls:'pri',fn:()=>{a.legions=a.legions.filter(x=>x.id!==l.id);a.units.forEach(u=>{delete u.q[l.id];});a.composites=(a.composites||[]).filter(x=>x.legion!==l.id);
      S.sel=null;S.view='full';closeModal();afterChange([a.id]);toast('Légion supprimée');}}]);
 }
 
@@ -939,6 +943,7 @@ function onClick2(e){
     case 'unpickme':hostReq('fiches-pick',{clear:true}).then(r=>{if(!r.success)return toast(r.message||'Action impossible.');toast('Légion libérée');loadHosted(false);});break;
     case 'newleg':if(ED())createLegion();break;
     case 'newbonus':if(ED())bonusEditor(null);break;
+    case 'comp-add':case 'comp-edit':case 'comp-move':case 'comp-copy':case 'comp-del':if(ED())compAction(a.slice(5),el.dataset.id);break;
     case 'tab-players':S.tab='players';render();break;
     case 'tab-saves':S.tab='saves';S.snaps=null;render();break;
     case 'tab-help':if(isMJ())mjHelp(true);break;
@@ -1393,6 +1398,91 @@ function mjHelp(force){
 
 /* ---- fiche d'une unité posée sur la carte (fenêtre contextuelle) ---- */
 const CARD_HIDE=new Set(['S','F','J','L','M','Q','R','X','T','U']); // résultats intermédiaires : masqués dans la fiche d'une unité
+/* unités composées : reste d'une ligne complété par une figurine seule. Elles sont enregistrées dans la fiche de l'armée (a.composites). */
+const DEFAULT_COMPOSITES=[
+  {army:'nains',legion:'1',base:'inf lourde',extra:'champion sur bouclier',size:8},
+  {army:'orcs',legion:'1',base:'caval lourde (C)',extra:'champion sur sanglier (C)',size:4},
+  {army:'hauts_elfes',legion:'1',base:'caval lourde (C)',extra:'commandeur à cheval (C)',size:4},
+  {army:'thyranides',legion:'1',base:'fusiller leger',extra:'chef',size:8}
+];
+function initComposites(a){
+  if(Array.isArray(a.composites))return;
+  a.composites=[];
+  DEFAULT_COMPOSITES.forEach((c,i)=>{if(c.army!==a.id)return;
+    const b=a.units.find(u=>u.in_.B===c.base&&u.q[c.legion]),e=a.units.find(u=>u.in_.B===c.extra&&u.q[c.legion]);
+    if(b&&e)a.composites.push({id:'d'+i,legion:c.legion,base:b.uid,extra:e.uid,size:c.size});});
+}
+function compOk(a,c){const b=a.units.find(u=>u.uid===c.base),e=a.units.find(u=>u.uid===c.extra);
+  if(!b||!e||!b.q[c.legion]||!e.q[c.legion])return null;
+  const nb=b.q[c.legion][0],full=Math.floor(nb/c.size),rest=nb-full*c.size;return rest>0?{b,e,full,rest}:null;}
+function compText(a,c){const o=compOk(a,c);if(!o)return null;
+  return `${o.full>0?o.full+' × '+c.size+' ':''}${esc(o.b.in_.B)}${o.full>0?' puis ':' : '}<b>1 unité composée</b> : ${o.rest} ${esc(o.b.in_.B)} + ${esc(o.e.in_.B)}`;}
+function compNote(a,l){
+  const out=(a.composites||[]).filter(c=>c.legion===l.id).map(c=>compText(a,c)).filter(Boolean);
+  return out.length?`<div class="hint">🧩 Unité composée — ${out.join('<br>')}</div>`:'';
+}
+function compPanel(a){
+  const list=a.composites||[];
+  let h='<div class="card noprint"><div class="lbl2">🧩 Unités composées</div><div class="small" style="margin:4px 0 6px">Le reste d\'une ligne (nombre de figurines non multiple de la taille habituelle) se complète avec une figurine seule pour former une unité. Elles apparaissent ainsi dans les fiches et au dépôt sur la carte.</div>';
+  if(!list.length)h+='<div class="small">Aucune unité composée dans cette armée.</div>';
+  list.forEach(c=>{const lg=a.legions.find(l=>l.id===c.legion);const t=compText(a,c);
+    h+=`<div class="row" style="margin:4px 0;align-items:center"><span class="sans" style="flex:1;min-width:200px"><b>${esc(lg?legName(lg):c.legion)}</b> · ${t||'<i>inactive (unités absentes de cette légion, ou aucun reste)</i>'}</span>`
+      +`<button class="mini" data-a="comp-edit" data-id="${esc(c.id)}" title="Modifier">✎</button><button class="mini" data-a="comp-move" data-id="${esc(c.id)}" title="Déplacer vers une autre légion">⇄</button><button class="mini" data-a="comp-copy" data-id="${esc(c.id)}" title="Copier dans une autre légion">⧉</button><button class="mini" data-a="comp-del" data-id="${esc(c.id)}" title="Supprimer">✕</button></div>`;});
+  return h+'<div class="row" style="margin:6px 0 0"><button class="btn" data-a="comp-add">＋ Unité composée</button></div></div>';
+}
+function compForm(c,isNew){
+  const a=curArmy();const legs=a.legions.filter(l=>l.id!=='ni'&&a.units.some(u=>u.q[l.id]));
+  if(!legs.length){toast('Aucune légion avec des unités.');return;}
+  const unitsOf=lid=>a.units.filter(u=>u.q[lid]&&u.q[lid][0]>0);
+  openModal(isNew?'Nouvelle unité composée':'Modifier l\'unité composée',`<div class="small" style="margin-bottom:6px">Légion, puis la ligne de base (dont le reste est complété), la figurine qui la complète et la taille habituelle d'une unité.</div>
+   <select id="cpL" class="ft">${legs.map(l=>`<option value="${esc(l.id)}" ${l.id===c.legion?'selected':''}>${esc(legName(l))}</option>`).join('')}</select>
+   <label class="small">Ligne de base</label><select id="cpB" class="ft"></select>
+   <label class="small">Figurine qui complète</label><select id="cpE" class="ft"></select>
+   <div class="row" style="margin-top:6px"><label class="small">Taille habituelle d'une unité</label><input id="cpS" class="ft" type="number" min="2" max="40" value="${c.size||8}" style="width:90px"></div><div id="cpP" class="small" style="margin-top:6px"></div>`,
+   [{label:'Annuler',fn:closeModal},{label:isNew?'Ajouter':'Enregistrer',cls:'pri',fn:()=>{
+     const n={id:c.id,legion:mval('cpL'),base:mval('cpB'),extra:mval('cpE'),size:Math.max(2,Math.min(40,parseInt(mval('cpS'))||8))};
+     if(!n.base||!n.extra||n.base===n.extra){toast('Choisissez deux lignes différentes.');return;}
+     if((a.composites||[]).some(x=>x.id!==n.id&&x.legion===n.legion&&(x.base===n.base||x.extra===n.extra||x.extra===n.base||x.base===n.extra))){toast('Une de ces lignes est déjà utilisée par une autre unité composée de cette légion.');return;}
+     if(!compOk(a,n)&&!confirm('Cette association ne produit aucune unité composée (pas de reste). L\'enregistrer quand même ?'))return;
+     a.composites=a.composites||[];const i=a.composites.findIndex(x=>x.id===n.id);if(i>=0)a.composites[i]=n;else a.composites.push(n);
+     closeModal();afterChange([a.id]);toast('Unité composée enregistrée.');}}]);
+  let last=null;
+  const fill=()=>{const lid=mval('cpL');const us=unitsOf(lid);
+    if(last!==lid){last=lid;
+      const pick=(id,sel)=>`<option value="${esc(id)}" ${id===sel?'selected':''}>`;
+      const opt=(sel)=>us.map(u=>`${pick(u.uid,sel)}${esc(u.in_.B)} (${u.q[lid][0]} fig)</option>`).join('');
+      document.getElementById('cpB').innerHTML=opt(c.legion===lid?c.base:null);document.getElementById('cpE').innerHTML=opt(c.legion===lid?c.extra:null);}
+    const n={legion:lid,base:mval('cpB'),extra:mval('cpE'),size:Math.max(2,parseInt(mval('cpS'))||8)};const t=compText(a,n);
+    document.getElementById('cpP').innerHTML=t?('Résultat : '+t):'Aucun reste : cette association ne crée pas d\'unité composée.';};
+  ['cpL','cpB','cpE','cpS'].forEach(id=>{const e=document.getElementById(id);e.addEventListener('input',fill);e.addEventListener('change',fill);});fill();
+}
+function compPickLegion(c,verb,fn){
+  const a=curArmy();
+  const ok=a.legions.filter(l=>l.id!=='ni'&&l.id!==c.legion&&a.units.some(u=>u.uid===c.base&&u.q[l.id])&&a.units.some(u=>u.uid===c.extra&&u.q[l.id]));
+  if(!ok.length){toast('Aucune autre légion ne contient les deux lignes de cette unité composée.');return;}
+  openModal(verb+' l\'unité composée',`<select id="cpT" class="ft">${ok.map(l=>`<option value="${esc(l.id)}">${esc(legName(l))}</option>`).join('')}</select><div class="small" style="margin-top:6px">Seules les légions qui contiennent les deux lignes sont proposées.</div>`,
+   [{label:'Annuler',fn:closeModal},{label:verb,cls:'pri',fn:()=>{fn(mval('cpT'));closeModal();afterChange([a.id]);}}]);
+}
+function compAction(act,id){
+  const a=curArmy();a.composites=a.composites||[];const c=a.composites.find(x=>x.id===id);
+  if(act==='add')compForm({id:'c'+Math.random().toString(36).slice(2,8),legion:S.sel&&S.sel!=='ni'?S.sel:'',size:8},true);
+  else if(!c)return;
+  else if(act==='edit')compForm(c,false);
+  else if(act==='del')a.composites=a.composites.filter(x=>x.id!==id),afterChange([a.id]);
+  else if(act==='move')compPickLegion(c,'Déplacer',t=>{if(a.composites.some(x=>x.id!==c.id&&x.legion===t&&(x.base===c.base||x.extra===c.extra))){toast('Déjà utilisée dans cette légion.');return;}c.legion=t;});
+  else if(act==='copy')compPickLegion(c,'Copier',t=>{if(a.composites.some(x=>x.legion===t&&(x.base===c.base||x.extra===c.extra))){toast('Déjà utilisée dans cette légion.');return;}a.composites.push({...c,id:'c'+Math.random().toString(36).slice(2,8),legion:t});});
+}
+function showCompCard(t,a,l){
+  const parts=(t.comp||[]).map(c=>({c,u:a.units.find(x=>x.uid===c.uid)})).filter(x=>x.u);
+  const row=(lab,val)=>`<tr><th style="text-align:left;white-space:normal">${esc(lab)}</th><td style="text-align:right">${esc(val)}</td></tr>`;
+  let total=0,ok=true;
+  const body=parts.map(({c,u})=>{const q=u.q[t.legion];const v=q&&q[3]===q[3]&&q[3]!=null&&q[0]?q[3]/q[0]*c.figs:null;if(v==null)ok=false;else total+=v;
+    const cols=COLS.filter(k=>k!=='B'&&k!=='A'&&!CARD_HIDE.has(k)&&cellRaw(u,k)!=null&&cellRaw(u,k)!=='');
+    return `<div class="lbl2" style="margin-top:8px">${c.figs} × ${esc(u.in_.B)}${v!=null?' · '+Math.round(v)+' pts':''}</div><table style="width:100%">${cols.map(k=>row(k==='W'?'Valeur de la figurine (avec tous les bonus)':(LONG[k]||k),fnum(cellRaw(u,k)))).join('')}</table>`;}).join('');
+  const figs=t.figs??parts.reduce((s,x)=>s+x.c.figs,0);
+  const h=`<div class="small" style="margin-bottom:6px">${esc(a.name)} · ${esc(legName(l))}${t.owner?' · '+esc(t.owner):''} · <b>unité composée</b></div><div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${figs}</b><span>figurines dans l'unité</span></div>${ok?`<div class="kpi"><b>${Math.round(total)}</b><span>valeur de l'unité</span></div>`:''}<div class="kpi"><b>${t.std?'oui':'non'}</b><span>étendard</span></div></div><div class="scroll" style="max-height:44vh">${body}</div>`;
+  openModal((t.comp||[]).map(c=>c.name).join(' + '),h,[{label:'Fermer',cls:'pri',fn:closeModal}]);
+}
 function showMercCard(t){
   const m=((S.mercs||{})[t.owner]||[]).find(x=>'merc-'+x.id===t.uid);
   if(!m){openModal('Unité introuvable',`<div class="small">Ces mercenaires ne sont plus disponibles.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
@@ -1404,6 +1494,7 @@ function showMercCard(t){
 }
 function showUnitCard(t){
   if(String(t.uid||'').startsWith('merc-')){showMercCard(t);return;}
+  if(t.comp&&t.comp.length){const ca=getArmy(t.army);const cl=ca&&ca.legions.find(l=>l.id===t.legion);if(ca&&cl){ensureBonuses(ca);S.uc=Object.assign({},t);showCompCard(t,ca,cl);return;}}
   const a=getArmy(t.army);const u=a&&a.units.find(x=>x.uid===t.uid);
   if(!u){openModal('Unité introuvable',`<div class="small">Cette unité n'est plus disponible dans les fiches.</div>`,[{label:'Fermer',cls:'pri',fn:closeModal}]);return;}
   ensureBonuses(a);S.uc=Object.assign({},t);
@@ -1411,7 +1502,7 @@ function showUnitCard(t){
   const cols=COLS.filter(c=>c!=='B'&&c!=='A'&&!CARD_HIDE.has(c)&&cellRaw(u,c)!=null&&cellRaw(u,c)!=='');
   const row=(lab,val)=>`<tr><th style="text-align:left;white-space:normal">${esc(lab)}</th><td style="text-align:right">${esc(val)}</td></tr>`;
   let h=`<div class="small" style="margin-bottom:6px">${esc(a.name)}${lg?' · '+esc(legName(lg)):''}${t.owner?' · '+esc(t.owner):''}</div>`;
-  if(q){const un=Math.max(1,t.units||q[6]||1);const fpu=(t.figs??q[0])/un;const val=q[3]===q[3]&&q[3]!=null?Math.round(q[3]/un):null;h+=`<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${t.idx||1}</b><span>unité n° (sur ${un}${t.type?' '+esc(t.type):''})</span></div><div class="kpi"><b>${fpu%1?fpu.toFixed(1):fpu}</b><span>figurines dans l'unité</span></div>${val!=null?`<div class="kpi"><b>${val}</b><span>valeur de l'unité</span></div>`:''}<div class="kpi"><b>${t.std?'oui':'non'}</b><span>étendard</span></div></div>`;}
+  if(q){const un=Math.max(1,t.units||q[6]||1);const fpu=(t.figs??q[0])/un;const val=q[3]===q[3]&&q[3]!=null?Math.round(q[3]/(q[0]||1)*fpu):null;h+=`<div class="kpis" style="margin:0 0 8px"><div class="kpi"><b>${t.idx||1}</b><span>unité n° (sur ${un}${t.type?' '+esc(t.type):''})</span></div><div class="kpi"><b>${fpu%1?fpu.toFixed(1):fpu}</b><span>figurines dans l'unité</span></div>${val!=null?`<div class="kpi"><b>${val}</b><span>valeur de l'unité</span></div>`:''}<div class="kpi"><b>${t.std?'oui':'non'}</b><span>étendard</span></div></div>`;}
   h+='<div class="scroll" style="max-height:34vh"><table style="width:100%">'+cols.map(c=>row(c==='W'?'Valeur de la figurine (avec tous les bonus)':(LONG[c]||c),fnum(cellRaw(u,c)))).join('')+'</table></div>';
   if(u.l2){const c2=['C','E'].filter(c=>u.l2.in_[c]!=null);if(c2.length)h+=`<div class="lbl2" style="margin-top:8px">2ᵉ attaque</div><table style="width:100%">${c2.map(c=>row(LONG[c]||c,fnum(u.l2.in_[c]))).join('')}</table>`;}
   const act=a.bonuses.filter(b=>bonusOn(a,b.key));
