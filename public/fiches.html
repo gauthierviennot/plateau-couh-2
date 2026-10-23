@@ -409,9 +409,10 @@ async function printImage(){
     const W=Math.ceil(Math.max(host.scrollWidth,host.getBoundingClientRect().width))+24,H=Math.ceil(Math.max(host.scrollHeight,host.getBoundingClientRect().height))+16;
     // styles calculés recopiés en ligne : l'image SVG ne voit pas la feuille de style de la page
     const live=[host,...host.querySelectorAll('*')];
-    live.forEach(el=>{const cs=getComputedStyle(el);let s='';PIMG_PROPS.forEach(p=>{s+=p+':'+cs.getPropertyValue(p)+';';});
+    const styles=live.map(el=>{const cs=getComputedStyle(el);let s='';PIMG_PROPS.forEach(p=>{s+=p+':'+cs.getPropertyValue(p)+';';});
       if(/^(TD|TH)$/.test(el.tagName)){const r=el.getBoundingClientRect();s+=`min-width:${Math.ceil(r.width)}px;height:${Math.ceil(r.height)}px;box-sizing:border-box;`;}
-      el.setAttribute('style',s);});
+      return s;});
+    live.forEach((el,i)=>el.setAttribute('style',styles[i]));
     host.setAttribute('xmlns','http://www.w3.org/1999/xhtml');
     const xml=new XMLSerializer().serializeToString(host);
     host.remove();host=null;stl.remove();stl=null;
