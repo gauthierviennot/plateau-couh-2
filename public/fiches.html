@@ -335,11 +335,28 @@ function printFit(){
       document.head.appendChild(st);
       undo=()=>{tb.style.width=old.w;sc.style.overflow=old.o;st.remove();restoreCols();};
     }
+    let unink=()=>{};try{if(view)unink=inkSave(view);}catch(e){}
+    const u0=undo;undo=()=>{unink();u0();};
     window.addEventListener('afterprint',function f(){window.removeEventListener('afterprint',f);undo();restoreCols();});
     window.print();
   }catch(x){undo();restoreCols();toast('Impression indisponible ici');}
 }
 
+/* Économie d'encre : tout fond sombre devient blanc et le texte clair devient noir (les couleurs vives des colonnes sont conservées). Retourne une fonction d'annulation. */
+function inkSave(root){
+  const rgba=c=>{const m=/^rgba?\(\s*([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/.exec(c)||null;
+    if(m){let a=m[4]===undefined?1:(/%$/.test(m[4])?parseFloat(m[4])/100:parseFloat(m[4]));return [+m[1],+m[2],+m[3],a];}
+    const k=/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+%?))?\s*\)$/.exec(c);
+    if(k){let a=k[4]===undefined?1:(/%$/.test(k[4])?parseFloat(k[4])/100:parseFloat(k[4]));return [k[1]*255,k[2]*255,k[3]*255,a];}
+    return [0,0,0,0];};
+  const dark=c=>c[3]>0.05&&Math.max(c[0],c[1],c[2])<130;
+  const light=c=>c[3]>0.05&&(0.299*c[0]+0.587*c[1]+0.114*c[2])>140;
+  const els=[root,...root.querySelectorAll('*')],saved=[],white=new Set();
+  const effWhite=el=>{for(let e=el;e&&e!==root.parentElement;e=e.parentElement){if(white.has(e))return true;const b=rgba(getComputedStyle(e).backgroundColor);if(b[3]>0.5)return b[0]>200&&b[1]>200&&b[2]>200;}return true;};
+  els.forEach(el=>{const cs=getComputedStyle(el);if(dark(rgba(cs.backgroundColor))){saved.push([el,el.getAttribute('style')]);el.style.setProperty('background-color','#fff','important');el.style.setProperty('box-shadow','none','important');white.add(el);}});
+  els.forEach(el=>{const cs=getComputedStyle(el);if(light(rgba(cs.color))&&effWhite(el)){if(!saved.some(x=>x[0]===el))saved.push([el,el.getAttribute('style')]);el.style.setProperty('color','#000','important');}});
+  return ()=>saved.forEach(([el,st])=>{if(st===null)el.removeAttribute('style');else el.setAttribute('style',st);});
+}
 /* Impression en image (téléphone) : la fiche telle qu'à l'impression est dessinée dans une image PNG (SVG puis canvas), sans orientation ni mise en page à gérer. */
 const PIMG_PROPS=['display','position','box-sizing','margin-top','margin-right','margin-bottom','margin-left','padding-top','padding-right','padding-bottom','padding-left',
   'border-top-width','border-top-style','border-top-color','border-right-width','border-right-style','border-right-color','border-bottom-width','border-bottom-style','border-bottom-color','border-left-width','border-left-style','border-left-color',
@@ -388,6 +405,7 @@ async function printImage(){
     [...view.children].forEach(ch=>{if(ch.classList.contains('noprint'))return;host.appendChild(ch.cloneNode(true));});
     host.querySelectorAll('.noprint,.act').forEach(x=>x.remove());
     document.body.appendChild(host);
+    inkSave(host);
     const W=Math.ceil(Math.max(host.scrollWidth,host.getBoundingClientRect().width))+24,H=Math.ceil(Math.max(host.scrollHeight,host.getBoundingClientRect().height))+16;
     // styles calculés recopiés en ligne : l'image SVG ne voit pas la feuille de style de la page
     const live=[host,...host.querySelectorAll('*')];
